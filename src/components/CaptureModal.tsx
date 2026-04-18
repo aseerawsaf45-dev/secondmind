@@ -55,8 +55,11 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
     const useTitle = title || (extractedData?.title) || (tab === 'url' ? url : note.slice(0, 60) + '...');
     const useContent = tab === 'url' ? url : note;
 
+    const isTweet = tab === 'url' && (url.includes('twitter.com') || url.includes('x.com'));
+    const isVideo = tab === 'url' && extractedData?.tags?.includes('Video');
+
     onSave({
-      type: tab === 'url' ? (extractedData?.tags?.includes('Video') ? 'video' : 'link') : 'note',
+      type: tab === 'url' ? (isTweet ? 'tweet' : isVideo ? 'video' : 'link') : 'note',
       title: useTitle,
       content: useContent,
       url: tab === 'url' ? url : undefined,

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     
     // Fallback tagging logic if nothing matched
     if (tags.length === 0 && url.includes('youtube.com')) tags.push('Video');
-    if (tags.length === 0 && url.includes('twitter.com')) tags.push('Social');
+    if (tags.length === 0 && (url.includes('twitter.com') || url.includes('x.com'))) tags.push('Social');
 
     return NextResponse.json({
       title: title.trim(),

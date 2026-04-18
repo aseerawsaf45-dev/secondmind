@@ -93,7 +93,7 @@ export default function MemoryCard({ item, onClick, onFavorite, onDelete }: Memo
             <div style={{
               display: 'flex',
               gap: '4px',
-              opacity: isHovered ? 1 : 0,
+              opacity: isHovered ? 1 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 0),
               transition: 'opacity 0.2s',
             }} onClick={e => e.stopPropagation()}>
               <button
