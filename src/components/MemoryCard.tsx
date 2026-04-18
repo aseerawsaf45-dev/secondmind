@@ -48,7 +48,11 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
   return (
     <div
       className="masonry-item"
-      style={{ position: 'relative' }}
+      style={{ 
+        position: 'relative', 
+        zIndex: showMenu ? 100 : 1,
+        overflow: 'visible' 
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setShowMenu(false); }}
     >
