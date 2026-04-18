@@ -38,7 +38,9 @@ export default function MemoryCard({ item, onClick, onFavorite, onDelete }: Memo
   const [showMenu, setShowMenu] = useState(false);
 
   const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.link;
-  const bgGradient = GRADIENT_BACKGROUNDS[parseInt(item.id) % GRADIENT_BACKGROUNDS.length];
+  const bgGradient = GRADIENT_BACKGROUNDS[
+    item.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % GRADIENT_BACKGROUNDS.length
+  ];
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
 
   return (
