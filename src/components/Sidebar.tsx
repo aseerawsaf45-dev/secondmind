@@ -300,7 +300,6 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               {collection.isSmart && (
                 <Sparkles size={9} style={{ color: 'var(--violet-bright)', flexShrink: 0 }} />
               )}
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', flexShrink: 0 }}>{collection.itemCount}</span>
             </button>
           ))}
         </div>

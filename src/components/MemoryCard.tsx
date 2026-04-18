@@ -10,6 +10,7 @@ interface MemoryCardProps {
   item: MemoryItem;
   onClick: () => void;
   onFavorite: () => void;
+  onDelete: () => void;
 }
 
 const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
@@ -251,7 +252,7 @@ export default function MemoryCard({ item, onClick, onFavorite }: MemoryCardProp
             { icon: <Star size={13} />, label: item.isFavorite ? 'Unfavorite' : 'Favorite', action: onFavorite },
             { icon: <FolderPlus size={13} />, label: 'Add to collection', action: () => {} },
             { icon: <ExternalLink size={13} />, label: 'Open original', action: () => item.url && window.open(item.url, '_blank') },
-            { icon: <Trash2 size={13} />, label: 'Delete', action: () => {}, danger: true },
+            { icon: <Trash2 size={13} />, label: 'Delete', action: () => onDelete(), danger: true },
           ].map(({ icon, label, action, danger }) => (
             <button
               key={label}

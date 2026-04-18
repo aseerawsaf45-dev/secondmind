@@ -10,7 +10,7 @@ import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import { MOCK_COLLECTIONS } from '@/lib/data';
 import type { MemoryItem } from '@/lib/data';
-import { fetchItems, saveItem, toggleFavorite } from '@/lib/supabase-items';
+import { fetchItems, saveItem, toggleFavorite, deleteItem } from '@/lib/supabase-items';
 import { createClient } from '@/utils/supabase/client';
 import { signout } from '@/app/login/actions';
 
@@ -61,6 +61,12 @@ export default function Dashboard({ user }: { user: any }) {
     setItems(prev => prev.map(i => i.id === id ? { ...i, isFavorite: next } : i));
     await toggleFavorite(supabase, id, next);
   }, [items]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm('Are you sure you want to delete this memory?')) return;
+    setItems(prev => prev.filter(i => i.id !== id));
+    await deleteItem(supabase, id);
+  }, []);
 
   const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => {
     if (!user?.id) return;
@@ -287,6 +293,7 @@ export default function Dashboard({ user }: { user: any }) {
                     item={item}
                     onClick={() => setSelectedItem(item)}
                     onFavorite={() => handleFavorite(item.id)}
+                    onDelete={() => handleDelete(item.id)}
                   />
                 </div>
               ))}

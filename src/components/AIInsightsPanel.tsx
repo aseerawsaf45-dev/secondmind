@@ -1,24 +1,11 @@
 'use client';
 
 import { Sparkles, TrendingUp, Network, Bell, ArrowRight, Brain } from 'lucide-react';
-import { MOCK_INSIGHTS, MOCK_ITEMS } from '@/lib/data';
 import type { MemoryItem } from '@/lib/data';
 
 interface AIInsightsPanelProps {
   onSelectItem: (item: MemoryItem) => void;
 }
-
-const INSIGHT_ICONS: Record<string, React.ReactNode> = {
-  connection: <Network size={13} />,
-  cluster: <Brain size={13} />,
-  suggestion: <Bell size={13} />,
-};
-
-const INSIGHT_COLORS: Record<string, string> = {
-  connection: '#7C3AED',
-  cluster: '#06B6D4',
-  suggestion: '#F59E0B',
-};
 
 export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) {
   return (
@@ -71,108 +58,34 @@ export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) 
         <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
           Discoveries this week
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {MOCK_INSIGHTS.map(insight => {
-            const color = INSIGHT_COLORS[insight.type];
-            const relatedItems = MOCK_ITEMS.filter(i => insight.itemIds.includes(i.id));
-            return (
-              <div key={insight.id} style={{
-                padding: '16px',
-                background: 'var(--bg-card)',
-                border: `1px solid ${color}25`,
-                borderLeft: `3px solid ${color}`,
-                borderRadius: '12px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'var(--bg-card-hover)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'var(--bg-card)';
-              }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '6px',
-                    background: `${color}20`,
-                    border: `1px solid ${color}30`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color,
-                    flexShrink: 0,
-                    marginTop: '1px',
-                  }}>
-                    {INSIGHT_ICONS[insight.type]}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px', lineHeight: 1.4 }}>
-                      {insight.title}
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '10px' }}>
-                      {insight.description}
-                    </p>
-
-                    {/* Related items preview */}
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {relatedItems.map(item => (
-                        <button
-                          key={item.id}
-                          onClick={() => onSelectItem(item)}
-                          style={{
-                            padding: '3px 10px',
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '999px',
-                            fontSize: '11px',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            transition: 'all 0.15s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            maxWidth: '160px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                        >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.title.slice(0, 25)}...
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{
-                        height: '4px',
-                        flex: 1,
-                        background: 'var(--bg-elevated)',
-                        borderRadius: '999px',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${insight.confidence * 100}%`,
-                          background: `linear-gradient(90deg, ${color}, ${color}80)`,
-                          borderRadius: '999px',
-                        }} />
-                      </div>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', flexShrink: 0 }}>
-                        {Math.round(insight.confidence * 100)}% confidence
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        
+        <div style={{ 
+          padding: '40px 20px', 
+          background: 'var(--bg-card)', 
+          border: '1px dashed var(--border-strong)', 
+          borderRadius: '16px',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'var(--bg-elevated)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'pulse-glow 2s infinite'
+          }}>
+            <Sparkles size={18} style={{ color: 'var(--violet-bright)' }} />
+          </div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>AI is Analyzing Your Memory</div>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '280px', lineHeight: 1.6 }}>
+            Patterns and connections will appear here automatically as you save more items and our AI continues to process your mind.
+          </p>
         </div>
       </div>
 
