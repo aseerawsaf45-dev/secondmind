@@ -1,0 +1,21 @@
+{
+  "name": "SecondMind AI Memory",
+  "short_name": "SecondMind",
+  "description": "Your AI-powered external memory and knowledge capture tool.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06060c",
+  "theme_color": "#08080f",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -7,6 +7,10 @@ const inter = Inter({
   variable: "--font-inter",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#08080f",
+};
 
 export const metadata: Metadata = {
   title: "SecondMind — Your AI-Powered Memory",
@@ -17,6 +21,12 @@ export const metadata: Metadata = {
     description: "Save anything. Remember everything. Let AI do the organizing.",
     type: "website",
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SecondMind"
+  }
 };
 
 export default function RootLayout({
