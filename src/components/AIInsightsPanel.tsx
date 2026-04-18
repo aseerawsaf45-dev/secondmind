@@ -35,9 +35,9 @@ export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
         {[
-          { label: 'Items saved', value: '12', icon: '🧠', color: '#7C3AED' },
-          { label: 'Connections', value: '18', icon: '🔗', color: '#06B6D4' },
-          { label: 'Clusters', value: '6', icon: '✨', color: '#EC4899' },
+          { label: 'Items saved', value: '—', icon: '🧠', color: '#7C3AED' },
+          { label: 'Connections', value: '—', icon: '🔗', color: '#06B6D4' },
+          { label: 'Clusters', value: '—', icon: '✨', color: '#EC4899' },
         ].map(({ label, value, icon, color }) => (
           <div key={label} style={{
             padding: '16px',

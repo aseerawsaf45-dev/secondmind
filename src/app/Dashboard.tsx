@@ -8,9 +8,9 @@ import SearchOverlay from '@/components/SearchOverlay';
 import CaptureModal from '@/components/CaptureModal';
 import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
-import { MOCK_COLLECTIONS } from '@/lib/data';
 import type { MemoryItem } from '@/lib/data';
 import { fetchItems, saveItem, toggleFavorite, deleteItem } from '@/lib/supabase-items';
+import { fetchCollections, Collection } from '@/lib/supabase-collections';
 import { createClient } from '@/utils/supabase/client';
 import { signout } from '@/app/login/actions';
 
@@ -19,6 +19,7 @@ type SortOption = 'newest' | 'oldest' | 'favorites';
 export default function Dashboard({ user }: { user: any }) {
   const supabase = createClient();
   const [items, setItems] = useState<MemoryItem[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -29,13 +30,21 @@ export default function Dashboard({ user }: { user: any }) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Load items from Supabase on mount
+  // Load items and collections from Supabase on mount
   useEffect(() => {
     if (!user?.id) return;
-    fetchItems(supabase, user.id).then(fetched => {
-      setItems(fetched);
+    
+    const loadData = async () => {
+      const [fetchedItems, fetchedCollections] = await Promise.all([
+        fetchItems(supabase, user.id),
+        fetchCollections(supabase, user.id)
+      ]);
+      setItems(fetchedItems);
+      setCollections(fetchedCollections);
       setLoading(false);
-    });
+    };
+
+    loadData();
   }, [user?.id]);
 
   // Global keyboard shortcuts
@@ -117,18 +126,13 @@ export default function Dashboard({ user }: { user: any }) {
       filtered = filtered.filter(i => i.tags.includes(tag));
     } else if (activeFilter.startsWith('collection:')) {
       const collId = activeFilter.slice(11);
-      const coll = MOCK_COLLECTIONS.find(c => c.id === collId);
-      if (coll) {
-        const tagForColl: Record<string, string[]> = {
-          'c1': ['AI', 'Research'],
-          'c2': ['Business'],
-          'c3': ['Productivity'],
-          'c4': ['Design'],
-          'c5': ['Philosophy'],
-          'c6': ['Science'],
-        };
-        const tags = tagForColl[collId] || [];
-        filtered = filtered.filter(i => i.tags.some(t => tags.includes(t)));
+      const coll = collections.find(c => c.id === collId);
+      if (coll && coll.isSmart) {
+        // Smart rule filtering (simplified for now: match by name as a tag)
+        filtered = filtered.filter(i => i.tags.includes(coll.name));
+      } else {
+        // Regular collection logic would need a junction table query
+        // For now, if it's not smart, we'll just show all (this needs more backend work)
       }
     }
 
@@ -160,7 +164,8 @@ export default function Dashboard({ user }: { user: any }) {
     if (activeFilter === 'ai-insights') return 'AI Insights';
     if (activeFilter.startsWith('tag:')) return `#${activeFilter.slice(4)}`;
     if (activeFilter.startsWith('collection:')) {
-      const coll = MOCK_COLLECTIONS.find(c => c.id === activeFilter.slice(11));
+      const coll = collections.find(c => c.id === activeFilter.slice(11)) || 
+                   collections.find(c => c.id === activeFilter.slice(11));
       return coll ? `${coll.emoji} ${coll.name}` : 'Collection';
     }
     return activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1) + 's';
@@ -188,6 +193,7 @@ export default function Dashboard({ user }: { user: any }) {
         onCaptureOpen={() => { setCaptureOpen(true); setSidebarOpen(false); }}
         onSettingsOpen={() => { setSettingsOpen(true); setSidebarOpen(false); }}
         itemCounts={itemCounts}
+        collections={collections}
         user={user}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

@@ -15,8 +15,8 @@ import {
   Bell,
   Zap,
 } from 'lucide-react';
-import type { Collection } from '@/lib/data';
-import { MOCK_COLLECTIONS, TAG_COLORS } from '@/lib/data';
+import { fetchCollections, Collection } from '@/lib/supabase-collections';
+import { TAG_COLORS } from '@/lib/data';
 import { signout } from '@/app/login/actions';
 
 const TOP_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
@@ -28,12 +28,13 @@ interface SidebarProps {
   onCaptureOpen: () => void;
   onSettingsOpen: () => void;
   itemCounts: Record<string, number>;
+  collections: Collection[];
   user?: any;
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onSettingsOpen, itemCounts, user, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onSettingsOpen, itemCounts, collections, user, isOpen, onClose }: SidebarProps) {
   const [expandCollections, setExpandCollections] = useState(true);
 
   return (
@@ -47,6 +48,8 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
       borderRight: '1px solid var(--border)',
       overflow: 'hidden',
     }}>
+      {/* ... previous content omitted for brevity/matching ... */}
+      {/* Search and Logo sections remain same */}
       {/* Logo */}
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -127,7 +130,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
           {[
             { id: 'all', label: 'All Memory', icon: <LayoutGrid size={14} />, count: itemCounts.all },
             { id: 'favorites', label: 'Favorites', icon: <Star size={14} />, count: itemCounts.favorites },
-            { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={14} />, count: 3 },
+            { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={14} />, count: null },
             { id: 'recent', label: 'Recently Added', icon: <Zap size={14} />, count: null },
           ].map(({ id, label, icon, count }) => (
             <button
@@ -238,34 +241,44 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
 
         {/* Collections */}
         <div style={{ marginBottom: '20px' }}>
-          <button
-            onClick={() => setExpandCollections(!expandCollections)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '4px 12px 8px',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              color: 'var(--text-muted)',
-            }}
-          >
-            <ChevronRight
-              size={12}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}>
+            <button
+              onClick={() => setExpandCollections(!expandCollections)}
               style={{
-                transition: 'transform 0.2s',
-                transform: expandCollections ? 'rotate(90deg)' : 'rotate(0deg)',
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '4px 12px 8px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                color: 'var(--text-muted)',
               }}
-            />
-            <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Smart Collections
-            </span>
-          </button>
+            >
+              <ChevronRight
+                size={12}
+                style={{
+                  transition: 'transform 0.2s',
+                  transform: expandCollections ? 'rotate(90deg)' : 'rotate(0deg)',
+                }}
+              />
+              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Smart Collections
+              </span>
+            </button>
+            <button 
+              title="Create new Space" 
+              className="btn btn-ghost btn-icon" 
+              style={{ width: '20px', height: '20px', padding: 0 }}
+              onClick={() => {/* TODO: Open create modal */}}
+            >
+              <Plus size={10} />
+            </button>
+          </div>
 
-          {expandCollections && MOCK_COLLECTIONS.map(collection => (
+          {expandCollections && collections.map(collection => (
             <button
               key={collection.id}
               onClick={() => onFilterChange(`collection:${collection.id}`)}
@@ -302,6 +315,12 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               )}
             </button>
           ))}
+
+          {expandCollections && collections.length === 0 && (
+            <div style={{ padding: '8px 24px', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              No spaces yet
+            </div>
+          )}
         </div>
 
         {/* Tags */}
