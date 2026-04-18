@@ -10,6 +10,7 @@ interface ItemDetailModalProps {
   onSelectItem: (item: MemoryItem) => void;
   onFavorite: (id: string) => void;
   onUpdate: (id: string, data: any) => Promise<void>;
+  initialEditMode?: boolean;
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
