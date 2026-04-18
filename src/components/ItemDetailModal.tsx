@@ -20,7 +20,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   pdf: <FileText size={14} />,
 };
 
-export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite, onUpdate }: ItemDetailModalProps) {
+export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite, onUpdate, initialEditMode }: ItemDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -35,9 +35,9 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
       setEditContent(item.content);
       setEditSummary(item.summary);
       setEditTags([...item.tags]);
-      setIsEditing(false);
+      setIsEditing(!!initialEditMode);
     }
-  }, [item]);
+  }, [item, initialEditMode]);
 
   if (!item) return null;
 

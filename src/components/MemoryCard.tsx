@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles, ChevronRight, Check } from 'lucide-react';
+import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles, ChevronRight, Check, Edit2 } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
 import type { Collection } from '@/lib/supabase-collections';
@@ -12,6 +12,7 @@ interface MemoryCardProps {
   collections: Collection[];
   onClick: () => void;
   onFavorite: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onAddToCollection: (collectionId: string) => void;
 }
@@ -254,6 +255,7 @@ export default function MemoryCard({ item, onClick, onFavorite, onDelete }: Memo
           onClick={e => e.stopPropagation()}
         >
           {[
+            { icon: <Edit2 size={13} />, label: 'Edit', action: onEdit },
             { icon: <Star size={13} />, label: item.isFavorite ? 'Unfavorite' : 'Favorite', action: onFavorite },
             { 
               icon: <FolderPlus size={13} />, 

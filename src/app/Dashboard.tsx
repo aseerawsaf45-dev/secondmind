@@ -29,6 +29,7 @@ export default function Dashboard({ user }: { user: any }) {
   const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -75,6 +76,11 @@ export default function Dashboard({ user }: { user: any }) {
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, []);
+
+  const handleEditItem = (item: MemoryItem) => {
+    setIsEditMode(true);
+    setSelectedItem(item);
+  };
 
   const handleFavorite = useCallback(async (id: string) => {
     const item = items.find(i => i.id === id);
@@ -346,8 +352,9 @@ export default function Dashboard({ user }: { user: any }) {
                   <MemoryCard
                     item={item}
                     collections={collections}
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => { setSelectedItem(item); setIsEditMode(false); }}
                     onFavorite={() => handleFavorite(item.id)}
+                    onEdit={() => handleEditItem(item)}
                     onDelete={() => handleDelete(item.id)}
                     onAddToCollection={(collId) => handleAddToCollection(item.id, collId)}
                   />
@@ -377,10 +384,11 @@ export default function Dashboard({ user }: { user: any }) {
       />
       <ItemDetailModal
         item={selectedItem}
-        onClose={() => setSelectedItem(null)}
+        onClose={() => { setSelectedItem(null); setIsEditMode(false); }}
         onSelectItem={item => setSelectedItem(item)}
         onFavorite={handleFavorite}
         onUpdate={handleUpdate}
+        initialEditMode={isEditMode}
       />
 
       {/* Settings Modal */}
