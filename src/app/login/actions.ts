@@ -51,10 +51,17 @@ export async function signout() {
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
+  
+  // Use next/headers to determine the origin dynamically, allowing it to work on Vercel preview/prod
+  const headersList = await import('next/headers').then(m => m.headers())
+  const host = headersList.get('x-forwarded-host') || headersList.get('host')
+  const protocol = headersList.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback`,
     },
   })
 
