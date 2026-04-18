@@ -100,6 +100,12 @@ export default function Dashboard({ user }: { user: any }) {
     }
   }, [supabase, loadData]);
 
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm('Are you sure you want to delete this memory?')) return;
+    setItems(prev => prev.filter(i => i.id !== id));
+    await deleteItem(supabase, id);
+  }, [supabase]);
+
   const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => {
     if (!user?.id) return;
 
