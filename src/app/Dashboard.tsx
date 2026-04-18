@@ -149,7 +149,13 @@ export default function Dashboard({ user }: { user: any }) {
     } else if (activeFilter === 'ai-insights') {
       return null;
     } else if (['link', 'note', 'image', 'pdf', 'tweet', 'video'].includes(activeFilter)) {
-      filtered = filtered.filter(i => i.type === activeFilter);
+      filtered = filtered.filter(i => {
+        if (activeFilter === 'tweet') {
+          const url = (i.url || '').toLowerCase();
+          return i.type === 'tweet' || url.includes('x.com') || url.includes('twitter.com');
+        }
+        return i.type === activeFilter;
+      });
     } else if (activeFilter.startsWith('tag:')) {
       const tag = activeFilter.slice(4);
       filtered = filtered.filter(i => i.tags.includes(tag));
@@ -182,7 +188,10 @@ export default function Dashboard({ user }: { user: any }) {
     link: items.filter(i => i.type === 'link').length,
     note: items.filter(i => i.type === 'note').length,
     pdf: items.filter(i => i.type === 'pdf').length,
-    tweet: items.filter(i => i.type === 'tweet').length,
+    tweet: items.filter(i => {
+      const url = (i.url || '').toLowerCase();
+      return i.type === 'tweet' || url.includes('x.com') || url.includes('twitter.com');
+    }).length,
     video: items.filter(i => i.type === 'video').length,
   };
 

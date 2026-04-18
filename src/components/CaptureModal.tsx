@@ -52,9 +52,11 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         console.error('Extraction failed', err);
       }
     } else if (tab === 'upload' && selectedFile) {
+      console.log('Attempting upload for file:', selectedFile.name, 'Size:', selectedFile.size, 'User:', user?.id);
       const { url: uploadedUrl, error } = await uploadFile(supabase, user?.id, selectedFile);
       if (error) {
-        alert('File upload failed. Please try again.');
+        console.error('File upload failed:', error);
+        alert(`File upload failed: ${error.message || 'Unknown error'}. Please ensure the "memories" bucket exists in Supabase Storage.`);
         setIsSaving(false);
         return;
       }
