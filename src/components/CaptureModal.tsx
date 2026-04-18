@@ -1,5 +1,5 @@
 import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { uploadFile } from '@/lib/supabase-storage';
 
