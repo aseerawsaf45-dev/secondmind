@@ -104,7 +104,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
           </h1>
 
           {/* Two-column: content + AI panel */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
+          <div className="item-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
             {/* Main Content */}
             <div>
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: '24px' }}>

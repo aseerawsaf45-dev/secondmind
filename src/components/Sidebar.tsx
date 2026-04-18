@@ -29,18 +29,18 @@ interface SidebarProps {
   onSettingsOpen: () => void;
   itemCounts: Record<string, number>;
   user?: any;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onSettingsOpen, itemCounts, user }: SidebarProps) {
+export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onSettingsOpen, itemCounts, user, isOpen, onClose }: SidebarProps) {
   const [expandCollections, setExpandCollections] = useState(true);
 
   return (
-    <aside style={{
+    <aside className={`sidebar ${isOpen ? 'sidebar-mobile-open' : ''}`} style={{
       width: '260px',
       flexShrink: 0,
       height: '100vh',
-      position: 'sticky',
-      top: 0,
       display: 'flex',
       flexDirection: 'column',
       background: 'var(--bg-surface)',

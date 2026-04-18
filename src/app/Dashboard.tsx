@@ -1,21 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Search, SlidersHorizontal, Sparkles, Grid3X3, LayoutList, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, X, Plus } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MemoryCard from '@/components/MemoryCard';
 import SearchOverlay from '@/components/SearchOverlay';
 import CaptureModal from '@/components/CaptureModal';
 import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
-import { MOCK_ITEMS, MOCK_COLLECTIONS } from '@/lib/data';
+import { MOCK_COLLECTIONS } from '@/lib/data';
 import type { MemoryItem } from '@/lib/data';
+import { fetchItems, saveItem, toggleFavorite } from '@/lib/supabase-items';
+import { createClient } from '@/utils/supabase/client';
 import { signout } from '@/app/login/actions';
 
 type SortOption = 'newest' | 'oldest' | 'favorites';
 
 export default function Dashboard({ user }: { user: any }) {
+  const supabase = createClient();
   const [items, setItems] = useState<MemoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchOpen, setSearchOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -23,8 +27,18 @@ export default function Dashboard({ user }: { user: any }) {
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Global keyboard shortcut for search
+  // Load items from Supabase on mount
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchItems(supabase, user.id).then(fetched => {
+      setItems(fetched);
+      setLoading(false);
+    });
+  }, [user?.id]);
+
+  // Global keyboard shortcuts
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -40,36 +54,44 @@ export default function Dashboard({ user }: { user: any }) {
     return () => window.removeEventListener('keydown', handle);
   }, []);
 
-  const handleFavorite = useCallback((id: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, isFavorite: !i.isFavorite } : i));
-  }, []);
+  const handleFavorite = useCallback(async (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const next = !item.isFavorite;
+    setItems(prev => prev.map(i => i.id === id ? { ...i, isFavorite: next } : i));
+    await toggleFavorite(supabase, id, next);
+  }, [items]);
 
-  const handleSave = useCallback((data: { type: string; title: string; content: string; url?: string }) => {
-    const newItem: MemoryItem = {
-      id: String(Date.now()),
+  const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string }) => {
+    if (!user?.id) return;
+
+    // Optimistic placeholder
+    const tempId = `temp-${Date.now()}`;
+    const placeholder: MemoryItem = {
+      id: tempId,
       type: data.type as MemoryItem['type'],
       title: data.title,
       content: data.content,
       url: data.url,
-      sourceDomain: data.url ? new URL(data.url).hostname.replace('www.', '') : undefined,
-      summary: 'AI is analyzing this content...',
+      sourceDomain: data.url ? (() => { try { return new URL(data.url!).hostname.replace('www.', ''); } catch { return undefined; } })() : undefined,
+      summary: 'Saving...',
       tags: [],
       isFavorite: false,
       createdAt: new Date().toISOString(),
       relatedIds: [],
       aiProcessed: false,
     };
-    setItems(prev => [newItem, ...prev]);
+    setItems(prev => [placeholder, ...prev]);
 
-    // Simulate AI processing
-    setTimeout(() => {
-      setItems(prev => prev.map(i =>
-        i.id === newItem.id
-          ? { ...i, summary: 'AI-processed summary will appear here after analysis.', tags: ['AI', 'Technology'], aiProcessed: true }
-          : i
-      ));
-    }, 3000);
-  }, []);
+    // Persist to Supabase
+    const saved = await saveItem(supabase, user.id, data);
+    if (saved) {
+      setItems(prev => prev.map(i => i.id === tempId ? saved : i));
+    } else {
+      // Remove placeholder on error
+      setItems(prev => prev.filter(i => i.id !== tempId));
+    }
+  }, [user?.id, items]);
 
   // Filter logic
   const filteredItems = (() => {
@@ -80,7 +102,7 @@ export default function Dashboard({ user }: { user: any }) {
     } else if (activeFilter === 'recent') {
       filtered = filtered.slice(0, 5);
     } else if (activeFilter === 'ai-insights') {
-      return null; // render insights panel
+      return null;
     } else if (['link', 'note', 'image', 'pdf', 'tweet', 'video'].includes(activeFilter)) {
       filtered = filtered.filter(i => i.type === activeFilter);
     } else if (activeFilter.startsWith('tag:')) {
@@ -103,7 +125,6 @@ export default function Dashboard({ user }: { user: any }) {
       }
     }
 
-    // Sort
     if (sortBy === 'newest') {
       filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } else if (sortBy === 'oldest') {
@@ -115,7 +136,6 @@ export default function Dashboard({ user }: { user: any }) {
     return filtered;
   })();
 
-  // Item counts for sidebar
   const itemCounts = {
     all: items.length,
     favorites: items.filter(i => i.isFavorite).length,
@@ -126,7 +146,6 @@ export default function Dashboard({ user }: { user: any }) {
     video: items.filter(i => i.type === 'video').length,
   };
 
-  // Title for current filter
   const getTitle = () => {
     if (activeFilter === 'all') return 'All Memory';
     if (activeFilter === 'favorites') return 'Favorites';
@@ -143,92 +162,74 @@ export default function Dashboard({ user }: { user: any }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
       {/* Ambient background glow */}
-      <div style={{
-        position: 'fixed',
-        top: '-20%',
-        left: '10%',
-        width: '600px',
-        height: '600px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
-      <div style={{
-        position: 'fixed',
-        bottom: '-20%',
-        right: '5%',
-        width: '500px',
-        height: '500px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
+      <div style={{ position: 'fixed', top: '-20%', left: '10%', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', bottom: '-20%', right: '5%', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <Sidebar
         activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        onSearchOpen={() => setSearchOpen(true)}
-        onCaptureOpen={() => setCaptureOpen(true)}
-        onSettingsOpen={() => setSettingsOpen(true)}
+        onFilterChange={(f) => { setActiveFilter(f); setSidebarOpen(false); }}
+        onSearchOpen={() => { setSearchOpen(true); setSidebarOpen(false); }}
+        onCaptureOpen={() => { setCaptureOpen(true); setSidebarOpen(false); }}
+        onSettingsOpen={() => { setSettingsOpen(true); setSidebarOpen(false); }}
         itemCounts={itemCounts}
         user={user}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1 }}>
+      <main className="dashboard-main">
         {/* Top bar */}
-        <header style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          padding: '0 28px',
-          height: '60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'rgba(8,8,15,0.8)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid var(--border)',
-        }}>
+        <header className="dashboard-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Hamburger – visible on mobile */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="btn btn-ghost btn-icon mobile-menu-btn"
+              aria-label="Open menu"
+            >
+              <Menu size={18} />
+            </button>
+
             <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
               {getTitle()}
             </h1>
             {filteredItems !== null && (
-              <span style={{
-                padding: '2px 10px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: '999px',
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-              }}>
+              <span style={{ padding: '2px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-muted)' }}>
                 {filteredItems.length}
               </span>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Quick capture btn (mobile) */}
+            <button
+              onClick={() => setCaptureOpen(true)}
+              className="btn btn-primary mobile-capture-btn"
+              style={{ padding: '8px 12px', fontSize: '13px' }}
+            >
+              <Plus size={14} />
+              <span className="hide-xs">Save</span>
+            </button>
+
             {/* Search */}
             <button
               onClick={() => setSearchOpen(true)}
-              className="btn btn-ghost"
+              className="btn btn-ghost hide-xs"
               style={{ padding: '8px 14px', fontSize: '13px' }}
             >
               <Search size={13} />
               Search
-              <kbd style={{
-                padding: '1px 6px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px',
-                fontSize: '10px',
-                fontFamily: 'inherit',
-              }}>⌘K</kbd>
+              <kbd style={{ padding: '1px 6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '10px', fontFamily: 'inherit' }}>⌘K</kbd>
             </button>
 
             {/* Sort */}
@@ -239,39 +240,16 @@ export default function Dashboard({ user }: { user: any }) {
                 style={{ padding: '8px 14px', fontSize: '13px' }}
               >
                 <SlidersHorizontal size={13} />
-                {sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : 'Favorites'}
+                <span className="hide-xs">{sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : 'Favorites'}</span>
                 <ChevronDown size={11} />
               </button>
               {showSortMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '44px',
-                  right: 0,
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-strong)',
-                  borderRadius: '10px',
-                  padding: '6px',
-                  zIndex: 50,
-                  minWidth: '140px',
-                  boxShadow: '0 16px 32px rgba(0,0,0,0.4)',
-                }}>
+                <div style={{ position: 'absolute', top: '44px', right: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '10px', padding: '6px', zIndex: 50, minWidth: '140px', boxShadow: '0 16px 32px rgba(0,0,0,0.4)' }}>
                   {(['newest', 'oldest', 'favorites'] as SortOption[]).map(opt => (
                     <button
                       key={opt}
                       onClick={() => { setSortBy(opt); setShowSortMenu(false); }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        background: sortBy === opt ? 'rgba(124,58,237,0.15)' : 'transparent',
-                        color: sortBy === opt ? 'var(--violet-bright)' : 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontFamily: 'inherit',
-                        textAlign: 'left',
-                        fontWeight: sortBy === opt ? 600 : 400,
-                      }}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '7px', border: 'none', background: sortBy === opt ? 'rgba(124,58,237,0.15)' : 'transparent', color: sortBy === opt ? 'var(--violet-bright)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', textAlign: 'left', fontWeight: sortBy === opt ? 600 : 400 }}
                     >
                       {opt.charAt(0).toUpperCase() + opt.slice(1)} first
                     </button>
@@ -283,53 +261,35 @@ export default function Dashboard({ user }: { user: any }) {
         </header>
 
         {/* Body */}
-        <div style={{ flex: 1, padding: '28px', overflowY: 'auto' }}
-          onClick={() => { setShowSortMenu(false); }}
+        <div
+          style={{ flex: 1, padding: '24px', overflowY: 'auto' }}
+          onClick={() => setShowSortMenu(false)}
+          className="dashboard-body"
         >
-          {activeFilter === 'ai-insights' ? (
+          {loading ? (
+            <LoadingState />
+          ) : activeFilter === 'ai-insights' ? (
             <div style={{ maxWidth: '720px' }}>
               <AIInsightsPanel onSelectItem={item => setSelectedItem(item)} />
             </div>
           ) : filteredItems !== null && filteredItems.length === 0 ? (
             <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} />
           ) : filteredItems !== null ? (
-            <>
-              {/* AI processing notice */}
-              {items.some(i => !i.aiProcessed) && (
-                <div style={{
-                  marginBottom: '20px',
-                  padding: '10px 16px',
-                  background: 'rgba(124,58,237,0.08)',
-                  border: '1px solid rgba(124,58,237,0.2)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}>
-                  <Sparkles size={13} style={{ color: 'var(--violet-bright)', animation: 'float 2s ease-in-out infinite' }} />
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    AI is processing your latest items — tags and summaries will appear shortly
-                  </span>
+            <div className="masonry-grid">
+              {filteredItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="animate-fade-in-up masonry-item"
+                  style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both', opacity: 0 }}
+                >
+                  <MemoryCard
+                    item={item}
+                    onClick={() => setSelectedItem(item)}
+                    onFavorite={() => handleFavorite(item.id)}
+                  />
                 </div>
-              )}
-
-              {/* Masonry grid */}
-              <div className="masonry-grid">
-                {filteredItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both', opacity: 0 }}
-                  >
-                    <MemoryCard
-                      item={item}
-                      onClick={() => setSelectedItem(item)}
-                      onFavorite={() => handleFavorite(item.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </>
+              ))}
+            </div>
           ) : null}
         </div>
       </main>
@@ -354,30 +314,36 @@ export default function Dashboard({ user }: { user: any }) {
 
       {/* Settings Modal */}
       {settingsOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSettingsOpen(false)} />
-          <div className="glass animate-fade-in-up" style={{ width: '400px', padding: '24px', borderRadius: '16px', position: 'relative', zIndex: 1, border: '1px solid var(--border)' }}>
+          <div className="glass animate-fade-in-up" style={{ width: '100%', maxWidth: '400px', padding: '24px', borderRadius: '16px', position: 'relative', zIndex: 1, border: '1px solid var(--border)' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>Settings</h2>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>Manage your account and preferences.</p>
-            
             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', marginBottom: '20px' }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', fontWeight: 600 }}>Account Email</div>
               <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 500 }}>{user?.email || 'N/A'}</div>
             </div>
-
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setSettingsOpen(false)} className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
-                Close
-              </button>
+              <button onClick={() => setSettingsOpen(false)} className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>Close</button>
               <form action={signout} style={{ flex: 1, display: 'flex' }}>
-                <button type="submit" className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center', color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)' }}>
-                  Log out
-                </button>
+                <button type="submit" className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center', color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)' }}>Log out</button>
               </form>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="masonry-grid">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="masonry-item">
+          <div className="shimmer" style={{ height: `${140 + (i % 3) * 60}px`, borderRadius: '14px' }} />
+        </div>
+      ))}
     </div>
   );
 }
