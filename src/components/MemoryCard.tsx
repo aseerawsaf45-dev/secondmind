@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles, ChevronRight, Check, Edit2 } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
@@ -38,6 +39,8 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCollectionSubmenu, setShowCollectionSubmenu] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
 
   const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.link;
   const bgGradient = GRADIENT_BACKGROUNDS[
@@ -45,14 +48,32 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
   ];
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
 
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (menuBtnRef.current) {
+      const rect = menuBtnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 6, left: rect.right - 180 });
+    }
+    setShowMenu(!showMenu);
+    setShowCollectionSubmenu(false);
+  };
+
+  // Close menu on scroll or resize
+  useEffect(() => {
+    if (!showMenu) return;
+    const close = () => setShowMenu(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [showMenu]);
+
   return (
     <div
       className="masonry-item"
-      style={{ 
-        position: 'relative', 
-        zIndex: showMenu ? 100 : 1,
-        overflow: 'visible' 
-      }}
+      style={{ position: 'relative' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setShowMenu(false); }}
     >
@@ -121,7 +142,8 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
                 <Star size={12} fill={item.isFavorite ? '#F59E0B' : 'none'} />
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                ref={menuBtnRef}
+                onClick={openMenu}
                 style={{
                   width: '28px',
                   height: '28px',
@@ -242,20 +264,21 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
         )}
       </div>
 
-      {/* Context Menu */}
-      {showMenu && (
+      {/* Context Menu — rendered via Portal to escape masonry column clipping */}
+      {showMenu && typeof document !== 'undefined' && createPortal(
         <div
           style={{
-            position: 'absolute',
-            top: '48px',
-            right: '8px',
+            position: 'fixed',
+            top: menuPos.top,
+            left: menuPos.left,
             background: 'var(--bg-elevated)',
             border: '1px solid var(--border-strong)',
             borderRadius: '10px',
             padding: '6px',
-            zIndex: 50,
-            minWidth: '160px',
+            zIndex: 9999,
+            minWidth: '180px',
             boxShadow: '0 16px 32px rgba(0,0,0,0.5)',
+            animation: 'fadeIn 0.15s ease',
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -295,6 +318,10 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
                   e.currentTarget.style.color = danger ? '#EF4444' : 'var(--text-primary)';
                   if (label === 'Add to collection') setShowCollectionSubmenu(true);
                   else setShowCollectionSubmenu(false);
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = danger ? '#EF4444' : 'var(--text-secondary)';
                 }}
               >
                 {icon}
@@ -350,7 +377,8 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
               )}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
