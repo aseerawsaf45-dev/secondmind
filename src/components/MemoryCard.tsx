@@ -37,6 +37,7 @@ const GRADIENT_BACKGROUNDS = [
 export default function MemoryCard({ item, collections, onClick, onFavorite, onEdit, onDelete, onAddToCollection }: MemoryCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showCollectionSubmenu, setShowCollectionSubmenu] = useState(false);
 
   const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.link;
   const bgGradient = GRADIENT_BACKGROUNDS[
