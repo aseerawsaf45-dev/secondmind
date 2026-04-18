@@ -30,7 +30,7 @@ const GRADIENT_BACKGROUNDS = [
   'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 100%)',
 ];
 
-export default function MemoryCard({ item, onClick, onFavorite }: MemoryCardProps) {
+export default function MemoryCard({ item, onClick, onFavorite, onDelete }: MemoryCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
