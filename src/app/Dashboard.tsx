@@ -9,7 +9,7 @@ import CaptureModal from '@/components/CaptureModal';
 import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import type { MemoryItem } from '@/lib/data';
-import { fetchItems, saveItem, toggleFavorite, deleteItem } from '@/lib/supabase-items';
+import { fetchItems, saveItem, toggleFavorite, deleteItem, updateItem } from '@/lib/supabase-items';
 import { fetchCollections, createCollection, addItemToCollection, Collection } from '@/lib/supabase-collections';
 import { createClient } from '@/utils/supabase/client';
 import CreateCollectionModal from '@/components/CreateCollectionModal';
@@ -106,7 +106,16 @@ export default function Dashboard({ user }: { user: any }) {
     await deleteItem(supabase, id);
   }, [supabase]);
 
+  const handleUpdate = useCallback(async (id: string, data: any) => {
+    const success = await updateItem(supabase, id, data);
+    if (success) {
+      setItems(prev => prev.map(i => i.id === id ? { ...i, ...data } : i));
+      setSelectedItem(prev => prev?.id === id ? { ...prev, ...data } : prev);
+    }
+  }, [supabase]);
+
   const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => {
+
     if (!user?.id) return;
 
     // Optimistic placeholder
@@ -371,6 +380,7 @@ export default function Dashboard({ user }: { user: any }) {
         onClose={() => setSelectedItem(null)}
         onSelectItem={item => setSelectedItem(item)}
         onFavorite={handleFavorite}
+        onUpdate={handleUpdate}
       />
 
       {/* Settings Modal */}

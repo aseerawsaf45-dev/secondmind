@@ -1,15 +1,15 @@
-'use client';
-
-import { X, ExternalLink, Star, Sparkles, ArrowRight, Link2, FileText, Film, MessageCircle } from 'lucide-react';
+import { X, ExternalLink, Star, Sparkles, ArrowRight, Link2, FileText, Film, MessageCircle, Edit2, Check, Plus, Loader } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { MOCK_ITEMS, TAG_COLORS } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
+import { useState, useEffect } from 'react';
 
 interface ItemDetailModalProps {
   item: MemoryItem | null;
   onClose: () => void;
   onSelectItem: (item: MemoryItem) => void;
   onFavorite: (id: string) => void;
+  onUpdate: (id: string, data: any) => Promise<void>;
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -20,8 +20,50 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   pdf: <FileText size={14} />,
 };
 
-export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite }: ItemDetailModalProps) {
+export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite, onUpdate }: ItemDetailModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editSummary, setEditSummary] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (item) {
+      setEditTitle(item.title);
+      setEditContent(item.content);
+      setEditSummary(item.summary);
+      setEditTags([...item.tags]);
+      setIsEditing(false);
+    }
+  }, [item]);
+
   if (!item) return null;
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    await onUpdate(item.id, {
+      title: editTitle,
+      content: editContent,
+      summary: editSummary,
+      tags: editTags
+    });
+    setIsSaving(false);
+    setIsEditing(false);
+  };
+
+  const addTag = () => {
+    const tag = newTag.trim();
+    if (tag && !editTags.includes(tag)) {
+      setEditTags([...editTags, tag]);
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setEditTags(editTags.filter(t => t !== tag));
+  };
 
   const relatedItems = MOCK_ITEMS.filter(i => item.relatedIds.includes(i.id));
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
@@ -75,13 +117,23 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
 
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
             <button
-              onClick={() => onFavorite(item.id)}
+              onClick={() => setIsEditing(!isEditing)}
               className="btn btn-ghost btn-icon"
-              style={{ color: item.isFavorite ? '#F59E0B' : 'var(--text-muted)' }}
+              style={{ color: isEditing ? 'var(--violet-bright)' : 'var(--text-muted)' }}
+              title={isEditing ? 'Cancel' : 'Edit Memory'}
             >
-              <Star size={15} fill={item.isFavorite ? '#F59E0B' : 'none'} />
+              <Edit2 size={15} />
             </button>
-            {item.url && (
+            {!isEditing && (
+              <button
+                onClick={() => onFavorite(item.id)}
+                className="btn btn-ghost btn-icon"
+                style={{ color: item.isFavorite ? '#F59E0B' : 'var(--text-muted)' }}
+              >
+                <Star size={15} fill={item.isFavorite ? '#F59E0B' : 'none'} />
+              </button>
+            )}
+            {item.url && !isEditing && (
               <a
                 href={item.url}
                 target="_blank"
@@ -100,17 +152,37 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: '20px' }}>
-            {item.title}
-          </h1>
+          {isEditing ? (
+            <input
+              className="input"
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              style={{ fontSize: '22px', fontWeight: 700, marginBottom: '20px', width: '100%' }}
+              placeholder="Memory Title"
+            />
+          ) : (
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: '20px' }}>
+              {item.title}
+            </h1>
+          )}
 
           {/* Two-column: content + AI panel */}
           <div className="item-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
             {/* Main Content */}
             <div>
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: '24px' }}>
-                {item.content}
-              </p>
+              {isEditing ? (
+                <textarea
+                  className="input"
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  style={{ fontSize: '14px', lineHeight: 1.8, marginBottom: '24px', width: '100%', minHeight: '150px' }}
+                  placeholder="Memory Content"
+                />
+              ) : (
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: '24px' }}>
+                  {item.content}
+                </p>
+              )}
 
               {/* Tags */}
               <div style={{ marginBottom: '24px' }}>
@@ -118,7 +190,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
                   Tags
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {item.tags.map(tag => {
+                  {(isEditing ? editTags : item.tags).map(tag => {
                     const color = TAG_COLORS[tag] || '#6B7280';
                     return (
                       <span key={tag} className="tag-pill" style={{
@@ -127,11 +199,36 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
                         borderColor: `${color}40`,
                         fontSize: '12px',
                         padding: '4px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
                       }}>
                         {tag}
+                        {isEditing && (
+                          <X 
+                            size={12} 
+                            style={{ cursor: 'pointer', opacity: 0.6 }} 
+                            onClick={() => removeTag(tag)}
+                          />
+                        )}
                       </span>
                     );
                   })}
+                  {isEditing && (
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <input
+                        className="input"
+                        value={newTag}
+                        onChange={e => setNewTag(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addTag()}
+                        placeholder="Add tag..."
+                        style={{ fontSize: '12px', padding: '4px 8px', width: '100px', height: 'auto' }}
+                      />
+                      <button onClick={addTag} className="btn btn-ghost btn-icon" style={{ padding: '4px' }}>
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -198,9 +295,18 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
                     AI Summary
                   </span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                  {item.summary}
-                </p>
+                {isEditing ? (
+                  <textarea
+                    className="input"
+                    value={editSummary}
+                    onChange={e => setEditSummary(e.target.value)}
+                    style={{ fontSize: '12px', lineHeight: 1.7, width: '100%', minHeight: '100px', background: 'transparent', border: 'none', padding: 0 }}
+                  />
+                ) : (
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                    {item.summary}
+                  </p>
+                )}
               </div>
 
               {/* Metadata */}
@@ -228,18 +334,30 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
               </div>
 
               {/* Actions */}
-              {item.url && (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {isEditing ? (
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
                   className="btn btn-primary"
-                  style={{ textDecoration: 'none', justifyContent: 'center' }}
-                  onClick={e => e.stopPropagation()}
+                  style={{ width: '100%', justifyContent: 'center' }}
                 >
-                  <ExternalLink size={14} />
-                  {item.type === 'pdf' ? 'View PDF' : 'Open original'}
-                </a>
+                  {isSaving ? <Loader size={14} className="spin" /> : <Check size={14} />}
+                  Save Changes
+                </button>
+              ) : (
+                item.url && (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ textDecoration: 'none', justifyContent: 'center' }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <ExternalLink size={14} />
+                    {item.type === 'pdf' ? 'View PDF' : 'Open original'}
+                  </a>
+                )
               )}
             </div>
           </div>

@@ -89,3 +89,27 @@ export async function deleteItem(supabase: SupabaseClient, id: string): Promise<
   const { error } = await supabase.from('memory_items').delete().eq('id', id);
   if (error) console.error('deleteItem error:', error.message);
 }
+
+export async function updateItem(
+  supabase: SupabaseClient,
+  id: string,
+  data: { title?: string; content?: string; summary?: string; tags?: string[] }
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('memory_items')
+    .update({
+      title: data.title,
+      content: data.content,
+      summary: data.summary,
+      tags: data.tags,
+      // If summary or tags are changed, we consider it "processed" or at least updated
+      ai_processed: true 
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('updateItem error:', error.message);
+    return false;
+  }
+  return true;
+}
