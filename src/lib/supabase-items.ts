@@ -10,6 +10,7 @@ function rowToItem(row: any): MemoryItem {
     content: row.content,
     url: row.url ?? undefined,
     sourceDomain: row.source_domain ?? undefined,
+    thumbnailUrl: row.thumbnail_url ?? undefined,
     summary: row.summary ?? '',
     tags: row.tags ?? [],
     isFavorite: row.is_favorite ?? false,
@@ -36,7 +37,7 @@ export async function fetchItems(supabase: SupabaseClient, userId: string): Prom
 export async function saveItem(
   supabase: SupabaseClient,
   userId: string,
-  data: { type: string; title: string; content: string; url?: string }
+  data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }
 ): Promise<MemoryItem | null> {
   const insert = {
     user_id: userId,
@@ -44,11 +45,12 @@ export async function saveItem(
     title: data.title,
     content: data.content,
     url: data.url ?? null,
+    thumbnail_url: data.thumbnailUrl ?? null,
     source_domain: data.url ? (() => { try { return new URL(data.url).hostname.replace('www.', ''); } catch { return null; } })() : null,
-    summary: '',
-    tags: [],
+    summary: data.summary ?? '',
+    tags: data.tags ?? [],
     is_favorite: false,
-    ai_processed: false,
+    ai_processed: !!data.summary || !!data.tags?.length,
   };
 
   const { data: row, error } = await supabase

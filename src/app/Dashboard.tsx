@@ -62,7 +62,7 @@ export default function Dashboard({ user }: { user: any }) {
     await toggleFavorite(supabase, id, next);
   }, [items]);
 
-  const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string }) => {
+  const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => {
     if (!user?.id) return;
 
     // Optimistic placeholder
@@ -73,13 +73,14 @@ export default function Dashboard({ user }: { user: any }) {
       title: data.title,
       content: data.content,
       url: data.url,
+      thumbnailUrl: data.thumbnailUrl,
       sourceDomain: data.url ? (() => { try { return new URL(data.url!).hostname.replace('www.', ''); } catch { return undefined; } })() : undefined,
-      summary: 'Saving...',
-      tags: [],
+      summary: data.summary || 'Saving...',
+      tags: data.tags || [],
       isFavorite: false,
       createdAt: new Date().toISOString(),
       relatedIds: [],
-      aiProcessed: false,
+      aiProcessed: !!data.summary || !!data.tags?.length,
     };
     setItems(prev => [placeholder, ...prev]);
 

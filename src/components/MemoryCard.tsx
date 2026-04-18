@@ -128,6 +128,26 @@ export default function MemoryCard({ item, onClick, onFavorite }: MemoryCardProp
             </div>
           </div>
 
+          {/* Thumbnail */}
+          {item.thumbnailUrl && (
+            <div style={{
+              width: '100%',
+              height: '140px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              marginBottom: '12px',
+              background: 'var(--bg-card)',
+              position: 'relative'
+            }}>
+              <img 
+                src={item.thumbnailUrl} 
+                alt="preview" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+              />
+            </div>
+          )}
+
           {/* Title */}
           <h3 style={{
             fontSize: '14px',

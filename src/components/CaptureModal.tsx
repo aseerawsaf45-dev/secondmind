@@ -6,7 +6,7 @@ import { X, Link2, FileText, Image, Sparkles, Check, Loader } from 'lucide-react
 interface CaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { type: string; title: string; content: string; url?: string }) => void;
+  onSave: (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => void;
 }
 
 type TabType = 'url' | 'note' | 'upload';
@@ -30,15 +30,39 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
     if (tab === 'note' && !note.trim()) return;
 
     setIsSaving(true);
-    await new Promise(r => setTimeout(r, 1800));
+    let extractedData = null;
+
+    if (tab === 'url') {
+      try {
+        const res = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url.trim() }),
+        });
+        if (res.ok) {
+          extractedData = await res.json();
+        }
+      } catch (err) {
+        console.error('Extraction failed', err);
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 600)); // fake delay for notes
+    }
+
     setIsSaving(false);
     setSaved(true);
 
+    const useTitle = title || (extractedData?.title) || (tab === 'url' ? url : note.slice(0, 60) + '...');
+    const useContent = tab === 'url' ? url : note;
+
     onSave({
-      type: tab === 'url' ? 'link' : 'note',
-      title: title || (tab === 'url' ? url : note.slice(0, 60) + '...'),
-      content: tab === 'url' ? url : note,
+      type: tab === 'url' ? (extractedData?.tags?.includes('Video') ? 'video' : 'link') : 'note',
+      title: useTitle,
+      content: useContent,
       url: tab === 'url' ? url : undefined,
+      thumbnailUrl: extractedData?.image,
+      summary: extractedData?.description,
+      tags: extractedData?.tags,
     });
 
     await new Promise(r => setTimeout(r, 800));
