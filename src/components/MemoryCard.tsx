@@ -1,16 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles } from 'lucide-react';
+import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles, ChevronRight, Check } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
+import type { Collection } from '@/lib/supabase-collections';
 import { formatDistanceToNow } from 'date-fns';
 
 interface MemoryCardProps {
   item: MemoryItem;
+  collections: Collection[];
   onClick: () => void;
   onFavorite: () => void;
   onDelete: () => void;
+  onAddToCollection: (collectionId: string) => void;
 }
 
 const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
@@ -250,41 +253,93 @@ export default function MemoryCard({ item, onClick, onFavorite, onDelete }: Memo
         >
           {[
             { icon: <Star size={13} />, label: item.isFavorite ? 'Unfavorite' : 'Favorite', action: onFavorite },
-            { icon: <FolderPlus size={13} />, label: 'Add to collection', action: () => {} },
+            { 
+              icon: <FolderPlus size={13} />, 
+              label: 'Add to collection', 
+              action: () => setShowCollectionSubmenu(!showCollectionSubmenu),
+              submenu: true 
+            },
             { icon: <ExternalLink size={13} />, label: 'Open original', action: () => item.url && window.open(item.url, '_blank') },
             { icon: <Trash2 size={13} />, label: 'Delete', action: () => onDelete(), danger: true },
-          ].map(({ icon, label, action, danger }) => (
-            <button
-              key={label}
-              onClick={() => { action(); setShowMenu(false); }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 10px',
-                borderRadius: '7px',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontFamily: 'inherit',
-                color: danger ? '#EF4444' : 'var(--text-secondary)',
-                transition: 'all 0.15s',
-                textAlign: 'left',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.1)' : 'var(--bg-card-hover)';
-                e.currentTarget.style.color = danger ? '#EF4444' : 'var(--text-primary)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = danger ? '#EF4444' : 'var(--text-secondary)';
-              }}
-            >
-              {icon}
-              {label}
-            </button>
+          ].map(({ icon, label, action, danger, submenu }) => (
+            <div key={label} style={{ position: 'relative' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); action(); if (!submenu) setShowMenu(false); }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  color: danger ? '#EF4444' : 'var(--text-secondary)',
+                  transition: 'all 0.15s',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.1)' : 'var(--bg-card-hover)';
+                  e.currentTarget.style.color = danger ? '#EF4444' : 'var(--text-primary)';
+                  if (label === 'Add to collection') setShowCollectionSubmenu(true);
+                  else setShowCollectionSubmenu(false);
+                }}
+              >
+                {icon}
+                <span style={{ flex: 1 }}>{label}</span>
+                {submenu && <ChevronRight size={10} style={{ opacity: 0.5 }} />}
+              </button>
+
+              {submenu && showCollectionSubmenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: '100%',
+                  marginRight: '8px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: '10px',
+                  padding: '6px',
+                  minWidth: '140px',
+                  boxShadow: '0 16px 32px rgba(0,0,0,0.5)',
+                }}>
+                  {collections.length === 0 ? (
+                    <div style={{ padding: '8px 10px', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      No spaces created
+                    </div>
+                  ) : (
+                    collections.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={(e) => { e.stopPropagation(); onAddToCollection(c.id); setShowMenu(false); }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          color: 'var(--text-secondary)',
+                          textAlign: 'left'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                      >
+                        <span>{c.emoji}</span>
+                        {c.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

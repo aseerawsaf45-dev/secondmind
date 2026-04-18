@@ -26,6 +26,7 @@ interface SidebarProps {
   onFilterChange: (filter: string) => void;
   onSearchOpen: () => void;
   onCaptureOpen: () => void;
+  onCreateCollectionOpen: () => void;
   onSettingsOpen: () => void;
   itemCounts: Record<string, number>;
   collections: Collection[];
@@ -34,7 +35,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onSettingsOpen, itemCounts, collections, user, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onCreateCollectionOpen, onSettingsOpen, itemCounts, collections, user, isOpen, onClose }: SidebarProps) {
   const [expandCollections, setExpandCollections] = useState(true);
 
   return (
@@ -48,8 +49,6 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
       borderRight: '1px solid var(--border)',
       overflow: 'hidden',
     }}>
-      {/* ... previous content omitted for brevity/matching ... */}
-      {/* Search and Logo sections remain same */}
       {/* Logo */}
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -272,7 +271,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               title="Create new Space" 
               className="btn btn-ghost btn-icon" 
               style={{ width: '20px', height: '20px', padding: 0 }}
-              onClick={() => {/* TODO: Open create modal */}}
+              onClick={onCreateCollectionOpen}
             >
               <Plus size={10} />
             </button>

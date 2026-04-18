@@ -10,8 +10,9 @@ import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import type { MemoryItem } from '@/lib/data';
 import { fetchItems, saveItem, toggleFavorite, deleteItem } from '@/lib/supabase-items';
-import { fetchCollections, Collection } from '@/lib/supabase-collections';
+import { fetchCollections, createCollection, addItemToCollection, Collection } from '@/lib/supabase-collections';
 import { createClient } from '@/utils/supabase/client';
+import CreateCollectionModal from '@/components/CreateCollectionModal';
 import { signout } from '@/app/login/actions';
 
 type SortOption = 'newest' | 'oldest' | 'favorites';
@@ -20,10 +21,12 @@ export default function Dashboard({ user }: { user: any }) {
   const supabase = createClient();
   const [items, setItems] = useState<MemoryItem[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [itemCollectionMap, setItemCollectionMap] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchOpen, setSearchOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
@@ -31,21 +34,31 @@ export default function Dashboard({ user }: { user: any }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Load items and collections from Supabase on mount
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!user?.id) return;
     
-    const loadData = async () => {
-      const [fetchedItems, fetchedCollections] = await Promise.all([
-        fetchItems(supabase, user.id),
-        fetchCollections(supabase, user.id)
-      ]);
-      setItems(fetchedItems);
-      setCollections(fetchedCollections);
-      setLoading(false);
-    };
+    // Fetch junction data first for map
+    const { data: relations } = await supabase.from('collection_items').select('*');
+    const itemMap: Record<string, string[]> = {};
+    relations?.forEach(rel => {
+      if (!itemMap[rel.item_id]) itemMap[rel.item_id] = [];
+      itemMap[rel.item_id].push(rel.collection_id);
+    });
 
+    const [fetchedItems, fetchedCollections] = await Promise.all([
+      fetchItems(supabase, user.id),
+      fetchCollections(supabase, user.id)
+    ]);
+    
+    setItems(fetchedItems);
+    setCollections(fetchedCollections);
+    setItemCollectionMap(itemMap);
+    setLoading(false);
+  }, [user?.id, supabase]);
+
+  useEffect(() => {
     loadData();
-  }, [user?.id]);
+  }, [loadData]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -71,11 +84,21 @@ export default function Dashboard({ user }: { user: any }) {
     await toggleFavorite(supabase, id, next);
   }, [items]);
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (!confirm('Are you sure you want to delete this memory?')) return;
-    setItems(prev => prev.filter(i => i.id !== id));
-    await deleteItem(supabase, id);
-  }, []);
+  const handleCreateCollection = async (data: any) => {
+    if (!user?.id) return;
+    const saved = await createCollection(supabase, user.id, data);
+    if (saved) {
+      loadData();
+    }
+  };
+
+  const handleAddToCollection = useCallback(async (itemId: string, collectionId: string) => {
+    // Optimistically could update itemCollectionMap but safer to just wait
+    const success = await addItemToCollection(supabase, itemId, collectionId);
+    if (success) {
+      loadData(); // Re-sync state
+    }
+  }, [supabase, loadData]);
 
   const handleSave = useCallback(async (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => {
     if (!user?.id) return;
@@ -107,7 +130,7 @@ export default function Dashboard({ user }: { user: any }) {
       // Remove placeholder on error
       setItems(prev => prev.filter(i => i.id !== tempId));
     }
-  }, [user?.id, items]);
+  }, [user?.id, supabase]);
 
   // Filter logic
   const filteredItems = (() => {
@@ -128,11 +151,11 @@ export default function Dashboard({ user }: { user: any }) {
       const collId = activeFilter.slice(11);
       const coll = collections.find(c => c.id === collId);
       if (coll && coll.isSmart) {
-        // Smart rule filtering (simplified for now: match by name as a tag)
+        // Smart rule filtering (simplified: match by name as a tag)
         filtered = filtered.filter(i => i.tags.includes(coll.name));
       } else {
-        // Regular collection logic would need a junction table query
-        // For now, if it's not smart, we'll just show all (this needs more backend work)
+        // Regular collection using junction map
+        filtered = filtered.filter(i => itemCollectionMap[i.id]?.includes(collId));
       }
     }
 
@@ -164,8 +187,7 @@ export default function Dashboard({ user }: { user: any }) {
     if (activeFilter === 'ai-insights') return 'AI Insights';
     if (activeFilter.startsWith('tag:')) return `#${activeFilter.slice(4)}`;
     if (activeFilter.startsWith('collection:')) {
-      const coll = collections.find(c => c.id === activeFilter.slice(11)) || 
-                   collections.find(c => c.id === activeFilter.slice(11));
+      const coll = collections.find(c => c.id === activeFilter.slice(11));
       return coll ? `${coll.emoji} ${coll.name}` : 'Collection';
     }
     return activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1) + 's';
@@ -191,6 +213,7 @@ export default function Dashboard({ user }: { user: any }) {
         onFilterChange={(f) => { setActiveFilter(f); setSidebarOpen(false); }}
         onSearchOpen={() => { setSearchOpen(true); setSidebarOpen(false); }}
         onCaptureOpen={() => { setCaptureOpen(true); setSidebarOpen(false); }}
+        onCreateCollectionOpen={() => { setCreateCollectionOpen(true); setSidebarOpen(false); }}
         onSettingsOpen={() => { setSettingsOpen(true); setSidebarOpen(false); }}
         itemCounts={itemCounts}
         collections={collections}
@@ -203,6 +226,7 @@ export default function Dashboard({ user }: { user: any }) {
       <main className="dashboard-main">
         {/* Top bar */}
         <header className="dashboard-header">
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Hamburger – visible on mobile */}
             <button
@@ -297,9 +321,11 @@ export default function Dashboard({ user }: { user: any }) {
                 >
                   <MemoryCard
                     item={item}
+                    collections={collections}
                     onClick={() => setSelectedItem(item)}
                     onFavorite={() => handleFavorite(item.id)}
                     onDelete={() => handleDelete(item.id)}
+                    onAddToCollection={(collId) => handleAddToCollection(item.id, collId)}
                   />
                 </div>
               ))}
@@ -313,6 +339,11 @@ export default function Dashboard({ user }: { user: any }) {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSelectItem={item => { setSelectedItem(item); setSearchOpen(false); }}
+      />
+      <CreateCollectionModal
+        isOpen={createCollectionOpen}
+        onClose={() => setCreateCollectionOpen(false)}
+        onSave={handleCreateCollection}
       />
       <CaptureModal
         isOpen={captureOpen}
