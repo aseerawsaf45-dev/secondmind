@@ -17,6 +17,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   note: <FileText size={14} />,
   video: <Film size={14} />,
   tweet: <MessageCircle size={14} />,
+  pdf: <FileText size={14} />,
 };
 
 export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite }: ItemDetailModalProps) {
@@ -237,7 +238,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
                   onClick={e => e.stopPropagation()}
                 >
                   <ExternalLink size={14} />
-                  Open original
+                  {item.type === 'pdf' ? 'View PDF' : 'Open original'}
                 </a>
               )}
             </div>

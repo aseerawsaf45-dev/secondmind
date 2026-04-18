@@ -1,11 +1,12 @@
-'use client';
-
-import { useState } from 'react';
-import { X, Link2, FileText, Image, Sparkles, Check, Loader } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload } from 'lucide-react';
+import { useRef } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { uploadFile } from '@/lib/supabase-storage';
 
 interface CaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
+  user: any;
   onSave: (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => void;
 }
 
@@ -14,23 +15,28 @@ type TabType = 'url' | 'note' | 'upload';
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'url', label: 'Paste URL', icon: <Link2 size={14} /> },
   { id: 'note', label: 'Quick Note', icon: <FileText size={14} /> },
-  { id: 'upload', label: 'Upload', icon: <Image size={14} /> },
+  { id: 'upload', label: 'Upload', icon: <Upload size={14} /> },
 ];
 
-export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps) {
+export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureModalProps) {
+  const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<TabType>('url');
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const [title, setTitle] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
     if (tab === 'url' && !url.trim()) return;
     if (tab === 'note' && !note.trim()) return;
+    if (tab === 'upload' && !selectedFile) return;
 
     setIsSaving(true);
     let extractedData = null;
+    let fileUrl = null;
 
     if (tab === 'url') {
       try {
@@ -45,6 +51,14 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
       } catch (err) {
         console.error('Extraction failed', err);
       }
+    } else if (tab === 'upload' && selectedFile) {
+      const { url: uploadedUrl, error } = await uploadFile(supabase, user?.id, selectedFile);
+      if (error) {
+        alert('File upload failed. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+      fileUrl = uploadedUrl;
     } else {
       await new Promise(r => setTimeout(r, 600)); // fake delay for notes
     }
@@ -52,20 +66,28 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
     setIsSaving(false);
     setSaved(true);
 
-    const useTitle = title || (extractedData?.title) || (tab === 'url' ? url : note.slice(0, 60) + '...');
-    const useContent = tab === 'url' ? url : note;
+    const useTitle = title || (selectedFile?.name) || (extractedData?.title) || (tab === 'url' ? url : note.slice(0, 60) + '...');
+    const useContent = tab === 'upload' ? (fileUrl || '') : (tab === 'url' ? url : note);
 
-    const isTweet = tab === 'url' && (url.includes('twitter.com') || url.includes('x.com'));
+    const lowerUrl = (url || '').trim().toLowerCase();
+    const isTweet = tab === 'url' && (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
     const isVideo = tab === 'url' && extractedData?.tags?.includes('Video');
+    
+    // Determine type
+    let type = 'note';
+    if (tab === 'url') type = isTweet ? 'tweet' : isVideo ? 'video' : 'link';
+    if (tab === 'upload' && selectedFile) {
+      type = selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'link';
+    }
 
     onSave({
-      type: tab === 'url' ? (isTweet ? 'tweet' : isVideo ? 'video' : 'link') : 'note',
+      type,
       title: useTitle,
       content: useContent,
-      url: tab === 'url' ? url : undefined,
+      url: tab === 'url' ? url : (tab === 'upload' ? fileUrl || undefined : undefined),
       thumbnailUrl: extractedData?.image,
-      summary: extractedData?.description,
-      tags: extractedData?.tags,
+      summary: extractedData?.description || (tab === 'upload' ? `Uploaded ${selectedFile?.name}` : undefined),
+      tags: extractedData?.tags || (tab === 'upload' ? ['Uploaded'] : []),
     });
 
     await new Promise(r => setTimeout(r, 800));
@@ -197,30 +219,62 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
           )}
 
           {tab === 'upload' && (
-            <div
-              style={{
-                border: '2px dashed var(--border-strong)',
-                borderRadius: '12px',
-                padding: '48px 24px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = 'var(--violet)';
-                e.currentTarget.style.background = 'var(--violet-glow)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = 'var(--border-strong)';
-                e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>📎</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>
-                Drop files here or click to upload
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                style={{ display: 'none' }}
+                accept=".pdf,.jpg,.jpeg,.png,.mp4"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: '2px dashed var(--border-strong)',
+                  borderRadius: '12px',
+                  padding: '40px 24px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: selectedFile ? 'rgba(124,58,237,0.05)' : 'transparent',
+                  borderColor: selectedFile ? 'var(--violet)' : 'var(--border-strong)',
+                }}
+                onMouseEnter={e => {
+                  if (!selectedFile) e.currentTarget.style.borderColor = 'var(--violet)';
+                }}
+                onMouseLeave={e => {
+                  if (!selectedFile) e.currentTarget.style.borderColor = 'var(--border-strong)';
+                }}
+              >
+                <div style={{ fontSize: '36px', marginBottom: '12px' }}>
+                  {selectedFile ? '📄' : '📎'}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>
+                  {selectedFile ? selectedFile.name : 'Drop files here or click to upload'}
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
+                  {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, PDF, MP4 up to 50MB'}
+                </div>
+                {selectedFile && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
+                    style={{ marginTop: '12px', fontSize: '12px', color: 'var(--violet-bright)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Change file
+                  </button>
+                )}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
-                PNG, JPG, PDF, MP4 up to 50MB
+              
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
+                  Space (Optional)
+                </label>
+                <input
+                  className="input"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="e.g. Project Q3, Research..."
+                />
               </div>
             </div>
           )}
@@ -249,17 +303,17 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || saved || (tab === 'url' ? !url.trim() : !note.trim())}
+              disabled={isSaving || saved || (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : !selectedFile)}
               className="btn btn-primary"
               style={{
                 flex: 2,
-                opacity: (tab === 'url' ? !url.trim() : !note.trim()) ? 0.6 : 1,
+                opacity: (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : !selectedFile) ? 0.6 : 1,
               }}
             >
               {isSaving ? (
                 <>
-                  <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  Processing with AI...
+                  <Loader size={14} className="spin" />
+                  {tab === 'upload' ? 'Uploading...' : 'Processing with AI...'}
                 </>
               ) : saved ? (
                 <>
@@ -269,7 +323,7 @@ export default function CaptureModal({ isOpen, onClose, onSave }: CaptureModalPr
               ) : (
                 <>
                   <Sparkles size={14} />
-                  Save to Memory
+                  {tab === 'upload' ? 'Upload and Save' : 'Save to Memory'}
                 </>
               )}
             </button>

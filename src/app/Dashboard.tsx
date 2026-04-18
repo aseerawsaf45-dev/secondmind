@@ -355,6 +355,7 @@ export default function Dashboard({ user }: { user: any }) {
         isOpen={captureOpen}
         onClose={() => setCaptureOpen(false)}
         onSave={handleSave}
+        user={user}
       />
       <ItemDetailModal
         item={selectedItem}
