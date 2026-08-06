@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,8 +37,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased">{children}</body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        theme: dark,
+      }}
+    >
+      <html lang="en" className={`${inter.variable} h-full antialiased`}>
+        <body className="min-h-full flex flex-col bg-[#08080F] text-white">
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

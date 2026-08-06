@@ -15,9 +15,9 @@ import {
   Bell,
   Zap,
 } from 'lucide-react';
-import { fetchCollections, Collection } from '@/lib/supabase-collections';
+import { Collection } from '@/lib/db-collections';
 import { TAG_COLORS } from '@/lib/data';
-import { signout } from '@/app/login/actions';
+import { UserButton, useClerk } from '@clerk/nextjs';
 
 const TOP_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
 
@@ -369,33 +369,21 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '30px',
-            height: '30px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7C3AED, #EC4899)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'white',
-          }}>
-            {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
-          </div>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: 'w-8 h-8 rounded-full border border-[rgba(255,255,255,0.2)]',
+              }
+            }}
+          />
           <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>
-              {user?.email || 'User'}
+            <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
+              {user?.email || user?.fullName || 'User'}
             </div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Pro Plan</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          <form action={signout}>
-            <button title="Sign Out" className="btn btn-ghost btn-icon" style={{ width: '28px', height: '28px', borderRadius: '7px', padding: '4px' }}>
-              <Zap size={13} style={{ transform: 'rotate(180deg)' }} />
-            </button>
-          </form>
           <button onClick={onSettingsOpen} className="btn btn-ghost btn-icon" style={{ width: '28px', height: '28px', borderRadius: '7px', padding: '4px' }}>
             <Settings size={13} />
           </button>

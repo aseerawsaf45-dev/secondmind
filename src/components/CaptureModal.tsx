@@ -1,7 +1,5 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { uploadFile } from '@/lib/supabase-storage';
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -18,24 +16,46 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'upload', label: 'Upload', icon: <Upload size={14} /> },
 ];
 
+const SUGGESTED_TAGS = ['AI', 'Design', 'Business', 'Tech', 'Productivity', 'Research'];
+
 export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureModalProps) {
-  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<TabType>('url');
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const [title, setTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [customTags, setCustomTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const handleAddTag = (tagToAdd?: string) => {
+    const text = (tagToAdd || tagInput).trim().replace(/^#/, '');
+    if (text && !customTags.includes(text)) {
+      setCustomTags([...customTags, text]);
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setCustomTags(customTags.filter(t => t !== tagToRemove));
+  };
+
   const handleSave = async () => {
-    if (tab === 'url' && !url.trim()) return;
+    let cleanUrl = url.trim();
+    if (tab === 'url' && !cleanUrl) return;
     if (tab === 'note' && !note.trim()) return;
     if (tab === 'upload' && !selectedFile) return;
 
+    if (tab === 'url') {
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        cleanUrl = 'https://' + cleanUrl;
+      }
+    }
+
     setIsSaving(true);
-    let extractedData = null;
+    let extractedData: any = null;
     let fileUrl = null;
 
     if (tab === 'url') {
@@ -43,7 +63,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url.trim() }),
+          body: JSON.stringify({ url: cleanUrl }),
         });
         if (res.ok) {
           extractedData = await res.json();
@@ -52,51 +72,49 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         console.error('Extraction failed', err);
       }
     } else if (tab === 'upload' && selectedFile) {
-      console.log('Attempting upload for file:', selectedFile.name, 'Size:', selectedFile.size, 'User:', user?.id);
-      const { url: uploadedUrl, error } = await uploadFile(supabase, user?.id, selectedFile);
-      if (error) {
-        console.error('File upload failed:', error);
-        alert(`File upload failed: ${error.message || 'Unknown error'}. Please ensure the "memories" bucket exists in Supabase Storage.`);
-        setIsSaving(false);
-        return;
-      }
-      fileUrl = uploadedUrl;
+      fileUrl = URL.createObjectURL(selectedFile);
     } else {
-      await new Promise(r => setTimeout(r, 600)); // fake delay for notes
+      await new Promise(r => setTimeout(r, 400));
     }
 
-    setIsSaving(false);
-    setSaved(true);
-
-    const useTitle = title || (selectedFile?.name) || (extractedData?.title) || (tab === 'url' ? url : note.slice(0, 60) + '...');
-    const useContent = tab === 'upload' ? (fileUrl || '') : (tab === 'url' ? url : note);
-
-    const lowerUrl = (url || '').trim().toLowerCase();
+    const lowerUrl = cleanUrl.toLowerCase();
     const isTweet = tab === 'url' && (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
-    const isVideo = tab === 'url' && extractedData?.tags?.includes('Video');
-    
-    // Determine type
+    const isVideo = tab === 'url' && (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || extractedData?.tags?.includes('Video'));
+
     let type = 'note';
     if (tab === 'url') type = isTweet ? 'tweet' : isVideo ? 'video' : 'link';
     if (tab === 'upload' && selectedFile) {
       type = selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'link';
     }
 
+    const useTitle = title.trim() || extractedData?.title || (selectedFile?.name) || (tab === 'url' ? cleanUrl : note.slice(0, 60) + '...');
+    const useContent = tab === 'upload' ? (fileUrl || '') : (tab === 'url' ? (extractedData?.description || cleanUrl) : note);
+
+    // Merge AI extracted tags with user's custom tags
+    const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
+    if (tab === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
+    if (mergedTagsSet.size === 0) mergedTagsSet.add('Saved');
+
     onSave({
       type,
       title: useTitle,
       content: useContent,
-      url: tab === 'url' ? url : (tab === 'upload' ? fileUrl || undefined : undefined),
+      url: tab === 'url' ? cleanUrl : (tab === 'upload' ? fileUrl || undefined : undefined),
       thumbnailUrl: extractedData?.image,
       summary: extractedData?.description || (tab === 'upload' ? `Uploaded ${selectedFile?.name}` : undefined),
-      tags: extractedData?.tags || (tab === 'upload' ? ['Uploaded'] : []),
+      tags: Array.from(mergedTagsSet),
     });
 
-    await new Promise(r => setTimeout(r, 800));
+    setIsSaving(false);
+    setSaved(true);
+
+    await new Promise(r => setTimeout(r, 400));
     setSaved(false);
     setUrl('');
     setNote('');
     setTitle('');
+    setCustomTags([]);
+    setTagInput('');
     onClose();
   };
 
@@ -169,14 +187,15 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                   className="input"
                   value={url}
                   onChange={e => setUrl(e.target.value)}
-                  placeholder="https://example.com/article"
-                  type="url"
+                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  placeholder="https://example.com or github.com"
+                  type="text"
                   autoFocus
                 />
               </div>
               <div>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
-                  Note (optional)
+                  Title / Note (optional)
                 </label>
                 <textarea
                   className="input"
@@ -280,6 +299,106 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
               </div>
             </div>
           )}
+
+          {/* Custom Tags Section */}
+          <div style={{ marginTop: '14px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontWeight: 500 }}>
+              <Tag size={12} />
+              Custom Tags (Optional)
+            </label>
+
+            {/* Selected Tag Pills */}
+            {customTags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {customTags.map(t => (
+                  <span
+                    key={t}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      background: 'rgba(124,58,237,0.2)',
+                      border: '1px solid rgba(124,58,237,0.4)',
+                      color: '#A78BFA',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    #{t}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(t)}
+                      style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', display: 'flex', padding: 0 }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Tag Input Field & Add Button */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                className="input"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+                placeholder="Type tag & press Enter (e.g. Work, Article)"
+                style={{ fontSize: '13px', padding: '8px 12px' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleAddTag()}
+                className="btn btn-ghost"
+                style={{ padding: '8px 12px', fontSize: '12px' }}
+              >
+                <Plus size={14} />
+                Add
+              </button>
+            </div>
+
+            {/* Suggested Tag Pills */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '2px' }}>
+                Suggested:
+              </span>
+              {SUGGESTED_TAGS.map(st => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => handleAddTag(st)}
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '999px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--violet)';
+                    e.currentTarget.style.color = 'var(--violet-bright)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  +#{st}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* AI processing notice */}
           <div style={{

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Heart, ExternalLink, MoreHorizontal, Star, Trash2, FolderPlus, Sparkles, ChevronRight, Check, Edit2 } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
-import type { Collection } from '@/lib/supabase-collections';
+import type { Collection } from '@/lib/db-collections';
 import { formatDistanceToNow } from 'date-fns';
 
 interface MemoryCardProps {
@@ -79,17 +79,11 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
     >
       <div
         onClick={onClick}
+        className="glass-card"
         style={{
-          background: 'var(--bg-card)',
-          border: `1px solid ${isHovered ? 'var(--border-strong)' : 'var(--border)'}`,
           borderRadius: '16px',
           overflow: 'hidden',
           cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
-          boxShadow: isHovered
-            ? '0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)'
-            : '0 2px 8px rgba(0,0,0,0.2)',
           position: 'relative',
         }}
       >
@@ -176,7 +170,13 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
               <img 
                 src={item.thumbnailUrl} 
                 alt="preview" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: isHovered ? 'scale(1.05)' : 'scale(1.0)',
+                  transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                }} 
                 onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
               />
             </div>

@@ -1,6 +1,6 @@
 import { X, ExternalLink, Star, Sparkles, ArrowRight, Link2, FileText, Film, MessageCircle, Edit2, Check, Plus, Loader } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
-import { MOCK_ITEMS, TAG_COLORS } from '@/lib/data';
+import { TAG_COLORS } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect } from 'react';
 
@@ -10,7 +10,9 @@ interface ItemDetailModalProps {
   onSelectItem: (item: MemoryItem) => void;
   onFavorite: (id: string) => void;
   onUpdate: (id: string, data: any) => Promise<void>;
+  onDelete: (id: string) => void;
   initialEditMode?: boolean;
+  allItems: MemoryItem[];
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -21,7 +23,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   pdf: <FileText size={14} />,
 };
 
-export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite, onUpdate, initialEditMode }: ItemDetailModalProps) {
+export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorite, onUpdate, onDelete, initialEditMode, allItems }: ItemDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -66,7 +68,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
     setEditTags(editTags.filter(t => t !== tag));
   };
 
-  const relatedItems = MOCK_ITEMS.filter(i => item.relatedIds.includes(i.id));
+  const relatedItems = allItems.filter(i => item.relatedIds.includes(i.id));
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
 
   return (
@@ -145,6 +147,21 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
                 <ExternalLink size={15} />
               </a>
             )}
+            <button
+              onClick={() => {
+                onDelete(item.id);
+                onClose();
+              }}
+              className="btn btn-ghost btn-icon"
+              style={{ color: '#ef4444' }}
+              title="Delete Memory"
+            >
+              <X size={15} style={{ display: 'none' }} />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
             <button onClick={onClose} className="btn btn-ghost btn-icon">
               <X size={15} />
             </button>

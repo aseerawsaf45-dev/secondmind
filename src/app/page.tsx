@@ -1,14 +1,21 @@
-import { createClient } from '@/utils/supabase/server'
-import Dashboard from './Dashboard'
+import { currentUser } from '@clerk/nextjs/server';
+import Dashboard from './Dashboard';
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  
-  // The middleware already protects this route, 
-  // so user will be defined here.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await currentUser();
 
-  return <Dashboard user={user} />
+  return (
+    <Dashboard
+      user={
+        user
+          ? {
+              id: user.id,
+              email: user.emailAddresses[0]?.emailAddress,
+              fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+              avatarUrl: user.imageUrl,
+            }
+          : null
+      }
+    />
+  );
 }

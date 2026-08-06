@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, ArrowRight, Hash, Clock, Sparkles } from 'lucide-react';
-import { MOCK_ITEMS } from '@/lib/data';
 import type { MemoryItem } from '@/lib/data';
 
 interface SearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectItem: (item: MemoryItem) => void;
+  items: MemoryItem[];
 }
 
 const QUICK_SUGGESTIONS = [
@@ -19,7 +19,7 @@ const QUICK_SUGGESTIONS = [
   'Philosophy and mental models',
 ];
 
-export default function SearchOverlay({ isOpen, onClose, onSelectItem }: SearchOverlayProps) {
+export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: SearchOverlayProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MemoryItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -44,7 +44,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem }: SearchO
     setIsSearching(true);
     const timer = setTimeout(() => {
       const q = query.toLowerCase();
-      const filtered = MOCK_ITEMS.filter(
+      const filtered = items.filter(
         item =>
           item.title.toLowerCase().includes(q) ||
           item.summary.toLowerCase().includes(q) ||
@@ -244,7 +244,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem }: SearchO
               <div style={{ padding: '4px 12px 10px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 Recent
               </div>
-              {MOCK_ITEMS.slice(0, 3).map(item => (
+              {items.slice(0, 3).map(item => (
                 <button
                   key={item.id}
                   onClick={() => { onSelectItem(item); onClose(); }}
