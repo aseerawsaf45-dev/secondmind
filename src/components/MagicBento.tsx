@@ -101,7 +101,7 @@ interface ParticleCardProps {
   enableMagnetism?: boolean;
 }
 
-const ParticleCard = ({
+export const ParticleCard = ({
   children,
   className = '',
   disableAnimations = false,

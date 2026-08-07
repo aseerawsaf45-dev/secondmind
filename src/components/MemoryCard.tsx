@@ -36,6 +36,8 @@ const GRADIENT_BACKGROUNDS = [
   'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 100%)',
 ];
 
+import { ParticleCard } from './MagicBento';
+
 export default function MemoryCard({ item, collections, onClick, onFavorite, onEdit, onDelete, onAddToCollection }: MemoryCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -78,16 +80,25 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setShowMenu(false); }}
     >
-      <div
-        onClick={onClick}
-        className="glass-card"
-        style={{
-          borderRadius: '16px',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          position: 'relative',
-        }}
+      <ParticleCard
+        glowColor="102, 164, 172"
+        particleCount={8}
+        enableTilt={true}
+        enableMagnetism={false}
+        clickEffect={true}
+        className="magic-bento-card--border-glow"
+        style={{ borderRadius: '16px' }}
       >
+        <div
+          onClick={onClick}
+          className="glass-card"
+          style={{
+            borderRadius: '16px',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            position: 'relative',
+          }}
+        >
         {/* Card Gradient Header */}
         <div style={{
           background: bgGradient,
@@ -268,6 +279,7 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
           }} />
         )}
       </div>
+      </ParticleCard>
 
       {/* Context Menu — rendered via Portal to escape masonry column clipping */}
       {showMenu && typeof document !== 'undefined' && createPortal(

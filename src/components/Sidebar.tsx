@@ -34,20 +34,37 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+import { motion } from 'framer-motion';
+
 export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, onCaptureOpen, onCreateCollectionOpen, onSettingsOpen, itemCounts, collections, user, isOpen, onClose }: SidebarProps) {
   const [expandCollections, setExpandCollections] = useState(true);
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-mobile-open' : ''}`} style={{
-      width: '260px',
+      width: '270px',
       flexShrink: 0,
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      background: 'var(--bg-surface)',
-      borderRight: '1px solid var(--border)',
+      background: 'rgba(8, 10, 16, 0.75)',
+      backdropFilter: 'blur(24px)',
+      WebkitBackdropFilter: 'blur(24px)',
+      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
       overflow: 'hidden',
+      position: 'relative',
+      zIndex: 10,
     }}>
+      {/* Ambient background glow */}
+      <div style={{
+        position: 'absolute',
+        top: '-100px',
+        left: '-50px',
+        width: '250px',
+        height: '250px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(102,164,172,0.15) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
       {/* Logo */}
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
