@@ -268,52 +268,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   return (
     <div className="noise-bg" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
-      {/* Ambient background glow orbs */}
-      <div
-        className="animate-float-slow"
-        style={{
-          position: 'fixed',
-          top: '-15%',
-          left: '12%',
-          width: '650px',
-          height: '650px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.14) 0%, transparent 65%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-          filter: 'blur(30px)',
-        }}
-      />
-      <div
-        className="animate-float-slow"
-        style={{
-          position: 'fixed',
-          bottom: '-15%',
-          right: '8%',
-          width: '550px',
-          height: '550px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 65%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-          filter: 'blur(30px)',
-          animationDelay: '-3.5s',
-        }}
-      />
-      <div
-        style={{
-          position: 'fixed',
-          top: '40%',
-          left: '45%',
-          transform: 'translate(-50%, -50%)',
-          width: '800px',
-          height: '800px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(147,51,234,0.05) 0%, transparent 60%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
+      
 
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -452,7 +407,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                         padding: '8px 12px',
                         borderRadius: '7px',
                         border: 'none',
-                        background: sortBy === opt ? 'rgba(124,58,237,0.15)' : 'transparent',
+                        background: sortBy === opt ? 'rgba(6, 86, 91,0.15)' : 'transparent',
                         color: sortBy === opt ? 'var(--violet-bright)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                         fontSize: '13px',
@@ -692,14 +647,14 @@ function EmptyState({ filter, onCapture }: { filter: string; onCapture: () => vo
         width: '96px',
         height: '96px',
         borderRadius: '28px',
-        background: 'linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(6,182,212,0.15) 100%)',
-        border: '1px solid rgba(168,85,247,0.3)',
+        background: 'linear-gradient(135deg, rgba(6, 86, 91,0.2) 0%, rgba(0, 58, 68,0.15) 100%)',
+        border: '1px solid rgba(102, 164, 172,0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '48px',
         marginBottom: '24px',
-        boxShadow: '0 20px 40px rgba(124,58,237,0.25), inset 0 1px 0 rgba(255,255,255,0.2)',
+        boxShadow: '0 20px 40px rgba(6, 86, 91,0.25), inset 0 1px 0 rgba(255,255,255,0.2)',
         backdropFilter: 'blur(20px)',
       }}>
         {msg.emoji}

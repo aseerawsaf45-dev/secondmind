@@ -1,30 +1,32 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-
-function simpleAIClassifier(text: string): string[] {
-  const lower = text.toLowerCase();
-  const tags = new Set<string>();
-  
-  if (lower.match(/ai|machine learning|openai|chatgpt|llm/)) tags.add('AI');
-  if (lower.match(/design|ui|ux|figma/)) tags.add('Design');
-  if (lower.match(/business|startup|founder|revenue|marketing/)) tags.add('Business');
-  if (lower.match(/research|science|paper|study/)) tags.add('Research');
-  if (lower.match(/productivity|habit|focus|morning/)) tags.add('Productivity');
-  if (lower.match(/philosophy|mindset|thinking|model/)) tags.add('Philosophy');
-  if (lower.match(/tech|react|javascript|python|vercel/)) tags.add('Technology');
-  if (lower.match(/health|workout|diet/)) tags.add('Health');
-  
-  return Array.from(tags).slice(0, 3);
-}
+import { extractYouTubeVideoId, fetchYouTubeOEmbed, isYouTubeUrl, getYouTubeThumbnailUrl } from '@/lib/youtube';
+import { classifyContent, generateAISummary } from '@/lib/ai-engine';
 
 export async function POST(request: Request) {
   let targetUrl = '';
+  let rawText = '';
   try {
     const body = await request.json();
     targetUrl = (body.url || '').trim();
+    rawText = (body.text || body.content || '').trim();
+
+    // 1. If only text/note is provided (Quick Note tab)
+    if (!targetUrl && rawText) {
+      const generatedTitle = rawText.length > 50 ? rawText.slice(0, 50).trim() + '...' : rawText;
+      const summary = generateAISummary(generatedTitle, rawText, 'note');
+      const tags = classifyContent(rawText);
+
+      return NextResponse.json({
+        title: generatedTitle,
+        description: summary,
+        image: '',
+        tags,
+      });
+    }
 
     if (!targetUrl) {
-      return NextResponse.json({ error: 'Missing URL' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing URL or text' }, { status: 400 });
     }
 
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
@@ -33,23 +35,56 @@ export async function POST(request: Request) {
 
     const domain = new URL(targetUrl).hostname.replace('www.', '');
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 sec timeout
+    // 2. Specialized YouTube extraction
+    if (isYouTubeUrl(targetUrl)) {
+      const videoId = extractYouTubeVideoId(targetUrl);
+      const oembed = await fetchYouTubeOEmbed(targetUrl);
 
-    const res = await fetch(targetUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-      }
-    });
-    clearTimeout(timeoutId);
+      const ytTitle = oembed?.title || `YouTube Video (${videoId || domain})`;
+      const author = oembed?.author_name ? `by ${oembed.author_name}` : '';
+      const ytDescription = oembed?.title 
+        ? `Watch "${oembed.title}" ${author}. Video notes and key insights captured from YouTube.`
+        : `YouTube Video ${author}`;
+      const ytThumbnail = oembed?.thumbnail_url || (videoId ? getYouTubeThumbnailUrl(videoId) : '');
 
-    if (!res.ok) {
+      const tags = classifyContent(`${ytTitle} ${ytDescription} youtube video`, ['Video']);
+
       return NextResponse.json({
-        title: domain,
-        description: `Saved link from ${domain}`,
+        title: ytTitle.trim(),
+        description: ytDescription.trim(),
+        image: ytThumbnail || '',
+        tags,
+      });
+    }
+
+    // 3. General web page extraction via Cheerio
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    let res;
+    try {
+      res = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+        }
+      });
+    } catch {
+      res = null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!res || !res.ok) {
+      const fallbackTitle = domain;
+      const fallbackSummary = `Saved bookmark from ${domain}.`;
+      const fallbackTags = classifyContent(`${domain} ${targetUrl}`, [domain.split('.')[0] || 'Link']);
+
+      return NextResponse.json({
+        title: fallbackTitle,
+        description: fallbackSummary,
         image: '',
-        tags: [domain.split('.')[0] || 'Link'],
+        tags: fallbackTags,
       });
     }
 
@@ -57,20 +92,17 @@ export async function POST(request: Request) {
     const $ = cheerio.load(html);
 
     const title = $('meta[property="og:title"]').attr('content') || $('title').text() || domain;
-    const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || `Saved link from ${domain}`;
-    const image = $('meta[property="og:image"]').attr('content') || '';
+    const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+    const image = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || '';
 
-    const contentToAnalyze = `${title} ${description}`;
-    const tags = contentToAnalyze ? simpleAIClassifier(contentToAnalyze) : [];
-    
-    if (tags.length === 0 && targetUrl.includes('youtube.com')) tags.push('Video');
-    if (tags.length === 0 && (targetUrl.includes('twitter.com') || targetUrl.includes('x.com'))) tags.push('Social');
-    if (tags.length === 0) tags.push('Link');
+    const contentToAnalyze = `${title} ${description} ${domain}`;
+    const tags = classifyContent(contentToAnalyze, [domain.split('.')[0] || 'Link']);
+    const summary = generateAISummary(title, description || contentToAnalyze, 'link');
 
     return NextResponse.json({
       title: title.trim(),
-      description: description.trim(),
-      image,
+      description: summary.trim(),
+      image: image ? (image.startsWith('http') ? image : new URL(image, targetUrl).href) : '',
       tags,
     });
   } catch (error: any) {
@@ -79,11 +111,13 @@ export async function POST(request: Request) {
       if (targetUrl) domainName = new URL(targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl).hostname.replace('www.', '');
     } catch {}
 
+    const tags = classifyContent(`${domainName} ${rawText}`, ['Link']);
+
     return NextResponse.json({
       title: domainName,
-      description: `Saved link: ${targetUrl}`,
+      description: `Saved memory link from ${domainName}.`,
       image: '',
-      tags: ['Link'],
+      tags,
     });
   }
 }

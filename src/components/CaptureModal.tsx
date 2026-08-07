@@ -1,5 +1,6 @@
 import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -58,8 +59,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     let extractedData: any = null;
     let fileUrl = null;
 
-    if (tab === 'url') {
-      try {
+    try {
+      if (tab === 'url') {
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -68,18 +69,33 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         if (res.ok) {
           extractedData = await res.json();
         }
-      } catch (err) {
-        console.error('Extraction failed', err);
+      } else if (tab === 'note') {
+        const res = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: note, title }),
+        });
+        if (res.ok) {
+          extractedData = await res.json();
+        }
+      } else if (tab === 'upload' && selectedFile) {
+        fileUrl = URL.createObjectURL(selectedFile);
+        const res = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: selectedFile.name }),
+        });
+        if (res.ok) {
+          extractedData = await res.json();
+        }
       }
-    } else if (tab === 'upload' && selectedFile) {
-      fileUrl = URL.createObjectURL(selectedFile);
-    } else {
-      await new Promise(r => setTimeout(r, 400));
+    } catch (err) {
+      console.error('AI extraction failed', err);
     }
 
     const lowerUrl = cleanUrl.toLowerCase();
     const isTweet = tab === 'url' && (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
-    const isVideo = tab === 'url' && (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || extractedData?.tags?.includes('Video'));
+    const isVideo = tab === 'url' && (isYouTubeUrl(cleanUrl) || extractedData?.tags?.includes('Video'));
 
     let type = 'note';
     if (tab === 'url') type = isTweet ? 'tweet' : isVideo ? 'video' : 'link';
@@ -87,8 +103,15 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
       type = selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'link';
     }
 
-    const useTitle = title.trim() || extractedData?.title || (selectedFile?.name) || (tab === 'url' ? cleanUrl : note.slice(0, 60) + '...');
+    // Determine thumbnail URL (with YouTube automatic fallback)
+    let finalThumbnail = extractedData?.image;
+    if (!finalThumbnail && isYouTubeUrl(cleanUrl)) {
+      finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
+    }
+
+    const useTitle = title.trim() || extractedData?.title || (selectedFile?.name) || (tab === 'url' ? cleanUrl : note.slice(0, 50) + '...');
     const useContent = tab === 'upload' ? (fileUrl || '') : (tab === 'url' ? (extractedData?.description || cleanUrl) : note);
+    const useSummary = extractedData?.description || (tab === 'note' ? note : tab === 'upload' ? `Uploaded ${selectedFile?.name}` : 'Saved memory reference');
 
     // Merge AI extracted tags with user's custom tags
     const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
@@ -100,8 +123,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
       title: useTitle,
       content: useContent,
       url: tab === 'url' ? cleanUrl : (tab === 'upload' ? fileUrl || undefined : undefined),
-      thumbnailUrl: extractedData?.image,
-      summary: extractedData?.description || (tab === 'upload' ? `Uploaded ${selectedFile?.name}` : undefined),
+      thumbnailUrl: finalThumbnail,
+      summary: useSummary,
       tags: Array.from(mergedTagsSet),
     });
 
@@ -131,7 +154,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
           border: '1px solid var(--border-strong)',
           borderRadius: '20px',
           overflow: 'hidden',
-          boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(124,58,237,0.1)',
+          boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(6, 86, 91,0.1)',
         }}
         className="animate-fade-in-up"
       >
@@ -164,7 +187,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                 fontWeight: 500,
                 fontFamily: 'inherit',
                 transition: 'all 0.15s',
-                background: tab === t.id ? 'rgba(124,58,237,0.15)' : 'transparent',
+                background: tab === t.id ? 'rgba(6, 86, 91,0.15)' : 'transparent',
                 color: tab === t.id ? 'var(--violet-bright)' : 'var(--text-muted)',
                 borderBottom: tab === t.id ? '2px solid var(--violet)' : '2px solid transparent',
               }}
@@ -257,7 +280,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  background: selectedFile ? 'rgba(124,58,237,0.05)' : 'transparent',
+                  background: selectedFile ? 'rgba(6, 86, 91,0.05)' : 'transparent',
                   borderColor: selectedFile ? 'var(--violet)' : 'var(--border-strong)',
                 }}
                 onMouseEnter={e => {
@@ -319,9 +342,9 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                       gap: '4px',
                       padding: '3px 10px',
                       borderRadius: '999px',
-                      background: 'rgba(124,58,237,0.2)',
-                      border: '1px solid rgba(124,58,237,0.4)',
-                      color: '#A78BFA',
+                      background: 'rgba(6, 86, 91,0.2)',
+                      border: '1px solid rgba(6, 86, 91,0.4)',
+                      color: '#c2dde4',
                       fontSize: '12px',
                       fontWeight: 500,
                     }}
@@ -330,7 +353,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(t)}
-                      style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', display: 'flex', padding: 0 }}
+                      style={{ background: 'none', border: 'none', color: '#c2dde4', cursor: 'pointer', display: 'flex', padding: 0 }}
                     >
                       <X size={12} />
                     </button>
@@ -404,8 +427,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
           <div style={{
             marginTop: '16px',
             padding: '10px 14px',
-            background: 'rgba(124,58,237,0.08)',
-            border: '1px solid rgba(124,58,237,0.2)',
+            background: 'rgba(6, 86, 91,0.08)',
+            border: '1px solid rgba(6, 86, 91,0.2)',
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',

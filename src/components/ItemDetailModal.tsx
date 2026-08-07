@@ -3,6 +3,7 @@ import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect } from 'react';
+import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '@/lib/youtube';
 
 interface ItemDetailModalProps {
   item: MemoryItem | null;
@@ -102,8 +103,8 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
             width: '32px',
             height: '32px',
             borderRadius: '8px',
-            background: 'rgba(124,58,237,0.15)',
-            border: '1px solid rgba(124,58,237,0.3)',
+            background: 'rgba(6, 86, 91,0.15)',
+            border: '1px solid rgba(6, 86, 91,0.3)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -188,6 +189,36 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
           <div className="item-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
             {/* Main Content */}
             <div>
+              {/* Media Preview / YouTube Embed */}
+              {(() => {
+                const ytVideoId = item.url ? extractYouTubeVideoId(item.url) : null;
+                const displayThumbnail = item.thumbnailUrl || (item.url ? getYouTubeThumbnailUrl(item.url) : null);
+
+                if (ytVideoId) {
+                  return (
+                    <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', background: '#000' }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytVideoId}`}
+                        title={item.title}
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  );
+                }
+
+                if (displayThumbnail) {
+                  return (
+                    <div style={{ width: '100%', maxHeight: '280px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', background: 'var(--bg-card)' }}>
+                      <img src={displayThumbnail} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
+
               {isEditing ? (
                 <textarea
                   className="input"
@@ -303,8 +334,8 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
               {/* AI Summary */}
               <div style={{
                 padding: '16px',
-                background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(6,182,212,0.05))',
-                border: '1px solid rgba(124,58,237,0.25)',
+                background: 'linear-gradient(135deg, rgba(6, 86, 91,0.1), rgba(0, 58, 68,0.05))',
+                border: '1px solid rgba(6, 86, 91,0.25)',
                 borderRadius: '12px',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>

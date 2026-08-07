@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { memoryItems } from '@/db/schema';
 import { eq, desc, or, inArray } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
+import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
+import { classifyContent, generateAISummary } from '@/lib/ai-engine';
 
 // Helper to convert Drizzle record to MemoryItem
 function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
@@ -56,20 +58,34 @@ export async function saveItemAction(
       })()
     : undefined;
 
+  let finalThumbnail = data.thumbnailUrl;
+  if (!finalThumbnail && data.url && isYouTubeUrl(data.url)) {
+    finalThumbnail = getYouTubeThumbnailUrl(data.url) || undefined;
+  }
+
+  const textForAnalysis = `${data.title} ${data.content} ${data.url || ''}`;
+  const finalTags = data.tags && data.tags.length > 0
+    ? data.tags
+    : classifyContent(textForAnalysis, data.url ? [data.type === 'video' ? 'Video' : 'Link'] : ['Note']);
+
+  const finalSummary = data.summary && data.summary !== 'Saving...'
+    ? data.summary
+    : generateAISummary(data.title, data.content, data.type);
+
   const fallbackItem: MemoryItem = {
     id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     type: data.type as MemoryItem['type'],
     title: data.title || 'Untitled Memory',
     content: data.content,
     url: data.url || undefined,
-    thumbnailUrl: data.thumbnailUrl || undefined,
+    thumbnailUrl: finalThumbnail || undefined,
     sourceDomain: sourceDomain || undefined,
-    summary: data.summary || 'Saved memory item',
-    tags: data.tags || [],
+    summary: finalSummary,
+    tags: finalTags,
     isFavorite: false,
     createdAt: new Date().toISOString(),
     relatedIds: [],
-    aiProcessed: !!data.summary || !!data.tags?.length,
+    aiProcessed: true,
   };
 
   try {
@@ -78,15 +94,15 @@ export async function saveItemAction(
       .values({
         userId: effectiveUserId,
         type: data.type,
-        title: data.title,
+        title: data.title || 'Untitled Memory',
         content: data.content,
         url: data.url || null,
-        thumbnailUrl: data.thumbnailUrl || null,
+        thumbnailUrl: finalThumbnail || null,
         sourceDomain: sourceDomain || null,
-        summary: data.summary || '',
-        tags: data.tags || [],
+        summary: finalSummary,
+        tags: finalTags,
         isFavorite: false,
-        aiProcessed: !!data.summary || !!data.tags?.length,
+        aiProcessed: true,
       })
       .returning();
 

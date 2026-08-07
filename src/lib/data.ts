@@ -32,9 +32,9 @@ export interface Collection {
 }
 
 export const TAG_COLORS: Record<string, string> = {
-  'AI': '#7C3AED',
-  'Design': '#EC4899',
-  'Research': '#06B6D4',
+  'AI': '#06565b',
+  'Design': '#66a4ac',
+  'Research': '#003a44',
   'Business': '#F59E0B',
   'Technology': '#10B981',
   'Productivity': '#3B82F6',
@@ -45,7 +45,7 @@ export const TAG_COLORS: Record<string, string> = {
   'Marketing': '#EF4444',
   'Finance': '#14B8A6',
   'Health': '#22C55E',
-  'Education': '#A855F7',
+  'Education': '#66a4ac',
   'Culture': '#FB923C',
 };
 
@@ -227,7 +227,7 @@ export const MOCK_COLLECTIONS: Collection[] = [
     description: 'Everything about artificial intelligence, LLMs, and machine learning',
     isSmart: true,
     itemCount: 4,
-    color: '#7C3AED',
+    color: '#06565b',
     emoji: '🤖',
   },
   {
@@ -245,7 +245,7 @@ export const MOCK_COLLECTIONS: Collection[] = [
     description: 'Productivity, focus, and cognitive performance',
     isSmart: true,
     itemCount: 3,
-    color: '#06B6D4',
+    color: '#003a44',
     emoji: '🧠',
   },
   {
@@ -254,7 +254,7 @@ export const MOCK_COLLECTIONS: Collection[] = [
     description: 'UI/UX patterns, design systems, and visual inspiration',
     isSmart: false,
     itemCount: 2,
-    color: '#EC4899',
+    color: '#66a4ac',
     emoji: '✨',
   },
   {

@@ -7,6 +7,7 @@ import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
 import { formatDistanceToNow } from 'date-fns';
+import { getYouTubeThumbnailUrl } from '@/lib/youtube';
 
 interface MemoryCardProps {
   item: MemoryItem;
@@ -19,18 +20,18 @@ interface MemoryCardProps {
 }
 
 const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
-  link: { emoji: '🔗', label: 'Link', color: '#06B6D4' },
+  link: { emoji: '🔗', label: 'Link', color: '#003a44' },
   note: { emoji: '📝', label: 'Note', color: '#10B981' },
-  image: { emoji: '🖼️', label: 'Image', color: '#EC4899' },
+  image: { emoji: '🖼️', label: 'Image', color: '#66a4ac' },
   pdf: { emoji: '📄', label: 'PDF', color: '#F59E0B' },
-  tweet: { emoji: '𝕏', label: 'Tweet', color: '#7C3AED' },
+  tweet: { emoji: '𝕏', label: 'Tweet', color: '#06565b' },
   video: { emoji: '🎬', label: 'Video', color: '#EF4444' },
 };
 
 const GRADIENT_BACKGROUNDS = [
-  'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(6,182,212,0.08) 100%)',
-  'linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(124,58,237,0.08) 100%)',
-  'linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(16,185,129,0.08) 100%)',
+  'linear-gradient(135deg, rgba(6, 86, 91,0.15) 0%, rgba(0, 58, 68,0.08) 100%)',
+  'linear-gradient(135deg, rgba(102, 164, 172,0.12) 0%, rgba(6, 86, 91,0.08) 100%)',
+  'linear-gradient(135deg, rgba(0, 58, 68,0.15) 0%, rgba(16,185,129,0.08) 100%)',
   'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(239,68,68,0.06) 100%)',
   'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 100%)',
 ];
@@ -157,30 +158,34 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
           </div>
 
           {/* Thumbnail */}
-          {item.thumbnailUrl && (
-            <div style={{
-              width: '100%',
-              height: '140px',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              marginBottom: '12px',
-              background: 'var(--bg-card)',
-              position: 'relative'
-            }}>
-              <img 
-                src={item.thumbnailUrl} 
-                alt="preview" 
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transform: isHovered ? 'scale(1.05)' : 'scale(1.0)',
-                  transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                }} 
-                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-              />
-            </div>
-          )}
+          {(() => {
+            const displayThumbnail = item.thumbnailUrl || (item.url ? getYouTubeThumbnailUrl(item.url) : null);
+            if (!displayThumbnail) return null;
+            return (
+              <div style={{
+                width: '100%',
+                height: '140px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                marginBottom: '12px',
+                background: 'var(--bg-card)',
+                position: 'relative'
+              }}>
+                <img 
+                  src={displayThumbnail} 
+                  alt="preview" 
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: isHovered ? 'scale(1.05)' : 'scale(1.0)',
+                    transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                  }} 
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                />
+              </div>
+            );
+          })()}
 
           {/* Title */}
           <h3 style={{

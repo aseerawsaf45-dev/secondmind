@@ -17,8 +17,8 @@ export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) 
             width: '28px',
             height: '28px',
             borderRadius: '8px',
-            background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))',
-            border: '1px solid rgba(124,58,237,0.4)',
+            background: 'linear-gradient(135deg, rgba(6, 86, 91,0.3), rgba(0, 58, 68,0.2))',
+            border: '1px solid rgba(6, 86, 91,0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -35,9 +35,9 @@ export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
         {[
-          { label: 'Items saved', value: '—', icon: '🧠', color: '#7C3AED' },
-          { label: 'Connections', value: '—', icon: '🔗', color: '#06B6D4' },
-          { label: 'Clusters', value: '—', icon: '✨', color: '#EC4899' },
+          { label: 'Items saved', value: '—', icon: '🧠', color: '#06565b' },
+          { label: 'Connections', value: '—', icon: '🔗', color: '#003a44' },
+          { label: 'Clusters', value: '—', icon: '✨', color: '#66a4ac' },
         ].map(({ label, value, icon, color }) => (
           <div key={label} style={{
             padding: '16px',
@@ -92,8 +92,8 @@ export default function AIInsightsPanel({ onSelectItem }: AIInsightsPanelProps) 
       {/* Weekly digest */}
       <div style={{
         padding: '20px',
-        background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))',
-        border: '1px solid rgba(124,58,237,0.2)',
+        background: 'linear-gradient(135deg, rgba(6, 86, 91,0.12), rgba(0, 58, 68,0.06))',
+        border: '1px solid rgba(6, 86, 91,0.2)',
         borderRadius: '16px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>

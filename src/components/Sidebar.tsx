@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  Brain,
   Search,
   Plus,
   Star,
@@ -56,13 +55,13 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             width: '34px',
             height: '34px',
             borderRadius: '10px',
-            background: 'linear-gradient(135deg, #7C3AED, #06B6D4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(124,58,237,0.4)',
+            boxShadow: '0 4px 16px rgba(6, 86, 91,0.4)',
+            overflow: 'hidden',
           }}>
-            <Brain size={18} color="white" />
+            <img src="/logo.png" alt="SecondMind Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
@@ -143,7 +142,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '9px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === id ? 'rgba(124,58,237,0.15)' : 'transparent',
+                background: activeFilter === id ? 'rgba(6, 86, 91,0.15)' : 'transparent',
                 color: activeFilter === id ? 'var(--violet-bright)' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 fontSize: '13px',
@@ -172,7 +171,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 <span style={{
                   padding: '1px 7px',
                   borderRadius: '999px',
-                  background: activeFilter === id ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)',
+                  background: activeFilter === id ? 'rgba(6, 86, 91,0.3)' : 'rgba(255,255,255,0.06)',
                   fontSize: '10px',
                   fontWeight: 600,
                   color: activeFilter === id ? 'var(--violet-bright)' : 'var(--text-muted)',
@@ -207,7 +206,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '8px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === id ? 'rgba(124,58,237,0.12)' : 'transparent',
+                background: activeFilter === id ? 'rgba(6, 86, 91,0.12)' : 'transparent',
                 color: activeFilter === id ? 'var(--violet-bright)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '13px',
@@ -289,7 +288,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '8px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === `collection:${collection.id}` ? 'rgba(124,58,237,0.12)' : 'transparent',
+                background: activeFilter === `collection:${collection.id}` ? 'rgba(6, 86, 91,0.12)' : 'transparent',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontFamily: 'inherit',
@@ -302,7 +301,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 e.currentTarget.style.background = 'var(--bg-elevated)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = activeFilter === `collection:${collection.id}` ? 'rgba(124,58,237,0.12)' : 'transparent';
+                e.currentTarget.style.background = activeFilter === `collection:${collection.id}` ? 'rgba(6, 86, 91,0.12)' : 'transparent';
               }}
             >
               <span style={{ fontSize: '14px' }}>{collection.emoji}</span>

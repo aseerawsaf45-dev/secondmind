@@ -43,7 +43,13 @@ export default function RootLayout({
       }}
     >
       <html lang="en" className={`${inter.variable} h-full antialiased`}>
-        <body className="min-h-full flex flex-col bg-[#08080F] text-white">
+        <body className="min-h-full flex flex-col bg-[#08080F] text-white relative">
+          <div className="gradient-mesh-container">
+            <div className="gradient-mesh-orb gradient-mesh-orb-1" />
+            <div className="gradient-mesh-orb gradient-mesh-orb-2" />
+            <div className="gradient-mesh-orb gradient-mesh-orb-3" />
+            <div className="gradient-mesh-orb gradient-mesh-orb-4" />
+          </div>
           {children}
         </body>
       </html>

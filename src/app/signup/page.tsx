@@ -11,20 +11,6 @@ export default function SignupPage() {
       background: '#08080F',
       overflow: 'hidden',
     }}>
-      {/* Ambient glow orbs */}
-      <div style={{
-        position: 'absolute', top: '25%', right: '15%',
-        width: '500px', height: '500px', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 70%)',
-        pointerEvents: 'none', filter: 'blur(40px)',
-      }} />
-      <div style={{
-        position: 'absolute', bottom: '15%', left: '10%',
-        width: '400px', height: '400px', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none', filter: 'blur(40px)',
-      }} />
-
       {/* Decorative grid lines */}
       <div style={{
         position: 'absolute', inset: 0,

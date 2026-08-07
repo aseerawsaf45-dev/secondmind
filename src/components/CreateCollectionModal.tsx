@@ -10,7 +10,7 @@ interface CreateCollectionModalProps {
 }
 
 const EMOJIS = ['📁', '🎨', '💼', '🚀', '🧠', '📚', '⚡', '🌈', '🥑', '🎬', '🎮', '💡'];
-const COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#10B981', '#06B6D4', '#3B82F6', '#7C3AED', '#EC4899'];
+const COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#10B981', '#003a44', '#3B82F6', '#06565b', '#66a4ac'];
 
 export default function CreateCollectionModal({ isOpen, onClose, onSave }: CreateCollectionModalProps) {
   const [name, setName] = useState('');
@@ -55,7 +55,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave }: Creat
               width: '32px',
               height: '32px',
               borderRadius: '10px',
-              background: 'rgba(124,58,237,0.15)',
+              background: 'rgba(6, 86, 91,0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -102,7 +102,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave }: Creat
                       borderRadius: '6px',
                       border: '1px solid',
                       borderColor: emoji === e ? 'var(--violet)' : 'transparent',
-                      background: emoji === e ? 'rgba(124,58,237,0.1)' : 'var(--bg-card)',
+                      background: emoji === e ? 'rgba(6, 86, 91,0.1)' : 'var(--bg-card)',
                       cursor: 'pointer',
                       fontSize: '16px',
                       display: 'flex',
@@ -146,7 +146,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave }: Creat
             onClick={() => setIsSmart(!isSmart)}
             style={{ 
               padding: '12px', 
-              background: isSmart ? 'rgba(124,58,237,0.08)' : 'var(--bg-elevated)', 
+              background: isSmart ? 'rgba(6, 86, 91,0.08)' : 'var(--bg-elevated)', 
               border: `1px solid ${isSmart ? 'var(--violet)' : 'var(--border)'}`, 
               borderRadius: '12px', 
               cursor: 'pointer',
