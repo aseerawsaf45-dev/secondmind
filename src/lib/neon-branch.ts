@@ -10,8 +10,14 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const NEON_API_KEY = process.env.NEON_API_KEY!;
-const NEON_PROJECT_ID = process.env.NEON_PROJECT_ID!;
+function getNeonCredentials() {
+  const apiKey = process.env.NEON_API_KEY;
+  const projectId = process.env.NEON_PROJECT_ID;
+  if (!apiKey || !projectId) {
+    throw new Error('NEON_API_KEY or NEON_PROJECT_ID is not configured in environment variables.');
+  }
+  return { apiKey, projectId };
+}
 
 // Root DB — used only to read/write the user_branches registry
 function getRootDb() {
@@ -48,15 +54,17 @@ export async function createBranchForUser(
   userId: string,
   email: string
 ): Promise<string> {
+  const { apiKey, projectId } = getNeonCredentials();
+
   // ── Step 1: Create the branch via Neon API ──────────────────────────────
   const branchName = `user-${userId.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
 
   const createRes = await fetch(
-    `https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches`,
+    `https://console.neon.tech/api/v2/projects/${projectId}/branches`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${NEON_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
