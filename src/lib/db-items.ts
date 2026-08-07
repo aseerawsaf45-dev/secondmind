@@ -109,8 +109,9 @@ export async function saveItemAction(
       .returning();
 
     return recordToItem(inserted);
-  } catch (err) {
-    console.error('saveItem DB insert error:', err);
+  } catch (err: any) {
+    console.error('CRITICAL saveItem DB insert error:', err?.message || err);
+    if (err?.stack) console.error(err.stack);
     return fallbackItem;
   }
 }
