@@ -122,12 +122,12 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   const handleAddToCollection = useCallback(
     async (itemId: string, collectionId: string) => {
-      const success = await addItemToCollectionAction(itemId, collectionId);
+      const success = await addItemToCollectionAction(itemId, collectionId, userId!);
       if (success) {
         loadData();
       }
     },
-    [loadData]
+    [loadData, userId]
   );
 
   const handleDelete = useCallback(

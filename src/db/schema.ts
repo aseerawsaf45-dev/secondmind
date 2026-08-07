@@ -1,6 +1,16 @@
 import { pgTable, text, timestamp, boolean, jsonb, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+// ─── User Branch Registry (lives on the ROOT branch only) ───────────────────
+// Maps each Clerk userId to their own isolated Neon branch connection URL.
+export const userBranches = pgTable('user_branches', {
+  userId: text('user_id').primaryKey(),
+  email: text('email').notNull(),
+  branchId: text('branch_id').notNull(),
+  connectionUrl: text('connection_url').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const memoryItems = pgTable('memory_items', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id').notNull(),

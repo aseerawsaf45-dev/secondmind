@@ -1,6 +1,6 @@
 'use server';
 
-import { db } from '@/db';
+import { getUserDb } from '@/lib/user-db';
 import { memoryItems } from '@/db/schema';
 import { eq, desc, or, inArray } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
@@ -28,6 +28,7 @@ function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
 
 export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
   try {
+    const db = await getUserDb(userId);
     const userIds = [userId].filter(Boolean);
     const rows = await db
       .select()
@@ -89,6 +90,7 @@ export async function saveItemAction(
   };
 
   try {
+    const db = await getUserDb(userId);
     const [inserted] = await db
       .insert(memoryItems)
       .values({
@@ -115,6 +117,7 @@ export async function saveItemAction(
 
 export async function toggleFavoriteAction(userId: string, id: string, isFavorite: boolean): Promise<void> {
   try {
+    const db = await getUserDb(userId);
     await db
       .update(memoryItems)
       .set({ isFavorite })
@@ -126,6 +129,7 @@ export async function toggleFavoriteAction(userId: string, id: string, isFavorit
 
 export async function deleteItemAction(userId: string, id: string): Promise<void> {
   try {
+    const db = await getUserDb(userId);
     await db
       .delete(memoryItems)
       .where(eq(memoryItems.id, id));
@@ -140,6 +144,7 @@ export async function updateItemAction(
   data: { title?: string; content?: string; summary?: string; tags?: string[] }
 ): Promise<boolean> {
   try {
+    const db = await getUserDb(userId);
     await db
       .update(memoryItems)
       .set({

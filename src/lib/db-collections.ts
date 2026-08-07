@@ -1,6 +1,6 @@
 'use server';
 
-import { db } from '@/db';
+import { getUserDb } from '@/lib/user-db';
 import { collections, collectionItems } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -16,6 +16,7 @@ export interface Collection {
 
 export async function fetchCollectionsAction(userId: string): Promise<Collection[]> {
   try {
+    const db = await getUserDb(userId);
     const rows = await db
       .select({
         id: collections.id,
@@ -52,6 +53,7 @@ export async function createCollectionAction(
   data: { name: string; emoji?: string; color?: string; isSmart?: boolean; rules?: any }
 ) {
   try {
+    const db = await getUserDb(userId);
     const [inserted] = await db
       .insert(collections)
       .values({
@@ -71,8 +73,9 @@ export async function createCollectionAction(
   }
 }
 
-export async function addItemToCollectionAction(itemId: string, collectionId: string) {
+export async function addItemToCollectionAction(itemId: string, collectionId: string, userId: string) {
   try {
+    const db = await getUserDb(userId);
     await db
       .insert(collectionItems)
       .values({
@@ -89,6 +92,7 @@ export async function addItemToCollectionAction(itemId: string, collectionId: st
 
 export async function fetchCollectionItemMapAction(userId: string): Promise<Record<string, string[]>> {
   try {
+    const db = await getUserDb(userId);
     const rows = await db
       .select({
         itemId: collectionItems.itemId,
