@@ -205,8 +205,10 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             { id: 'tweet', label: 'Tweets', emoji: '𝕏', count: itemCounts.tweet },
             { id: 'video', label: 'Videos', emoji: '🎬', count: itemCounts.video },
           ].map(({ id, label, emoji, count }) => (
-            <button
+            <motion.button
               key={id}
+              whileHover={{ x: 4, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onFilterChange(id)}
               style={{
                 width: '100%',
@@ -216,41 +218,38 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '8px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === id ? 'rgba(6, 86, 91,0.12)' : 'transparent',
+                background: activeFilter === id ? 'rgba(6, 86, 91, 0.2)' : 'transparent',
                 color: activeFilter === id ? 'var(--violet-bright)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontFamily: 'inherit',
-                transition: 'all 0.15s',
+                transition: 'background 0.2s, color 0.2s',
                 textAlign: 'left',
                 marginBottom: '1px',
-              }}
-              onMouseEnter={e => {
-                if (activeFilter !== id) {
-                  e.currentTarget.style.background = 'var(--bg-elevated)';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (activeFilter !== id) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-muted)';
-                }
+                boxShadow: activeFilter === id ? 'inset 0 1px 0 rgba(255,255,255,0.08)' : 'none',
               }}
             >
               <span style={{ fontSize: '13px' }}>{emoji}</span>
               <span style={{ flex: 1 }}>{label}</span>
               {count !== undefined && count > 0 && (
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{count}</span>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: 'var(--text-muted)'
+                }}>{count}</span>
               )}
-            </button>
+            </motion.button>
           ))}
         </div>
 
-        {/* Collections */}
+        {/* Smart Collections */}
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}>
-            <button
+            <motion.button
+              whileHover={{ x: 2 }}
               onClick={() => setExpandCollections(!expandCollections)}
               style={{
                 flex: 1,
@@ -275,20 +274,24 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 Smart Collections
               </span>
-            </button>
-            <button 
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.15, rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
               title="Create new Space" 
               className="btn btn-ghost btn-icon" 
               style={{ width: '20px', height: '20px', padding: 0 }}
               onClick={onCreateCollectionOpen}
             >
               <Plus size={10} />
-            </button>
+            </motion.button>
           </div>
 
           {expandCollections && collections.map(collection => (
-            <button
+            <motion.button
               key={collection.id}
+              whileHover={{ x: 4, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onFilterChange(`collection:${collection.id}`)}
               style={{
                 width: '100%',
@@ -298,20 +301,15 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '8px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === `collection:${collection.id}` ? 'rgba(6, 86, 91,0.12)' : 'transparent',
+                background: activeFilter === `collection:${collection.id}` ? 'rgba(6, 86, 91, 0.2)' : 'transparent',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontFamily: 'inherit',
-                transition: 'all 0.15s',
+                transition: 'background 0.2s',
                 textAlign: 'left',
                 marginBottom: '1px',
                 color: 'var(--text-secondary)',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = activeFilter === `collection:${collection.id}` ? 'rgba(6, 86, 91,0.12)' : 'transparent';
+                boxShadow: activeFilter === `collection:${collection.id}` ? 'inset 0 1px 0 rgba(255,255,255,0.08)' : 'none',
               }}
             >
               <span style={{ fontSize: '14px' }}>{collection.emoji}</span>
@@ -321,7 +319,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               {collection.isSmart && (
                 <Sparkles size={9} style={{ color: 'var(--violet-bright)', flexShrink: 0 }} />
               )}
-            </button>
+            </motion.button>
           ))}
 
           {expandCollections && collections.length === 0 && (
@@ -331,7 +329,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
           )}
         </div>
 
-        {/* Tags */}
+        {/* Top Tags */}
         <div>
           <div style={{ padding: '4px 12px 10px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Top Tags
@@ -341,8 +339,10 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
               const color = TAG_COLORS[tag] || '#6B7280';
               const isActive = activeFilter === `tag:${tag}`;
               return (
-                <button
+                <motion.button
                   key={tag}
+                  whileHover={{ scale: 1.06, y: -1 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => onFilterChange(`tag:${tag}`)}
                   style={{
                     display: 'flex',
@@ -350,19 +350,20 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                     gap: '4px',
                     padding: '4px 10px',
                     borderRadius: '999px',
-                    border: `1px solid ${isActive ? color + '60' : 'var(--border)'}`,
-                    background: isActive ? `${color}20` : 'transparent',
+                    border: `1px solid ${isActive ? color + '60' : 'rgba(255,255,255,0.08)'}`,
+                    background: isActive ? `${color}25` : 'rgba(255,255,255,0.03)',
                     color: isActive ? color : 'var(--text-muted)',
                     cursor: 'pointer',
                     fontSize: '11px',
                     fontWeight: 500,
                     fontFamily: 'inherit',
-                    transition: 'all 0.15s',
+                    transition: 'border-color 0.2s, background 0.2s',
+                    boxShadow: isActive ? `0 2px 8px ${color}30` : 'none',
                   }}
                 >
                   <Hash size={9} />
                   {tag}
-                </button>
+                </motion.button>
               );
             })}
           </div>
