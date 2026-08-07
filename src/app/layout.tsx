@@ -18,6 +18,15 @@ export const metadata: Metadata = {
   title: "SecondMind — Your AI-Powered Memory",
   description: "Save anything. Remember everything. Let AI do the organizing.",
   keywords: ["second brain", "knowledge management", "AI", "notes", "bookmarks"],
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title: "SecondMind — Your AI-Powered Memory",
     description: "Save anything. Remember everything. Let AI do the organizing.",

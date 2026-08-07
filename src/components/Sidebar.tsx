@@ -61,7 +61,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             boxShadow: '0 4px 16px rgba(6, 86, 91,0.4)',
             overflow: 'hidden',
           }}>
-            <img src="/logo.png" alt="SecondMind Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src="/logo.png" alt="SecondMind Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
