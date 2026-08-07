@@ -12,11 +12,13 @@ import { getYouTubeThumbnailUrl } from '@/lib/youtube';
 interface MemoryCardProps {
   item: MemoryItem;
   collections: Collection[];
+  itemCollections?: string[];
   onClick: () => void;
   onFavorite: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onAddToCollection: (collectionId: string) => void;
+  onRemoveFromCollection?: (collectionId: string) => void;
 }
 
 const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
@@ -38,7 +40,7 @@ const GRADIENT_BACKGROUNDS = [
 
 import { ParticleCard } from './MagicBento';
 
-export default function MemoryCard({ item, collections, onClick, onFavorite, onEdit, onDelete, onAddToCollection }: MemoryCardProps) {
+export default function MemoryCard({ item, collections, itemCollections = [], onClick, onFavorite, onEdit, onDelete, onAddToCollection, onRemoveFromCollection }: MemoryCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCollectionSubmenu, setShowCollectionSubmenu] = useState(false);
@@ -364,31 +366,49 @@ export default function MemoryCard({ item, collections, onClick, onFavorite, onE
                       No spaces created
                     </div>
                   ) : (
-                    collections.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={(e) => { e.stopPropagation(); onAddToCollection(c.id); setShowMenu(false); }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          color: 'var(--text-secondary)',
-                          textAlign: 'left'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                      >
-                        <span>{c.emoji}</span>
-                        {c.name}
-                      </button>
-                    ))
+                    collections.map(c => {
+                      const isMember = itemCollections.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isMember) {
+                              onRemoveFromCollection?.(c.id);
+                            } else {
+                              onAddToCollection(c.id);
+                            }
+                            setShowMenu(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: isMember ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            color: isMember ? '#A7F3D0' : 'var(--text-secondary)',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = isMember ? 'rgba(16, 185, 129, 0.25)' : 'var(--bg-card-hover)';
+                            e.currentTarget.style.color = isMember ? '#A7F3D0' : 'var(--text-primary)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = isMember ? 'rgba(16, 185, 129, 0.15)' : 'transparent';
+                            e.currentTarget.style.color = isMember ? '#A7F3D0' : 'var(--text-secondary)';
+                          }}
+                        >
+                          <span>{c.emoji}</span>
+                          <span style={{ flex: 1 }}>{c.name}</span>
+                          {isMember && <Check size={12} style={{ color: '#10B981' }} />}
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               )}

@@ -70,22 +70,40 @@ export function generateAISummary(title: string, content: string, type: string =
   const cleanContent = content ? content.trim() : '';
 
   if (!cleanContent && !cleanTitle) {
-    return 'Saved item in memory.';
+    return 'Saved item reference in memory.';
   }
 
-  // If content is already concise (e.g., 1-2 sentences), return formatted content
-  if (cleanContent.length > 0 && cleanContent.length <= 150 && !cleanContent.startsWith('http')) {
+  // High-accuracy synthesis for links & web pages
+  if (type === 'link' || type === 'pdf') {
+    if (cleanContent && !cleanContent.startsWith('http')) {
+      const sentences = cleanContent
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 15 && !/\b(javascript|cookie|login|privacy|copyright|rights reserved)\b/i.test(s));
+
+      if (sentences.length >= 2) {
+        return `${sentences[0]} ${sentences[1]}`;
+      } else if (sentences.length === 1) {
+        return sentences[0];
+      }
+    }
+
+    if (cleanTitle) {
+      return `Key insights and reference synthesis for "${cleanTitle}".`;
+    }
+  }
+
+  // If content is already concise (1-2 sentences), return formatted content
+  if (cleanContent.length > 0 && cleanContent.length <= 160 && !cleanContent.startsWith('http')) {
     return cleanContent;
   }
 
-  // Build key summary sentence
   let summary = '';
   
   if (cleanContent && !cleanContent.startsWith('http')) {
-    // Extract first 2 meaningful sentences
     const sentences = cleanContent
       .split(/(?<=[.!?])\s+/)
-      .filter(s => s.length > 10 && !s.toLowerCase().includes('javascript') && !s.toLowerCase().includes('cookie'));
+      .filter(s => s.length > 10 && !/\b(javascript|cookie)\b/i.test(s));
     if (sentences.length > 0) {
       summary = sentences.slice(0, 2).join(' ');
     }
@@ -93,7 +111,7 @@ export function generateAISummary(title: string, content: string, type: string =
 
   if (!summary) {
     if (type === 'video') {
-      summary = cleanTitle ? `Video overview: "${cleanTitle}". Save insights, takeaways, and notes.` : 'Saved video from YouTube.';
+      summary = cleanTitle ? `Video overview: "${cleanTitle}". AI summary and key takeaways.` : 'Saved video resource.';
     } else if (type === 'tweet') {
       summary = cleanTitle ? `Social post: "${cleanTitle}".` : 'Saved social update.';
     } else if (type === 'note') {
@@ -105,7 +123,6 @@ export function generateAISummary(title: string, content: string, type: string =
     }
   }
 
-  // Cap summary at 240 chars for clean card presentation
   if (summary.length > 240) {
     summary = summary.slice(0, 237) + '...';
   }

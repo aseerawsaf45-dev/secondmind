@@ -23,6 +23,7 @@ import {
   fetchCollectionsAction,
   createCollectionAction,
   addItemToCollectionAction,
+  removeItemFromCollectionAction,
   fetchCollectionItemMapAction,
   Collection,
 } from '@/lib/db-collections';
@@ -125,12 +126,60 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   const handleAddToCollection = useCallback(
     async (itemId: string, collectionId: string) => {
-      const success = await addItemToCollectionAction(itemId, collectionId, userId!);
+      if (!userId) return;
+      const coll = collections.find(c => c.id === collectionId);
+      
+      // Update local itemCollectionMap immediately
+      setItemCollectionMap(prev => ({
+        ...prev,
+        [itemId]: Array.from(new Set([...(prev[itemId] || []), collectionId])),
+      }));
+
+      // If smart collection, also tag the item
+      if (coll && coll.isSmart) {
+        const item = items.find(i => i.id === itemId);
+        if (item && !item.tags.includes(coll.name)) {
+          const nextTags = [...item.tags, coll.name];
+          setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
+          await updateItemAction(userId, itemId, { tags: nextTags });
+        }
+      }
+
+      const success = await addItemToCollectionAction(itemId, collectionId, userId);
       if (success) {
         loadData();
       }
     },
-    [loadData, userId]
+    [collections, items, loadData, userId]
+  );
+
+  const handleRemoveFromCollection = useCallback(
+    async (itemId: string, collectionId: string) => {
+      if (!userId) return;
+      const coll = collections.find(c => c.id === collectionId);
+
+      // Remove from local itemCollectionMap
+      setItemCollectionMap(prev => ({
+        ...prev,
+        [itemId]: (prev[itemId] || []).filter(id => id !== collectionId),
+      }));
+
+      // If smart collection, also remove the tag
+      if (coll && coll.isSmart) {
+        const item = items.find(i => i.id === itemId);
+        if (item && item.tags.includes(coll.name)) {
+          const nextTags = item.tags.filter(t => t !== coll.name);
+          setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
+          await updateItemAction(userId, itemId, { tags: nextTags });
+        }
+      }
+
+      const success = await removeItemFromCollectionAction(itemId, collectionId, userId);
+      if (success) {
+        loadData();
+      }
+    },
+    [collections, items, loadData, userId]
   );
 
   const handleDelete = useCallback(
@@ -470,8 +519,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           {loading ? (
             <LoadingState />
           ) : activeFilter === 'ai-insights' ? (
-            <div style={{ maxWidth: '720px' }}>
-              <AIInsightsPanel onSelectItem={item => setSelectedItem(item)} />
+            <div style={{ maxWidth: '850px' }}>
+              <AIInsightsPanel items={items} collections={collections} onSelectItem={item => setSelectedItem(item)} />
             </div>
           ) : filteredItems !== null && filteredItems.length === 0 ? (
             <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} />
@@ -486,6 +535,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                   <MemoryCard
                     item={item}
                     collections={collections}
+                    itemCollections={itemCollectionMap[item.id] || []}
                     onClick={() => {
                       setSelectedItem(item);
                       setIsEditMode(false);
@@ -494,6 +544,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                     onEdit={() => handleEditItem(item)}
                     onDelete={() => handleDelete(item.id)}
                     onAddToCollection={collId => handleAddToCollection(item.id, collId)}
+                    onRemoveFromCollection={collId => handleRemoveFromCollection(item.id, collId)}
                   />
                 </div>
               ))}

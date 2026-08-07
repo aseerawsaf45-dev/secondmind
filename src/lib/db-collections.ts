@@ -90,6 +90,20 @@ export async function addItemToCollectionAction(itemId: string, collectionId: st
   }
 }
 
+export async function removeItemFromCollectionAction(itemId: string, collectionId: string, userId: string) {
+  try {
+    const db = await getUserDb(userId);
+    await db
+      .delete(collectionItems)
+      .where(and(eq(collectionItems.itemId, itemId), eq(collectionItems.collectionId, collectionId)));
+
+    return true;
+  } catch (err) {
+    console.error('removeItemFromCollection error:', err);
+    return false;
+  }
+}
+
 export async function fetchCollectionItemMapAction(userId: string): Promise<Record<string, string[]>> {
   try {
     const db = await getUserDb(userId);
