@@ -60,7 +60,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   // Load items and collections from Database
   const loadData = useCallback(async () => {
-    const activeUserId = userId || 'demo-user';
+    if (!userId) return;
+    const activeUserId = userId;
 
     const [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
       fetchItemsAction(activeUserId),
@@ -131,7 +132,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      const activeUserId = userId || 'demo-user';
+      if (!userId) return;
+      const activeUserId = userId;
       if (!confirm('Are you sure you want to delete this memory?')) return;
       setItems(prev => prev.filter(i => i.id !== id));
       if (selectedItem?.id === id) setSelectedItem(null);
@@ -162,7 +164,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       summary?: string;
       tags?: string[];
     }) => {
-      const activeUserId = userId || 'demo-user';
+      if (!userId) return;
+      const activeUserId = userId;
 
       const tempId = `temp-${Date.now()}`;
       const placeholder: MemoryItem = {

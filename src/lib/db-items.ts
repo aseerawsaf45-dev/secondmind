@@ -28,7 +28,7 @@ function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
 
 export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
   try {
-    const userIds = [userId, 'demo-user', 'default-user'].filter(Boolean);
+    const userIds = [userId].filter(Boolean);
     const rows = await db
       .select()
       .from(memoryItems)
@@ -46,7 +46,7 @@ export async function saveItemAction(
   userId: string,
   data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }
 ): Promise<MemoryItem> {
-  const effectiveUserId = userId || 'demo-user';
+  const effectiveUserId = userId;
 
   const sourceDomain = data.url
     ? (() => {
