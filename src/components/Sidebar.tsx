@@ -89,7 +89,9 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
         </div>
 
         {/* Search button */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02, x: 2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={onSearchOpen}
           style={{
             width: '100%',
@@ -98,21 +100,21 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             gap: '10px',
             padding: '10px 12px',
             borderRadius: '10px',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-elevated)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'rgba(255, 255, 255, 0.03)',
             cursor: 'pointer',
             color: 'var(--text-muted)',
             fontSize: '13px',
             fontFamily: 'inherit',
-            transition: 'all 0.2s',
+            transition: 'border-color 0.2s, background 0.2s',
             marginBottom: '4px',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.borderColor = 'var(--violet)';
+            e.currentTarget.style.borderColor = 'rgba(102, 164, 172, 0.4)';
             e.currentTarget.style.color = 'var(--text-secondary)';
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
             e.currentTarget.style.color = 'var(--text-muted)';
           }}
         >
@@ -125,17 +127,19 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             borderRadius: '4px',
             fontSize: '10px',
           }}>⌘K</kbd>
-        </button>
+        </motion.button>
 
         {/* Add button */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
           onClick={onCaptureOpen}
           className="btn btn-primary"
-          style={{ width: '100%', marginBottom: '4px', marginTop: '8px' }}
+          style={{ width: '100%', marginBottom: '4px', marginTop: '8px', boxShadow: '0 4px 20px rgba(6, 86, 91, 0.4)' }}
         >
           <Plus size={15} />
           Save to Memory
-        </button>
+        </motion.button>
       </div>
 
       {/* Navigation */}
@@ -148,8 +152,10 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
             { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={14} />, count: null },
             { id: 'recent', label: 'Recently Added', icon: <Zap size={14} />, count: null },
           ].map(({ id, label, icon, count }) => (
-            <button
+            <motion.button
               key={id}
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onFilterChange(id)}
               style={{
                 width: '100%',
@@ -159,27 +165,14 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                 padding: '9px 12px',
                 borderRadius: '8px',
                 border: 'none',
-                background: activeFilter === id ? 'rgba(6, 86, 91,0.15)' : 'transparent',
+                background: activeFilter === id ? 'rgba(6, 86, 91, 0.25)' : 'transparent',
                 color: activeFilter === id ? 'var(--violet-bright)' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 fontSize: '13px',
                 fontWeight: activeFilter === id ? 600 : 400,
                 fontFamily: 'inherit',
-                transition: 'all 0.15s',
-                textAlign: 'left',
-                marginBottom: '2px',
-              }}
-              onMouseEnter={e => {
-                if (activeFilter !== id) {
-                  e.currentTarget.style.background = 'var(--bg-elevated)';
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (activeFilter !== id) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }
+                transition: 'background 0.2s, color 0.2s',
+                boxShadow: activeFilter === id ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 12px rgba(6,86,91,0.2)' : 'none',
               }}
             >
               <span style={{ opacity: 0.8 }}>{icon}</span>
@@ -196,7 +189,7 @@ export default function Sidebar({ activeFilter, onFilterChange, onSearchOpen, on
                   {count}
                 </span>
               )}
-            </button>
+            </motion.button>
           ))}
         </div>
 
