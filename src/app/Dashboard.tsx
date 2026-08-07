@@ -27,6 +27,9 @@ import {
   Collection,
 } from '@/lib/db-collections';
 
+import Scanner from '@/components/Scanner';
+import MagicBento from '@/components/MagicBento';
+
 type SortOption = 'newest' | 'oldest' | 'favorites';
 
 export default function Dashboard({ user: serverUser }: { user: any }) {
@@ -271,7 +274,37 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   return (
     <div className="noise-bg" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
-      
+      {/* WebGL Ambient Scanner Background */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, opacity: 0.35 }}>
+        <Scanner
+          color1="#06565B"
+          color2="#66A4AC"
+          color3="#FFFFFF"
+          speed={0.3}
+          sweepSpeed={0.2}
+          sweepWidth={1.6}
+          sweepFalloff={6}
+          scale={1.5}
+          frequency={2}
+          ripple={0.22}
+          bandDensity={11}
+          lineSharpness={5.5}
+          glow={0.22}
+          scanDirection="vertical"
+          colorSpread={0.7}
+          brightness={1}
+          contrast={1.15}
+          softness={1.4}
+          vignette={0.45}
+          scanline
+          grain
+          grainIntensity={0.05}
+          opacity={1}
+          mouseInteraction
+          mouseRadius={0.5}
+          mouseStrength={0.5}
+        />
+      </div>
 
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
