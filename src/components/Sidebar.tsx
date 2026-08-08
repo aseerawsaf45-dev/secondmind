@@ -67,9 +67,6 @@ export default function Sidebar({
         width: '280px',
         flexShrink: 0,
         height: '100vh',
-        position: 'sticky',
-        top: 0,
-        left: 0,
         display: 'flex',
         flexDirection: 'column',
         padding: '20px 16px',
@@ -83,7 +80,6 @@ export default function Sidebar({
         overflowY: 'auto',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
-        zIndex: 20,
       }}
     >
       {/* 16. AMBIENT BACKGROUND GLOW (Emerald & Cyan) */}
