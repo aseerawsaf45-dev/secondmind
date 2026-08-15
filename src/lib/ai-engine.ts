@@ -48,7 +48,9 @@ export function classifyContent(text: string, defaultTags: string[] = []): strin
     [/\b(typescript)\b/i, 'TypeScript'],
     [/\b(tailwind)\b/i, 'Tailwind'],
     [/\b(youtube)\b/i, 'Video'],
-    [/\b(twitter|x\.com)\b/i, 'Social'],
+    [/\b(facebook|fb\.watch|fb\.me|fb\.com)\b/i, 'Facebook'],
+    [/\b(twitter|x\.com)\b/i, 'X'],
+    [/\b(twitter|x\.com|facebook|threads|instagram|tiktok)\b/i, 'Social'],
   ];
 
   for (const [regex, tag] of customKeywords) {

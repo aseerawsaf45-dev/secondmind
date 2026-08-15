@@ -1,6 +1,8 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw } from 'lucide-react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
+import { isFacebookUrl } from '@/lib/facebook';
+import { isTwitterUrl } from '@/lib/twitter';
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'upload', label: 'Upload', icon: <Upload size={14} /> },
 ];
 
-const SUGGESTED_TAGS = ['AI', 'Design', 'Business', 'Tech', 'Productivity', 'Research'];
+const SUGGESTED_TAGS = ['AI', 'Design', 'Business', 'Tech', 'Productivity', 'Research', 'Social', 'Facebook', 'X'];
 
 export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +33,17 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Live URL Analysis States
+  const [isAnalyzingUrl, setIsAnalyzingUrl] = useState(false);
+  const [extractedPreview, setExtractedPreview] = useState<{
+    title?: string;
+    description?: string;
+    image?: string;
+    tags?: string[];
+    type?: string;
+  } | null>(null);
+  const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
+
   const handleAddTag = (tagToAdd?: string) => {
     const text = (tagToAdd || tagInput).trim().replace(/^#/, '');
     if (text && !customTags.includes(text)) {
@@ -41,6 +54,79 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
 
   const handleRemoveTag = (tagToRemove: string) => {
     setCustomTags(customTags.filter(t => t !== tagToRemove));
+  };
+
+  // Perform live extraction on URL paste/change
+  const analyzeUrl = useCallback(async (targetUrl: string) => {
+    let clean = targetUrl.trim();
+    if (!clean || clean === lastAnalyzedUrl) return;
+    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.includes('.')) {
+      return;
+    }
+
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+
+    setIsAnalyzingUrl(true);
+    setLastAnalyzedUrl(clean);
+
+    try {
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: clean }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setExtractedPreview(data);
+
+        // Auto-fill title if user hasn't typed one
+        if (!title && data.title) {
+          setTitle(data.title);
+        }
+
+        // Auto-add extracted tags to tag list
+        if (data.tags && Array.isArray(data.tags)) {
+          setCustomTags(prev => {
+            const set = new Set([...prev, ...data.tags]);
+            return Array.from(set);
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to analyze URL:', err);
+    } finally {
+      setIsAnalyzingUrl(false);
+    }
+  }, [lastAnalyzedUrl, title]);
+
+  // Debounced trigger when URL changes
+  useEffect(() => {
+    if (tab !== 'url') return;
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setExtractedPreview(null);
+      setLastAnalyzedUrl('');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      analyzeUrl(trimmed);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [url, tab, analyzeUrl]);
+
+  // Handle immediate paste event
+  const handleUrlPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    if (pasted) {
+      setTimeout(() => {
+        analyzeUrl(pasted);
+      }, 50);
+    }
   };
 
   const handleSave = async () => {
@@ -56,11 +142,11 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     }
 
     setIsSaving(true);
-    let extractedData: any = null;
+    let extractedData = extractedPreview;
     let fileUrl = null;
 
     try {
-      if (tab === 'url') {
+      if (tab === 'url' && !extractedData) {
         const res = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -94,16 +180,21 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     }
 
     const lowerUrl = cleanUrl.toLowerCase();
-    const isTweet = tab === 'url' && (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
-    const isVideo = tab === 'url' && (isYouTubeUrl(cleanUrl) || extractedData?.tags?.includes('Video'));
+    const isTweet = tab === 'url' && (isTwitterUrl(cleanUrl) || lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
+    const isFb = tab === 'url' && isFacebookUrl(cleanUrl);
+    const isVideo = tab === 'url' && (isYouTubeUrl(cleanUrl) || extractedData?.tags?.includes('Video') || extractedData?.type === 'video');
 
-    let type = 'note';
-    if (tab === 'url') type = isTweet ? 'tweet' : isVideo ? 'video' : 'link';
+    let type: 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video' = 'note';
+    if (tab === 'url') {
+      if (isTweet) type = 'tweet';
+      else if (isVideo) type = 'video';
+      else type = 'link';
+    }
     if (tab === 'upload' && selectedFile) {
       type = selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'link';
     }
 
-    // Determine thumbnail URL (with YouTube automatic fallback)
+    // Determine thumbnail URL
     let finalThumbnail = extractedData?.image;
     if (!finalThumbnail && isYouTubeUrl(cleanUrl)) {
       finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
@@ -115,6 +206,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
 
     // Merge AI extracted tags with user's custom tags
     const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
+    if (isFb) mergedTagsSet.add('Facebook');
+    if (isTweet) mergedTagsSet.add('X');
     if (tab === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
     if (mergedTagsSet.size === 0) mergedTagsSet.add('Saved');
 
@@ -138,6 +231,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     setTitle('');
     setCustomTags([]);
     setTagInput('');
+    setExtractedPreview(null);
+    setLastAnalyzedUrl('');
     onClose();
   };
 
@@ -149,7 +244,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '540px',
           background: 'var(--bg-elevated)',
           border: '1px solid var(--border-strong)',
           borderRadius: '20px',
@@ -162,7 +257,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>Save to Memory</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>AI will organize it automatically</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>AI will analyze, tag, and organize content automatically</p>
           </div>
           <button onClick={onClose} className="btn btn-ghost btn-icon">
             <X size={16} />
@@ -174,7 +269,10 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
           {TABS.map(t => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                setExtractedPreview(null);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -201,30 +299,121 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         {/* Body */}
         <div style={{ padding: '20px 24px 24px' }}>
           {tab === 'url' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
-                  URL *
-                </label>
-                <input
-                  className="input"
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSave()}
-                  placeholder="https://example.com or github.com"
-                  type="text"
-                  autoFocus
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                    URL (Facebook, X, YouTube, Articles) *
+                  </label>
+                  {isAnalyzingUrl && (
+                    <span style={{ fontSize: '11px', color: 'var(--violet-bright)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Loader size={11} className="spin" />
+                      Analyzing link...
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="input"
+                    value={url}
+                    onChange={e => setUrl(e.target.value)}
+                    onPaste={handleUrlPaste}
+                    onKeyDown={e => e.key === 'Enter' && handleSave()}
+                    placeholder="Paste Facebook reel/post, X/Twitter, YouTube or article link..."
+                    type="text"
+                    autoFocus
+                    style={{ paddingRight: url ? '36px' : '12px' }}
+                  />
+                  {url && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUrl('');
+                        setExtractedPreview(null);
+                        setLastAnalyzedUrl('');
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Instant AI Analysis & Brief Preview Card */}
+              {extractedPreview && (
+                <div style={{
+                  padding: '14px',
+                  background: 'linear-gradient(135deg, rgba(6, 86, 91,0.12), rgba(0, 58, 68,0.06))',
+                  border: '1px solid rgba(6, 86, 91,0.3)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }} className="animate-fade-in">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={13} style={{ color: 'var(--violet-bright)' }} />
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--violet-bright)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        AI Content Brief & Analysis
+                      </span>
+                    </div>
+                    {isFacebookUrl(url) && (
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(24, 119, 242, 0.2)', color: '#60A5FA', fontWeight: 600 }}>
+                        📘 Facebook
+                      </span>
+                    )}
+                    {isTwitterUrl(url) && (
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.1)', color: '#F3F4F6', fontWeight: 600 }}>
+                        𝕏 Post
+                      </span>
+                    )}
+                    {isYouTubeUrl(url) && (
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', color: '#F87171', fontWeight: 600 }}>
+                        🎬 YouTube
+                      </span>
+                    )}
+                  </div>
+
+                  {extractedPreview.title && (
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                      {extractedPreview.title}
+                    </div>
+                  )}
+
+                  {extractedPreview.description && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                      {extractedPreview.description}
+                    </div>
+                  )}
+
+                  {extractedPreview.image && (
+                    <div style={{ width: '100%', height: '110px', borderRadius: '8px', overflow: 'hidden', marginTop: '4px', background: '#000' }}>
+                      <img src={extractedPreview.image} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.target as HTMLElement).style.display = 'none'} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
-                  Title / Note (optional)
+                  Title / Note (optional — AI suggested)
                 </label>
                 <textarea
                   className="input"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="Why is this important to you?"
+                  placeholder="Give it a title or personal note..."
                   rows={2}
                   style={{ resize: 'none' }}
                 />
@@ -327,7 +516,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
           <div style={{ marginTop: '14px' }}>
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontWeight: 500 }}>
               <Tag size={12} />
-              Custom Tags (Optional)
+              AI Tags & Custom Tags
             </label>
 
             {/* Selected Tag Pills */}
@@ -436,7 +625,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
           }}>
             <Sparkles size={13} style={{ color: 'var(--violet-bright)', flexShrink: 0 }} />
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              AI will auto-summarize, tag, and find connections when you save
+              AI extracts tags, generates a brief, and connects memories automatically
             </span>
           </div>
 
@@ -457,7 +646,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
               {isSaving ? (
                 <>
                   <Loader size={14} className="spin" />
-                  {tab === 'upload' ? 'Uploading...' : 'Processing with AI...'}
+                  {tab === 'upload' ? 'Uploading...' : 'Saving Memory...'}
                 </>
               ) : saved ? (
                 <>

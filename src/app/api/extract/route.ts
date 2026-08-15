@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { extractYouTubeVideoId, fetchYouTubeOEmbed, isYouTubeUrl, getYouTubeThumbnailUrl } from '@/lib/youtube';
+import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
+import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
 import { classifyContent, generateAISummary } from '@/lib/ai-engine';
 
 export async function POST(request: Request) {
@@ -54,6 +56,31 @@ export async function POST(request: Request) {
         description: ytDescription.trim(),
         image: ytThumbnail || '',
         tags,
+        type: 'video',
+      });
+    }
+
+    // 3. Specialized Facebook extraction
+    if (isFacebookUrl(targetUrl)) {
+      const fbData = await extractFacebookMetadata(targetUrl);
+      return NextResponse.json({
+        title: fbData.title,
+        description: fbData.description,
+        image: fbData.image || '',
+        tags: fbData.tags,
+        type: fbData.type,
+      });
+    }
+
+    // 4. Specialized X (Twitter) extraction
+    if (isTwitterUrl(targetUrl)) {
+      const twData = await extractTwitterMetadata(targetUrl);
+      return NextResponse.json({
+        title: twData.title,
+        description: twData.description,
+        image: twData.image || '',
+        tags: twData.tags,
+        type: twData.type,
       });
     }
 

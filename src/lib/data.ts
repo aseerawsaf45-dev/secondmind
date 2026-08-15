@@ -47,6 +47,11 @@ export const TAG_COLORS: Record<string, string> = {
   'Health': '#22C55E',
   'Education': '#66a4ac',
   'Culture': '#FB923C',
+  'Facebook': '#1877F2',
+  'X': '#E5E7EB',
+  'Twitter': '#1DA1F2',
+  'Social': '#38BDF8',
+  'Video': '#EF4444',
 };
 
 export const MOCK_ITEMS: MemoryItem[] = [
