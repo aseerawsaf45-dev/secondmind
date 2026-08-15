@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Video,
   FolderKanban,
+  X,
 } from 'lucide-react';
 import { Collection } from '@/lib/db-collections';
 import { TAG_COLORS } from '@/lib/data';
@@ -112,56 +113,68 @@ export default function Sidebar({
 
       {/* 3 & 4. BRAND HEADER WITH BREATHING LOGO HIGHLIGHT */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Translucent White Logo Icon Container */}
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '13px',
-              background: 'rgba(255, 255, 255, 0.6)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.4)',
-              boxShadow: '0 4px 14px rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              flexShrink: 0,
-            }}
-          >
-            <img
-              src="/logo.png"
-              alt="SecondMind Logo"
-              style={{ width: '24px', height: '24px', objectFit: 'contain' }}
-              onError={(e) => {
-                // If logo.png fails to load, render dark SVG icon
-                e.currentTarget.style.display = 'none';
-                if (e.currentTarget.parentElement) {
-                  e.currentTarget.parentElement.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#08080D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a3 3 0 1 0-6 0"/></svg>`;
-                }
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Translucent White Logo Icon Container */}
+            <div
               style={{
-                fontSize: '18px',
-                fontWeight: 700,
-                color: '#FFFFFF',
-                letterSpacing: '-0.02em',
-                lineHeight: 1.2,
+                width: '42px',
+                height: '42px',
+                borderRadius: '13px',
+                background: 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                boxShadow: '0 4px 14px rgba(255, 255, 255, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
-              SecondMind
-            </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.38)', letterSpacing: '0.12em' }}>
-                AI MEMORY
-              </span>
+              <img
+                src="/logo.png"
+                alt="SecondMind Logo"
+                style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.parentElement) {
+                    e.currentTarget.parentElement.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#08080D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a3 3 0 1 0-6 0"/></svg>`;
+                  }
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <h1
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                }}
+              >
+                SecondMind
+              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.38)', letterSpacing: '0.12em' }}>
+                  AI MEMORY
+                </span>
+              </div>
             </div>
           </div>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="btn btn-ghost btn-icon mobile-menu-btn"
+              style={{ padding: '6px', color: 'rgba(255,255,255,0.6)' }}
+              title="Close sidebar"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         {/* 5. SEARCH BAR */}

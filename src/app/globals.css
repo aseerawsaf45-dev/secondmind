@@ -260,7 +260,14 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
 }
 
-@media (max-width: 1200px) {
+@media (min-width: 1600px) {
+  .masonry-grid {
+    columns: 4;
+    column-gap: 22px;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 769px) {
   .masonry-grid {
     columns: 2;
     column-gap: 16px;
@@ -270,12 +277,19 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 768px) {
   .masonry-grid {
     columns: 1;
+    column-gap: 0;
   }
 }
 
 .masonry-item {
   break-inside: avoid;
   margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .masonry-item {
+    margin-bottom: 14px;
+  }
 }
 
 /* AI Badge */
@@ -307,6 +321,16 @@ h1, h2, h3, h4, h5, h6 {
   align-items: flex-start;
   justify-content: center;
   padding-top: 80px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (max-width: 768px) {
+  .search-overlay {
+    padding-top: 20px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }
 
 /* Modal Overlay */
@@ -321,6 +345,17 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    align-items: flex-end;
+  }
 }
 
 /* Button Base */
@@ -340,6 +375,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   white-space: nowrap;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary {
@@ -372,8 +408,8 @@ h1, h2, h3, h4, h5, h6 {
 .btn-icon {
   padding: 8px;
   border-radius: 10px;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
 }
 
 /* Inputs */
@@ -388,6 +424,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-body);
   outline: none;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-appearance: none;
 }
 .input::placeholder {
   color: var(--text-muted);
@@ -405,6 +442,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  height: 100vh;
 }
 
 .dashboard-header {
@@ -413,25 +451,133 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   padding: 16px 28px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(6, 6, 11, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(6, 6, 11, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 10;
+  padding-top: max(16px, env(safe-area-inset-top));
 }
 
 .mobile-capture-btn {
   display: none !important;
 }
 
-/* Mobile Responsiveness */
+/* Horizontal Filter Pill Strip for Mobile & Touch */
+.horizontal-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 16px;
+  background: rgba(6, 6, 11, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.horizontal-filter-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-filter-pill {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.horizontal-filter-pill.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.15));
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #A7F3D0;
+  font-weight: 600;
+}
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(11, 11, 20, 0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 90;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 12px;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-nav-item.active {
+    color: #34D399;
+  }
+
+  .mobile-nav-fab {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10B981, #059669);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 18px rgba(16, 185, 129, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: -16px;
+    cursor: pointer;
+  }
+
+  .dashboard-body {
+    padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Mobile Responsiveness Rules */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
     top: 0;
-    left: -280px;
+    left: -320px;
+    width: min(300px, 85vw) !important;
     z-index: 1000;
     transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -449,7 +595,7 @@ h1, h2, h3, h4, h5, h6 {
   }
   
   .dashboard-body {
-    padding: 16px !important;
+    padding: 14px 12px !important;
   }
 
   .mobile-menu-btn {
@@ -460,12 +606,9 @@ h1, h2, h3, h4, h5, h6 {
     display: inline-flex !important;
   }
   
-  .modal-overlay {
-    padding: 12px;
-  }
-  
   .item-detail-grid {
     grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 }
 
@@ -483,7 +626,7 @@ h1, h2, h3, h4, h5, h6 {
 .sidebar-mobile-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 999;

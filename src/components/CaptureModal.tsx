@@ -245,6 +245,9 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         style={{
           width: '100%',
           maxWidth: '540px',
+          maxHeight: 'min(90dvh, 720px)',
+          display: 'flex',
+          flexDirection: 'column',
           background: 'var(--bg-elevated)',
           border: '1px solid var(--border-strong)',
           borderRadius: '20px',
@@ -254,7 +257,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         className="animate-fade-in-up"
       >
         {/* Header */}
-        <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '18px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>Save to Memory</h2>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>AI will analyze, tag, and organize content automatically</p>
@@ -265,7 +268,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         </div>
 
         {/* Tabs */}
-        <div style={{ padding: '16px 24px 0', display: 'flex', gap: '4px' }}>
+        <div style={{ padding: '14px 20px 0', display: 'flex', gap: '4px', flexShrink: 0, overflowX: 'auto' }}>
           {TABS.map(t => (
             <button
               key={t.id}
@@ -288,6 +291,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                 background: tab === t.id ? 'rgba(6, 86, 91,0.15)' : 'transparent',
                 color: tab === t.id ? 'var(--violet-bright)' : 'var(--text-muted)',
                 borderBottom: tab === t.id ? '2px solid var(--violet)' : '2px solid transparent',
+                whiteSpace: 'nowrap',
               }}
             >
               {t.icon}
@@ -297,7 +301,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         </div>
 
         {/* Body */}
-        <div style={{ padding: '20px 24px 24px' }}>
+        <div style={{ padding: '16px 20px 20px', overflowY: 'auto', flex: 1 }}>
           {tab === 'url' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>

@@ -132,7 +132,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
       </div>
 
       {/* User-Friendly Live Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
         {[
           { label: 'Total Saved Memories', value: stats.totalItems, subtext: 'In your second mind', icon: <Brain size={20} style={{ color: '#10B981' }} /> },
           { label: 'Smart Connections', value: stats.connectionsCount, subtext: 'Cross-linked topics', icon: <Network size={20} style={{ color: '#06B6D4' }} /> },

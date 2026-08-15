@@ -510,6 +510,29 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           </div>
         </header>
 
+        {/* Horizontal Quick-Filter Strip */}
+        <div className="horizontal-filter-strip">
+          {[
+            { id: 'all', label: 'All', icon: '🧠' },
+            { id: 'favorites', label: 'Favorites', icon: '⭐' },
+            { id: 'ai-insights', label: 'AI Insights', icon: '✨' },
+            { id: 'link', label: 'Links', icon: '🔗' },
+            { id: 'video', label: 'Videos', icon: '🎬' },
+            { id: 'tweet', label: 'X / Tweets', icon: '𝕏' },
+            { id: 'note', label: 'Notes', icon: '📝' },
+            { id: 'pdf', label: 'PDFs', icon: '📄' },
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setActiveFilter(f.id)}
+              className={`horizontal-filter-pill ${activeFilter === f.id ? 'active' : ''}`}
+            >
+              <span>{f.icon}</span>
+              <span>{f.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Body */}
         <div
           style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
@@ -519,7 +542,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           {loading ? (
             <LoadingState />
           ) : activeFilter === 'ai-insights' ? (
-            <div style={{ maxWidth: '850px' }}>
+            <div style={{ maxWidth: '850px', width: '100%', margin: '0 auto' }}>
               <AIInsightsPanel items={items} collections={collections} onSelectItem={item => setSelectedItem(item)} />
             </div>
           ) : filteredItems !== null && filteredItems.length === 0 ? (
@@ -550,6 +573,49 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               ))}
             </div>
           ) : null}
+        </div>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <div className="mobile-bottom-bar">
+          <button
+            onClick={() => setActiveFilter('all')}
+            className={`mobile-nav-item ${activeFilter === 'all' ? 'active' : ''}`}
+          >
+            <span style={{ fontSize: '16px' }}>🧠</span>
+            <span>Memory</span>
+          </button>
+
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="mobile-nav-item"
+          >
+            <Search size={18} />
+            <span>Search</span>
+          </button>
+
+          <button
+            onClick={() => setCaptureOpen(true)}
+            className="mobile-nav-fab"
+            aria-label="Add memory"
+          >
+            <Plus size={22} />
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('favorites')}
+            className={`mobile-nav-item ${activeFilter === 'favorites' ? 'active' : ''}`}
+          >
+            <span style={{ fontSize: '16px' }}>⭐</span>
+            <span>Favorites</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('ai-insights')}
+            className={`mobile-nav-item ${activeFilter === 'ai-insights' ? 'active' : ''}`}
+          >
+            <Sparkles size={18} />
+            <span>Insights</span>
+          </button>
         </div>
       </main>
 

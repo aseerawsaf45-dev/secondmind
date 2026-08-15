@@ -79,7 +79,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
         style={{
           width: '100%',
           maxWidth: '760px',
-          maxHeight: '90vh',
+          maxHeight: 'min(92dvh, 850px)',
           background: 'var(--bg-elevated)',
           border: '1px solid var(--border-strong)',
           borderRadius: '20px',
@@ -92,11 +92,11 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
       >
         {/* Top bar */}
         <div style={{
-          padding: '16px 24px',
+          padding: '14px 18px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          gap: '10px',
           flexShrink: 0,
         }}>
           <div style={{
@@ -170,7 +170,7 @@ export default function ItemDetailModal({ item, onClose, onSelectItem, onFavorit
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 24px' }}>
           {isEditing ? (
             <input
               className="input"
