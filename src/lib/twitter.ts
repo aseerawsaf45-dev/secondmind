@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { classifyContent, generateAISummary } from '@/lib/ai-engine';
+import { classifyContent, generateAISummary, cleanSocialText } from '@/lib/ai-engine';
 
 export interface TwitterExtractedData {
   title: string;
@@ -134,23 +134,28 @@ export async function extractTwitterMetadata(url: string): Promise<TwitterExtrac
     }
   }
 
+  // Clean raw tweet text from engagement spam & metrics
+  const cleanTweet = cleanSocialText(tweetText);
+
   // 3. Construct Title
   let finalTitle = '';
   if (parsedMeta.type === 'profile') {
     finalTitle = authorName ? `${authorName} (@${parsedMeta.username || authorName}) on X` : 'X Profile';
   } else if (parsedMeta.type === 'space') {
     finalTitle = 'X Space Audio Broadcast';
-  } else if (tweetText) {
-    const snippet = tweetText.length > 70 ? tweetText.slice(0, 67) + '...' : tweetText;
+  } else if (cleanTweet) {
+    const snippet = cleanTweet.length > 70 ? cleanTweet.slice(0, 67) + '...' : cleanTweet;
     finalTitle = authorName ? `${authorName} on X: "${snippet}"` : snippet;
   } else {
     finalTitle = authorName ? `Post by @${authorName} on X` : 'X (Twitter) Post';
   }
 
+  finalTitle = cleanSocialText(finalTitle);
+
   // 4. Construct Brief & AI Summary
   let finalSummary = '';
-  if (tweetText) {
-    finalSummary = generateAISummary(finalTitle, tweetText, 'tweet');
+  if (cleanTweet) {
+    finalSummary = generateAISummary(finalTitle, cleanTweet, 'tweet');
   } else if (parsedMeta.type === 'profile') {
     finalSummary = authorName
       ? `X / Twitter profile and updates from ${authorName}.`
@@ -162,7 +167,7 @@ export async function extractTwitterMetadata(url: string): Promise<TwitterExtrac
   }
 
   // 5. Generate Tags
-  const contentToClassify = `${finalTitle} ${tweetText} ${authorName} twitter x social`;
+  const contentToClassify = `${finalTitle} ${cleanTweet} ${authorName} twitter x social`;
   const classifiedTags = classifyContent(contentToClassify, ['Social', 'X']);
   
   const tagsSet = new Set<string>(['Social', 'X', ...classifiedTags]);

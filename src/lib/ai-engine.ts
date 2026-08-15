@@ -67,9 +67,68 @@ export function classifyContent(text: string, defaultTags: string[] = []): strin
   return result.slice(0, 4);
 }
 
+/**
+ * Cleans social media metrics (e.g. "20K views · 1K reactions") and engagement clickbait (e.g. "Comment AI and I'll DM you").
+ */
+export function cleanSocialText(text: string): string {
+  if (!text) return '';
+
+  let cleaned = text;
+
+  // 1. Remove social engagement metrics (e.g. "20K views · 1K reactions", "216K views · 2.9K reactions | ...", "1.5M views")
+  cleaned = cleaned.replace(/\b\d+(\.\d+)?[KMBkmb]?\s*(?:views|reactions|likes|comments|shares|retweets|reposts|replies|plays)\b(?:\s*[·•|\-—]\s*\b\d+(\.\d+)?[KMBkmb]?\s*(?:views|reactions|likes|comments|shares|retweets|reposts|replies|plays)\b)*/gi, '');
+
+  // 2. Remove engagement clickbaits & CTA commands
+  const ctaPatterns = [
+    /\b(?:🚨)?\s*(?:follow\s*\+\s*)?(?:comment|drop a comment|type|reply|dm me|send me|inbox me)\s+["“'‘][^"”'’]+["”'’]\s*(?:and|to|for|i['’]ll|we['’]ll|to get|to receive)?[^.!?\n]*/gi,
+    /\b(?:🚨)?\s*follow\s*\+\s*(?:comment|dm|reply|like)[^.!?\n]*/gi,
+    /💬\s*(?:comment|reply|dm)[^.!?\n]*/gi,
+    /\b(?:comment|type|drop)\s+["“'‘][^"”'’]+["”'’][^.!?\n]*/gi,
+    /\b(?:dm|inbox)\s+me\s+["“'‘]?[a-zA-Z0-9_\s]+["”'’]?\s*(?:to get|for|and|to receive)[^.!?\n]*/gi,
+    /\b(?:comment|drop a comment)\s+below[^.!?\n]*/gi,
+    /\b(?:link in (?:bio|comments|description|first comment))[^.!?\n]*/gi,
+    /\b(?:tag a friend|tag someone|share with a friend)[^.!?\n]*/gi,
+    /\b(?:follow\s+(?:me|us|for more|@[\w.]+))[^.!?\n]*/gi,
+    /\b(?:like and (?:subscribe|follow|share|retweet))[^.!?\n]*/gi,
+    /\b(?:save this (?:post|for later|reel|video))[^.!?\n]*/gi,
+    /\b(?:subscribe for more|hit the bell icon)[^.!?\n]*/gi,
+    /\b(?:check out the link (?:in|below))[^.!?\n]*/gi,
+  ];
+
+  for (const pattern of ctaPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove standalone or leftover exclamation/dangling emojis from removed CTAs
+  cleaned = cleaned.replace(/[💬🚨👉👇🔥🚀]\s*!/g, '').replace(/Follow\s*\+\s*!/gi, '');
+
+  // 3. Remove trailing platform brand watermarks
+  cleaned = cleaned
+    .replace(/\s*\|\s*(?:Facebook|Twitter|X|Instagram|TikTok|YouTube|LinkedIn)$/i, '')
+    .replace(/\s*-\s*(?:Facebook|Twitter|X|Instagram|TikTok|YouTube|LinkedIn)$/i, '')
+    .replace(/\s*(?:on\s+Facebook|on\s+X|on\s+Twitter|on\s+Instagram)$/i, '');
+
+  // 4. Remove dangling separator characters & pointing emojis at start or end
+  cleaned = cleaned
+    .replace(/^[\s·•|\-—:👇👉🔥🚀👀]+/g, '')
+    .replace(/[\s·•|\-—:👇👉🔥🚀👀]+$/g, '')
+    .replace(/\s*[·•|\-—]\s*$/g, '')
+    .replace(/^\s*[·•|\-—]\s*/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  // 5. Ensure valid UTF-8 unicode (remove any lone surrogates from regex splits)
+  if (typeof cleaned.toWellFormed === 'function') {
+    cleaned = cleaned.toWellFormed();
+  }
+  cleaned = cleaned.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '').trim();
+
+  return cleaned;
+}
+
 export function generateAISummary(title: string, content: string, type: string = 'link'): string {
-  const cleanTitle = title ? title.trim() : '';
-  const cleanContent = content ? content.trim() : '';
+  const cleanTitle = cleanSocialText(title ? title.trim() : '');
+  let cleanContent = cleanSocialText(content ? content.trim() : '');
 
   if (!cleanContent && !cleanTitle) {
     return 'Saved item reference in memory.';
@@ -113,7 +172,7 @@ export function generateAISummary(title: string, content: string, type: string =
 
   if (!summary) {
     if (type === 'video') {
-      summary = cleanTitle ? `Video overview: "${cleanTitle}". AI summary and key takeaways.` : 'Saved video resource.';
+      summary = cleanTitle ? `Video overview: "${cleanTitle}". Key takeaways and media reference.` : 'Saved video resource.';
     } else if (type === 'tweet') {
       summary = cleanTitle ? `Social post: "${cleanTitle}".` : 'Saved social update.';
     } else if (type === 'note') {

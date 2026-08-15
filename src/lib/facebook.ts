@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { classifyContent, generateAISummary } from '@/lib/ai-engine';
+import { classifyContent, generateAISummary, cleanSocialText } from '@/lib/ai-engine';
 
 export interface FacebookExtractedData {
   title: string;
@@ -183,12 +183,14 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
     }
   }
 
-  // Clean title from trailing "| Facebook" or "- Facebook"
-  finalTitle = finalTitle.replace(/\s*\|\s*Facebook$/i, '').replace(/\s*-\s*Facebook$/i, '').trim();
+  // Clean title from trailing "| Facebook" or "- Facebook" and social metrics
+  finalTitle = cleanSocialText(finalTitle);
 
   let finalSummary = '';
-  if (ogDescription && ogDescription.length > 20) {
-    finalSummary = generateAISummary(finalTitle, ogDescription, isVideo ? 'video' : 'link');
+  const cleanedDesc = cleanSocialText(ogDescription);
+
+  if (cleanedDesc && cleanedDesc.length > 20) {
+    finalSummary = generateAISummary(finalTitle, cleanedDesc, isVideo ? 'video' : 'link');
   } else {
     if (parsedMeta.type === 'reel' || parsedMeta.type === 'video') {
       finalSummary = author
@@ -214,7 +216,7 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
   if (isVideo) defaultTags.push('Video');
   if (parsedMeta.type === 'group') defaultTags.push('Community');
 
-  const contentToClassify = `${finalTitle} ${ogDescription} ${author} facebook social`;
+  const contentToClassify = `${finalTitle} ${cleanedDesc} ${author} facebook social`;
   const classifiedTags = classifyContent(contentToClassify, defaultTags);
 
   // Ensure 'Facebook' and 'Social' are always present
