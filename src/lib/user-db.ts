@@ -38,3 +38,11 @@ export async function getUserDb(userId: string, email?: string): Promise<UserDb>
 
   return db;
 }
+
+/**
+ * Remove a cached client instance for a given user.
+ */
+export function evictUserDbCache(userId: string): void {
+  dbCache.delete(userId);
+}
+

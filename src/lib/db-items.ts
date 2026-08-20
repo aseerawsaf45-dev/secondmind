@@ -1,11 +1,14 @@
 'use server';
 
+import { auth } from '@clerk/nextjs/server';
 import { getUserDb } from '@/lib/user-db';
 import { memoryItems } from '@/db/schema';
-import { eq, desc, or, inArray } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { classifyContent, generateAISummary } from '@/lib/ai-engine';
+import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
+import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
 
 // Helper to convert Drizzle record to MemoryItem
 function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
@@ -26,17 +29,41 @@ function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
   };
 }
 
-import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
-import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
+/**
+ * Validates and sanitizes a URL string to prevent javascript: or malformed protocols.
+ */
+function sanitizeUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return undefined;
+}
+
+/**
+ * Server-side identity guard: guarantees the operation uses the verified Clerk session identity.
+ */
+async function getVerifiedUserId(fallbackUserId?: string): Promise<string> {
+  const session = await auth();
+  const sessionUserId = session.userId;
+  if (sessionUserId) {
+    return sessionUserId;
+  }
+  if (fallbackUserId && process.env.NODE_ENV !== 'production') {
+    return fallbackUserId;
+  }
+  throw new Error('Unauthorized: Valid user session required.');
+}
 
 export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
   try {
-    const db = await getUserDb(userId);
-    const userIds = [userId].filter(Boolean);
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
     const rows = await db
       .select()
       .from(memoryItems)
-      .where(inArray(memoryItems.userId, userIds))
+      .where(eq(memoryItems.userId, verifiedUserId))
       .orderBy(desc(memoryItems.createdAt));
 
     const items = rows.map(recordToItem);
@@ -49,7 +76,6 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
           const isFb = isFacebookUrl(item.url);
           const isTw = isTwitterUrl(item.url);
 
-          // Needs re-analysis if title is raw URL/generic or tags don't contain Facebook/X
           const needsAnalysis =
             (isFb && (!item.tags.includes('Facebook') || !item.summary || item.title.includes('http') || item.title === 'facebook.com')) ||
             (isTw && (!item.tags.includes('X') || !item.summary || item.title.includes('http') || item.title === 'x.com' || item.title === 'twitter.com'));
@@ -86,8 +112,8 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
             }
           }
         }
-      } catch (bgErr) {
-        // Silently continue background auto-enrichment
+      } catch {
+        // Silently handle background auto-enrichment
       }
     })();
 
@@ -100,11 +126,12 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
 
 export async function reanalyzeSocialItemsAction(userId: string): Promise<boolean> {
   try {
-    const db = await getUserDb(userId);
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
     const rows = await db
       .select()
       .from(memoryItems)
-      .where(eq(memoryItems.userId, userId));
+      .where(eq(memoryItems.userId, verifiedUserId));
 
     for (const item of rows) {
       if (!item.url) continue;
@@ -152,12 +179,18 @@ export async function saveItemAction(
   userId: string,
   data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }
 ): Promise<MemoryItem> {
-  const effectiveUserId = userId;
+  const verifiedUserId = await getVerifiedUserId(userId);
+  const cleanUrl = sanitizeUrl(data.url);
 
-  const sourceDomain = data.url
+  // Input boundaries to prevent payload abuse
+  const cleanTitle = (data.title || 'Untitled Memory').slice(0, 500);
+  const cleanContent = (data.content || '').slice(0, 50000);
+  const cleanTags = (data.tags || []).slice(0, 20).map(t => String(t).slice(0, 50));
+
+  const sourceDomain = cleanUrl
     ? (() => {
         try {
-          return new URL(data.url).hostname.replace('www.', '');
+          return new URL(cleanUrl).hostname.replace('www.', '');
         } catch {
           return undefined;
         }
@@ -165,27 +198,27 @@ export async function saveItemAction(
     : undefined;
 
   let finalThumbnail = data.thumbnailUrl;
-  if (!finalThumbnail && data.url && isYouTubeUrl(data.url)) {
-    finalThumbnail = getYouTubeThumbnailUrl(data.url) || undefined;
+  if (!finalThumbnail && cleanUrl && isYouTubeUrl(cleanUrl)) {
+    finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
   }
 
-  const textForAnalysis = `${data.title} ${data.content} ${data.url || ''}`;
-  const finalTags = data.tags && data.tags.length > 0
-    ? data.tags
-    : classifyContent(textForAnalysis, data.url ? [data.type === 'video' ? 'Video' : 'Link'] : ['Note']);
+  const textForAnalysis = `${cleanTitle} ${cleanContent} ${cleanUrl || ''}`;
+  const finalTags = cleanTags.length > 0
+    ? cleanTags
+    : classifyContent(textForAnalysis, cleanUrl ? [data.type === 'video' ? 'Video' : 'Link'] : ['Note']);
 
   const finalSummary = data.summary && data.summary !== 'Saving...'
-    ? data.summary
-    : generateAISummary(data.title, data.content, data.type);
+    ? data.summary.slice(0, 2000)
+    : generateAISummary(cleanTitle, cleanContent, data.type);
 
   const fallbackItem: MemoryItem = {
     id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     type: data.type as MemoryItem['type'],
-    title: data.title || 'Untitled Memory',
-    content: data.content,
-    url: data.url || undefined,
-    thumbnailUrl: finalThumbnail || undefined,
-    sourceDomain: sourceDomain || undefined,
+    title: cleanTitle,
+    content: cleanContent,
+    url: cleanUrl,
+    thumbnailUrl: finalThumbnail,
+    sourceDomain,
     summary: finalSummary,
     tags: finalTags,
     isFavorite: false,
@@ -195,15 +228,15 @@ export async function saveItemAction(
   };
 
   try {
-    const db = await getUserDb(userId);
+    const db = await getUserDb(verifiedUserId);
     const [inserted] = await db
       .insert(memoryItems)
       .values({
-        userId: effectiveUserId,
+        userId: verifiedUserId,
         type: data.type,
-        title: data.title || 'Untitled Memory',
-        content: data.content,
-        url: data.url || null,
+        title: cleanTitle,
+        content: cleanContent,
+        url: cleanUrl || null,
         thumbnailUrl: finalThumbnail || null,
         sourceDomain: sourceDomain || null,
         summary: finalSummary,
@@ -215,15 +248,30 @@ export async function saveItemAction(
 
     return recordToItem(inserted);
   } catch (err: any) {
-    console.error('CRITICAL saveItem DB insert error:', err?.message || err);
-    if (err?.stack) console.error(err.stack);
+    console.error('saveItem DB insert error:', err?.message || 'Database operation failed');
     return fallbackItem;
+  }
+}
+
+export async function deleteUserAccountAndDataAction(userId: string): Promise<boolean> {
+  try {
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const { deleteUserBranchAndData } = await import('@/lib/neon-branch');
+    const { evictUserDbCache } = await import('@/lib/user-db');
+
+    await deleteUserBranchAndData(verifiedUserId);
+    evictUserDbCache(verifiedUserId);
+    return true;
+  } catch (err) {
+    console.error('deleteUserAccountAndDataAction error:', err);
+    return false;
   }
 }
 
 export async function toggleFavoriteAction(userId: string, id: string, isFavorite: boolean): Promise<void> {
   try {
-    const db = await getUserDb(userId);
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
     await db
       .update(memoryItems)
       .set({ isFavorite })
@@ -235,7 +283,8 @@ export async function toggleFavoriteAction(userId: string, id: string, isFavorit
 
 export async function deleteItemAction(userId: string, id: string): Promise<void> {
   try {
-    const db = await getUserDb(userId);
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
     await db
       .delete(memoryItems)
       .where(eq(memoryItems.id, id));
@@ -250,14 +299,15 @@ export async function updateItemAction(
   data: { title?: string; content?: string; summary?: string; tags?: string[] }
 ): Promise<boolean> {
   try {
-    const db = await getUserDb(userId);
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
     await db
       .update(memoryItems)
       .set({
-        ...(data.title !== undefined && { title: data.title }),
-        ...(data.content !== undefined && { content: data.content }),
-        ...(data.summary !== undefined && { summary: data.summary }),
-        ...(data.tags !== undefined && { tags: data.tags }),
+        ...(data.title !== undefined && { title: data.title.slice(0, 500) }),
+        ...(data.content !== undefined && { content: data.content.slice(0, 50000) }),
+        ...(data.summary !== undefined && { summary: data.summary.slice(0, 2000) }),
+        ...(data.tags !== undefined && { tags: data.tags.slice(0, 20).map(t => String(t).slice(0, 50)) }),
         aiProcessed: true,
       })
       .where(eq(memoryItems.id, id));

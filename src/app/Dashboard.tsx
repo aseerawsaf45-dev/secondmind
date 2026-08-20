@@ -18,6 +18,7 @@ import {
   toggleFavoriteAction,
   deleteItemAction,
   updateItemAction,
+  deleteUserAccountAndDataAction,
 } from '@/lib/db-items';
 import {
   fetchCollectionsAction,
@@ -56,6 +57,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [createCollectionOpen, setCreateCollectionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeletingData, setIsDeletingData] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
@@ -725,9 +728,110 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                 {activeUser?.email || 'N/A'}
               </div>
             </div>
+            <div
+              style={{
+                padding: '16px',
+                background: 'rgba(239,68,68,0.04)',
+                border: '1px solid rgba(239,68,68,0.15)',
+                borderRadius: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#ef4444',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '6px',
+                  fontWeight: 600,
+                }}
+              >
+                Privacy & Data Deletion
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+                Permanently delete all your memories, collections, and your dedicated database branch.
+              </p>
+              {!confirmDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    background: 'rgba(239,68,68,0.1)',
+                    color: '#f87171',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                  }}
+                >
+                  Delete All My Data
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ fontSize: '12px', color: '#fca5a5', fontWeight: 500 }}>
+                    Are you sure? This action cannot be undone.
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      disabled={isDeletingData}
+                      onClick={async () => {
+                        if (!userId) return;
+                        setIsDeletingData(true);
+                        try {
+                          await deleteUserAccountAndDataAction(userId);
+                          await signOut({ redirectUrl: '/login' });
+                        } catch (e) {
+                          console.error('Failed to delete data:', e);
+                          setIsDeletingData(false);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: isDeletingData ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {isDeletingData ? 'Deleting...' : 'Yes, Delete Everything'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingData}
+                      onClick={() => setConfirmDelete(false)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        color: 'var(--text-secondary)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
-                onClick={() => setSettingsOpen(false)}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setConfirmDelete(false);
+                }}
                 className="btn btn-ghost"
                 style={{ flex: 1, justifyContent: 'center' }}
               >

@@ -53,7 +53,6 @@ export async function saveItem(
     ai_processed: !!data.summary || !!data.tags?.length,
   };
 
-  console.log('Attempting to save item:', insert);
   const { data: row, error } = await supabase
     .from('memory_items')
     .insert(insert)

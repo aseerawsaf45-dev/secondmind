@@ -13,14 +13,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Webhook } from 'svix';
-import { createBranchForUser, getBranchUrl } from '@/lib/neon-branch';
+import { createBranchForUser, getBranchUrl, deleteUserBranchAndData } from '@/lib/neon-branch';
 
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
 
+  const correlationId = crypto.randomUUID();
+
   if (!webhookSecret) {
-    console.error('[clerk-webhook] CLERK_WEBHOOK_SECRET is not set.');
-    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+    console.error(`[clerk-webhook][${correlationId}] CLERK_WEBHOOK_SECRET is not set.`);
+    return NextResponse.json({ error: 'Server misconfiguration', correlationId }, { status: 500 });
   }
 
   // ── Verify webhook signature ─────────────────────────────────────────────
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
   const svixSignature = req.headers.get('svix-signature');
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing svix headers', correlationId }, { status: 400 });
   }
 
   const body = await req.text();
@@ -43,8 +45,8 @@ export async function POST(req: NextRequest) {
       'svix-signature': svixSignature,
     });
   } catch (err) {
-    console.error('[clerk-webhook] Signature verification failed:', err);
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    console.error(`[clerk-webhook][${correlationId}] Signature verification failed:`, err);
+    return NextResponse.json({ error: 'Invalid signature', correlationId }, { status: 401 });
   }
 
   // ── Handle user.created ──────────────────────────────────────────────────
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     const email: string =
       event.data.email_addresses?.[0]?.email_address ?? `${userId}@unknown.user`;
 
-    console.log(`[clerk-webhook] New user created: ${userId} (${email})`);
+    console.log(`[clerk-webhook] New user created: ${userId} ([REDACTED_EMAIL])`);
 
     try {
       // Idempotency: skip if branch was already provisioned
@@ -70,10 +72,26 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error(`[clerk-webhook] Failed to provision branch for ${userId}:`, err);
       // Return 200 so Clerk doesn't retry (provisioning will happen lazily on first use)
-      return NextResponse.json({ ok: false, status: 'provision_failed', error: String(err) });
+      return NextResponse.json({ ok: false, status: 'provision_failed', message: 'Failed to provision branch' });
+    }
+  }
+
+  // ── Handle user.deleted (Data Deletion Compliance) ───────────────────────
+  if (event.type === 'user.deleted') {
+    const userId: string = event.data.id;
+    console.log(`[clerk-webhook] User deletion requested for: ${userId}`);
+
+    try {
+      await deleteUserBranchAndData(userId);
+      console.log(`[clerk-webhook] Cleaned up all user data and branch for ${userId}`);
+      return NextResponse.json({ ok: true, status: 'user_data_deleted' });
+    } catch (err) {
+      console.error(`[clerk-webhook] Error deleting user data for ${userId}:`, err);
+      return NextResponse.json({ ok: false, status: 'deletion_failed' });
     }
   }
 
   // Acknowledge other event types
   return NextResponse.json({ ok: true, status: 'ignored' });
 }
+

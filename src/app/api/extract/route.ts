@@ -28,7 +28,11 @@ export async function POST(request: Request) {
     }
 
     if (!targetUrl) {
-      return NextResponse.json({ error: 'Missing URL or text' }, { status: 400 });
+      const correlationId = crypto.randomUUID();
+      return NextResponse.json(
+        { error: 'Missing URL or text', correlationId },
+        { status: 400 }
+      );
     }
 
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {

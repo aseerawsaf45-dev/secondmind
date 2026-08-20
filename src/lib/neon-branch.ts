@@ -21,7 +21,11 @@ function getNeonCredentials() {
 
 // Root DB — used only to read/write the user_branches registry
 function getRootDb() {
-  const sql = neon(process.env.DATABASE_URL!);
+  let dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl && !dbUrl.includes('sslmode=')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslmode=require';
+  }
+  const sql = neon(dbUrl);
   return drizzle(sql, { schema });
 }
 
@@ -156,3 +160,58 @@ async function bootstrapUserSchema(connectionUrl: string): Promise<void> {
     )
   `;
 }
+
+/**
+ * Permanently delete all user data and remove their dedicated Neon branch.
+ */
+export async function deleteUserBranchAndData(userId: string): Promise<boolean> {
+  try {
+    const rootDb = getRootDb();
+    const rows = await rootDb
+      .select()
+      .from(schema.userBranches)
+      .where(eq(schema.userBranches.userId, userId))
+      .limit(1);
+
+    const record = rows[0];
+    if (record) {
+      // 1. Wipe database contents on the branch if accessible
+      try {
+        const sql = neon(record.connectionUrl);
+        await sql`DROP TABLE IF EXISTS collection_items CASCADE;`;
+        await sql`DROP TABLE IF EXISTS collections CASCADE;`;
+        await sql`DROP TABLE IF EXISTS memory_items CASCADE;`;
+      } catch (dbErr) {
+        console.error('[neon-branch] Error wiping branch tables:', dbErr);
+      }
+
+      // 2. Delete branch via Neon API if credentials configured
+      try {
+        const { apiKey, projectId } = getNeonCredentials();
+        await fetch(
+          `https://console.neon.tech/api/v2/projects/${projectId}/branches/${record.branchId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } catch (apiErr) {
+        console.error('[neon-branch] Error calling Neon API to delete branch:', apiErr);
+      }
+
+      // 3. Remove entry from user_branches registry on root DB
+      await rootDb
+        .delete(schema.userBranches)
+        .where(eq(schema.userBranches.userId, userId));
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[neon-branch] deleteUserBranchAndData error:', err);
+    return false;
+  }
+}
+
