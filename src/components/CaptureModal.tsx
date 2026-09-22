@@ -1,4 +1,4 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List } from 'lucide-react';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { isFacebookUrl } from '@/lib/facebook';
@@ -11,10 +11,11 @@ interface CaptureModalProps {
   onSave: (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => void;
 }
 
-type TabType = 'url' | 'note' | 'upload';
+type TabType = 'url' | 'bulk' | 'note' | 'upload';
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'url', label: 'Paste URL', icon: <Link2 size={14} /> },
+  { id: 'bulk', label: 'Bulk Links', icon: <List size={14} /> },
   { id: 'note', label: 'Quick Note', icon: <FileText size={14} /> },
   { id: 'upload', label: 'Upload', icon: <Upload size={14} /> },
 ];
@@ -25,6 +26,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<TabType>('url');
   const [url, setUrl] = useState('');
+  const [bulkUrls, setBulkUrls] = useState('');
   const [note, setNote] = useState('');
   const [title, setTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -130,96 +132,112 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
   };
 
   const handleSave = async () => {
-    let cleanUrl = url.trim();
-    if (tab === 'url' && !cleanUrl) return;
+    if (tab === 'url' && !url.trim()) return;
     if (tab === 'note' && !note.trim()) return;
     if (tab === 'upload' && !selectedFile) return;
-
-    if (tab === 'url') {
-      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-        cleanUrl = 'https://' + cleanUrl;
-      }
-    }
+    if (tab === 'bulk' && !bulkUrls.trim()) return;
 
     setIsSaving(true);
-    let extractedData = extractedPreview;
-    let fileUrl = null;
 
-    try {
-      if (tab === 'url' && !extractedData) {
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: cleanUrl }),
-        });
-        if (res.ok) {
-          extractedData = await res.json();
+    const itemsToProcess: { url: string; note: string; file: File | null; tabType: TabType }[] = [];
+
+    if (tab === 'bulk') {
+      const urls = bulkUrls.split(/\r?\n/).map(u => u.trim()).filter(u => u);
+      urls.forEach(u => {
+        let clean = u;
+        if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+          clean = 'https://' + clean;
         }
-      } else if (tab === 'note') {
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: note, title }),
-        });
-        if (res.ok) {
-          extractedData = await res.json();
-        }
-      } else if (tab === 'upload' && selectedFile) {
-        fileUrl = URL.createObjectURL(selectedFile);
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: selectedFile.name }),
-        });
-        if (res.ok) {
-          extractedData = await res.json();
+        itemsToProcess.push({ url: clean, note: '', file: null, tabType: 'url' });
+      });
+    } else {
+      let cleanUrl = url.trim();
+      if (tab === 'url') {
+        if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+          cleanUrl = 'https://' + cleanUrl;
         }
       }
-    } catch (err) {
-      console.error('AI extraction failed', err);
+      itemsToProcess.push({ url: cleanUrl, note, file: selectedFile, tabType: tab });
     }
 
-    const lowerUrl = cleanUrl.toLowerCase();
-    const isTweet = tab === 'url' && (isTwitterUrl(cleanUrl) || lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
-    const isFb = tab === 'url' && isFacebookUrl(cleanUrl);
-    const isVideo = tab === 'url' && (isYouTubeUrl(cleanUrl) || extractedData?.tags?.includes('Video') || extractedData?.type === 'video');
+    await Promise.all(itemsToProcess.map(async (item) => {
+      let extractedData = item.tabType === 'url' && item.url === url.trim() ? extractedPreview : null;
+      let fileUrl = null;
 
-    let type: 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video' = 'note';
-    if (tab === 'url') {
-      if (isTweet) type = 'tweet';
-      else if (isVideo) type = 'video';
-      else type = 'link';
-    }
-    if (tab === 'upload' && selectedFile) {
-      type = selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'link';
-    }
+      try {
+        if (item.tabType === 'url' && !extractedData) {
+          const res = await fetch('/api/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: item.url }),
+          });
+          if (res.ok) {
+            extractedData = await res.json();
+          }
+        } else if (item.tabType === 'note') {
+          const res = await fetch('/api/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: item.note, title }),
+          });
+          if (res.ok) {
+            extractedData = await res.json();
+          }
+        } else if (item.tabType === 'upload' && item.file) {
+          fileUrl = URL.createObjectURL(item.file);
+          const res = await fetch('/api/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: item.file.name }),
+          });
+          if (res.ok) {
+            extractedData = await res.json();
+          }
+        }
+      } catch (err) {
+        console.error('AI extraction failed', err);
+      }
 
-    // Determine thumbnail URL
-    let finalThumbnail = extractedData?.image;
-    if (!finalThumbnail && isYouTubeUrl(cleanUrl)) {
-      finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
-    }
+      const lowerUrl = item.url.toLowerCase();
+      const isTweet = item.tabType === 'url' && (isTwitterUrl(item.url) || lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com'));
+      const isFb = item.tabType === 'url' && isFacebookUrl(item.url);
+      const isVideo = item.tabType === 'url' && (isYouTubeUrl(item.url) || extractedData?.tags?.includes('Video') || extractedData?.type === 'video');
 
-    const useTitle = title.trim() || extractedData?.title || (selectedFile?.name) || (tab === 'url' ? cleanUrl : note.slice(0, 50) + '...');
-    const useContent = tab === 'upload' ? (fileUrl || '') : (tab === 'url' ? (extractedData?.description || cleanUrl) : note);
-    const useSummary = extractedData?.description || (tab === 'note' ? note : tab === 'upload' ? `Uploaded ${selectedFile?.name}` : 'Saved memory reference');
+      let type: 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video' = 'note';
+      if (item.tabType === 'url') {
+        if (isTweet) type = 'tweet';
+        else if (isVideo) type = 'video';
+        else type = 'link';
+      }
+      if (item.tabType === 'upload' && item.file) {
+        type = item.file.type.includes('pdf') ? 'pdf' : item.file.type.includes('image') ? 'image' : 'link';
+      }
 
-    // Merge AI extracted tags with user's custom tags
-    const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
-    if (isFb) mergedTagsSet.add('Facebook');
-    if (isTweet) mergedTagsSet.add('X');
-    if (tab === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
-    if (mergedTagsSet.size === 0) mergedTagsSet.add('Saved');
+      let finalThumbnail = extractedData?.image;
+      if (!finalThumbnail && isYouTubeUrl(item.url)) {
+        finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
+      }
 
-    onSave({
-      type,
-      title: useTitle,
-      content: useContent,
-      url: tab === 'url' ? cleanUrl : (tab === 'upload' ? fileUrl || undefined : undefined),
-      thumbnailUrl: finalThumbnail,
-      summary: useSummary,
-      tags: Array.from(mergedTagsSet),
-    });
+      const useTitle = title.trim() || extractedData?.title || (item.file?.name) || (item.tabType === 'url' ? item.url : item.note.slice(0, 50) + '...');
+      const useContent = item.tabType === 'upload' ? (fileUrl || '') : (item.tabType === 'url' ? (extractedData?.description || item.url) : item.note);
+      const useSummary = extractedData?.description || (item.tabType === 'note' ? item.note : item.tabType === 'upload' ? `Uploaded ${item.file?.name}` : 'Saved memory reference');
+
+      const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
+      if (isFb) mergedTagsSet.add('Facebook');
+      if (isTweet) mergedTagsSet.add('X');
+      if (item.tabType === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
+      if (mergedTagsSet.size === 0) mergedTagsSet.add('Saved');
+
+      onSave({
+        type,
+        title: useTitle,
+        content: useContent,
+        url: item.tabType === 'url' ? item.url : (item.tabType === 'upload' ? fileUrl || undefined : undefined),
+        thumbnailUrl: finalThumbnail,
+        summary: useSummary,
+        tags: Array.from(mergedTagsSet),
+      });
+    }));
 
     setIsSaving(false);
     setSaved(true);
@@ -227,6 +245,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     await new Promise(r => setTimeout(r, 400));
     setSaved(false);
     setUrl('');
+    setBulkUrls('');
     setNote('');
     setTitle('');
     setCustomTags([]);
@@ -420,6 +439,25 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                   placeholder="Give it a title or personal note..."
                   rows={2}
                   style={{ resize: 'none' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {tab === 'bulk' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
+                  Bulk URLs (one per line) *
+                </label>
+                <textarea
+                  className="input"
+                  value={bulkUrls}
+                  onChange={e => setBulkUrls(e.target.value)}
+                  placeholder="Paste multiple URLs here, one per line..."
+                  rows={8}
+                  style={{ resize: 'none' }}
+                  autoFocus
                 />
               </div>
             </div>
@@ -640,17 +678,17 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || saved || (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : !selectedFile)}
+              disabled={isSaving || saved || (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : tab === 'bulk' ? !bulkUrls.trim() : !selectedFile)}
               className="btn btn-primary"
               style={{
                 flex: 2,
-                opacity: (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : !selectedFile) ? 0.6 : 1,
+                opacity: (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : tab === 'bulk' ? !bulkUrls.trim() : !selectedFile) ? 0.6 : 1,
               }}
             >
               {isSaving ? (
                 <>
                   <Loader size={14} className="spin" />
-                  {tab === 'upload' ? 'Uploading...' : 'Saving Memory...'}
+                  {tab === 'upload' ? 'Uploading...' : tab === 'bulk' ? 'Saving Links...' : 'Saving Memory...'}
                 </>
               ) : saved ? (
                 <>
@@ -660,7 +698,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
               ) : (
                 <>
                   <Sparkles size={14} />
-                  {tab === 'upload' ? 'Upload and Save' : 'Save to Memory'}
+                  {tab === 'upload' ? 'Upload and Save' : tab === 'bulk' ? 'Save All Links' : 'Save to Memory'}
                 </>
               )}
             </button>

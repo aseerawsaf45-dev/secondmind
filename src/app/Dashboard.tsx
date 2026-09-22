@@ -222,7 +222,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       if (!userId) return;
       const activeUserId = userId;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const placeholder: MemoryItem = {
         id: tempId,
         type: data.type as MemoryItem['type'],
@@ -251,9 +251,14 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       const saved = await saveItemAction(activeUserId, data);
       if (saved) {
         setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
+        
+        if (activeFilter.startsWith('collection:')) {
+          const collId = activeFilter.slice(11);
+          handleAddToCollection(saved.id, collId);
+        }
       }
     },
-    [userId]
+    [userId, activeFilter, handleAddToCollection]
   );
 
   // Filter logic
