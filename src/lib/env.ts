@@ -10,6 +10,7 @@ interface EnvConfig {
   CLERK_SECRET_KEY: string;
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: string;
   NEXT_PUBLIC_SITE_URL?: string;
+  FIXED_DNS_SERVERS?: string;
   NODE_ENV: 'development' | 'production' | 'test';
 }
 
@@ -67,6 +68,7 @@ class EnvironmentValidator {
       CLERK_SECRET_KEY: CLERK_SECRET_KEY || '',
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '',
       NEXT_PUBLIC_SITE_URL,
+      FIXED_DNS_SERVERS: process.env.FIXED_DNS_SERVERS || process.env.DNS_SERVERS,
       NODE_ENV,
     };
 

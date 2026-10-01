@@ -1,3 +1,4 @@
+import '@/lib/init-dns';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkAuthRateLimit, checkApiRateLimit } from '@/lib/rate-limit';

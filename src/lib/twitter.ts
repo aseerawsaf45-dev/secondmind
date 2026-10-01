@@ -167,16 +167,18 @@ export async function extractTwitterMetadata(url: string): Promise<TwitterExtrac
   }
 
   // 5. Generate Tags
-  const contentToClassify = `${finalTitle} ${cleanTweet} ${authorName} twitter x social`;
-  const classifiedTags = classifyContent(contentToClassify, ['Social', 'X']);
-  
-  const tagsSet = new Set<string>(['Social', 'X', ...classifiedTags]);
+  const contentToClassify = `${finalTitle} ${cleanTweet} ${authorName}`;
+  const classifiedTags = classifyContent(contentToClassify, ['X'], {
+    title: finalTitle,
+    url: cleanUrl,
+    maxTags: 4,
+  });
   
   return {
     title: finalTitle,
     description: finalSummary,
     image: mediaImage || undefined,
-    tags: Array.from(tagsSet).slice(0, 4),
+    tags: classifiedTags,
     type: 'tweet',
     author: authorName || undefined,
     sourceDomain: 'x.com',

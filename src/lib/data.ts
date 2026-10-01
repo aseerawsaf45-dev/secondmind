@@ -31,28 +31,137 @@ export interface Collection {
   emoji: string;
 }
 
-export const TAG_COLORS: Record<string, string> = {
+const CURATED_TAG_COLORS: Record<string, string> = {
+  // AI & ML
   'AI': '#06565b',
-  'Design': '#66a4ac',
-  'Research': '#003a44',
-  'Business': '#F59E0B',
+  'AI & ML': '#06565b',
+  'Generative AI': '#8B5CF6',
+  'LLMs & Reasoning': '#7C3AED',
+  'AI Agents': '#6366F1',
+  'Machine Learning': '#0284C7',
+  'Prompt Engineering': '#9333EA',
+
+  // Tech & Engineering
   'Technology': '#10B981',
+  'Web Development': '#059669',
+  'Next.js': '#10B981',
+  'React': '#06B6D4',
+  'TypeScript': '#3B82F6',
+  'JavaScript': '#F59E0B',
+  'Python': '#EAB308',
+  'Rust': '#EA580C',
+  'Go (Golang)': '#00ADD8',
+  'Node.js': '#16A34A',
+  'PostgreSQL': '#2563EB',
+  'Databases & SQL': '#3B82F6',
+  'Cloud & DevOps': '#0284C7',
+  'Software Architecture': '#4F46E5',
+  'Cybersecurity': '#DC2626',
+  'Open Source': '#10B981',
+
+  // Design
+  'Design': '#66a4ac',
+  'UI/UX Design': '#EC4899',
+  'Design Systems': '#F43F5E',
+  'Typography': '#D946EF',
+  'Figma': '#A855F7',
+  'Accessibility & a11y': '#14B8A6',
+  'Design & Visuals': '#66a4ac',
+
+  // Business & Careers
+  'Business': '#F59E0B',
+  'SaaS & Startups': '#10B981',
+  'Indie Hacking': '#F97316',
+  'Build In Public': '#FB923C',
+  'Venture Capital': '#D97706',
+  'Marketing & SEO': '#EF4444',
+  'Product Management': '#8B5CF6',
+  'Business Strategy': '#F59E0B',
+
+  // Finance
+  'Finance': '#14B8A6',
+  'Investing & Stocks': '#0D9488',
+  'Personal Finance': '#059669',
+  'Crypto & Web3': '#8B5CF6',
+  'Real Estate': '#B45309',
+  'Finance & Economics': '#14B8A6',
+
+  // Productivity
   'Productivity': '#3B82F6',
+  'Second Brain & PKM': '#6366F1',
+  'Productivity & Habits': '#3B82F6',
+  'Workflow Automation': '#0284C7',
+
+  // Health
+  'Health': '#22C55E',
+  'Fitness & Workouts': '#EF4444',
+  'Sleep & Recovery': '#3B82F6',
+  'Nutrition & Diet': '#16A34A',
+  'Mental Health & Mindfulness': '#8B5CF6',
+  'Health & Wellness': '#22C55E',
+
+  // Culinary
+  'Cooking & Recipes': '#EA580C',
+  'Baking & Dough': '#D97706',
+  'Coffee & Drinks': '#92400E',
+  'Food & Dining': '#F97316',
+
+  // Science & Humanities
   'Science': '#8B5CF6',
+  'Space & Physics': '#7C3AED',
+  'Science & Research': '#6366F1',
+  'Philosophy & Mindset': '#6366F1',
+  'Writing & Publishing': '#F97316',
+  'Books & Reading': '#D97706',
   'Writing': '#F97316',
   'Philosophy': '#6366F1',
   'Psychology': '#84CC16',
-  'Marketing': '#EF4444',
-  'Finance': '#14B8A6',
-  'Health': '#22C55E',
   'Education': '#66a4ac',
-  'Culture': '#FB923C',
+
+  // Media & Social
+  'Gaming & Esports': '#8B5CF6',
+  'Podcasts': '#F59E0B',
+  'Cinema & TV': '#EF4444',
+  'Music & Audio': '#EC4899',
+  'Social Media': '#38BDF8',
+  'Social': '#38BDF8',
   'Facebook': '#1877F2',
   'X': '#E5E7EB',
   'Twitter': '#1DA1F2',
-  'Social': '#38BDF8',
   'Video': '#EF4444',
+  'Research': '#003a44',
+  'Culture': '#FB923C',
 };
+
+const VIBRANT_PALETTE = [
+  '#06565b', '#66a4ac', '#10B981', '#3B82F6', '#8B5CF6',
+  '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#6366F1',
+  '#84CC16', '#F97316', '#06B6D4', '#A855F7', '#E11D48',
+  '#0D9488', '#D97706', '#7C3AED', '#2563EB', '#059669',
+];
+
+export function getTagColor(tag: string): string {
+  if (CURATED_TAG_COLORS[tag]) {
+    return CURATED_TAG_COLORS[tag];
+  }
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = (hash << 5) - hash + tag.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % VIBRANT_PALETTE.length;
+  return VIBRANT_PALETTE[index];
+}
+
+export const TAG_COLORS: Record<string, string> = new Proxy(CURATED_TAG_COLORS, {
+  get(target, prop) {
+    if (typeof prop === 'string') {
+      if (prop in target) return target[prop];
+      return getTagColor(prop);
+    }
+    return (target as Record<string | symbol, unknown>)[prop];
+  },
+});
 
 export const MOCK_ITEMS: MemoryItem[] = [
   {

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import "./src/lib/init-dns";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",

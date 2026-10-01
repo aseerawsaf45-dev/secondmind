@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     if (!targetUrl && rawText) {
       const generatedTitle = rawText.length > 50 ? rawText.slice(0, 50).trim() + '...' : rawText;
       const summary = generateAISummary(generatedTitle, rawText, 'note');
-      const tags = classifyContent(rawText);
+      const tags = classifyContent(rawText, ['Note'], { title: generatedTitle });
 
       return NextResponse.json({
         title: generatedTitle,
@@ -53,7 +53,10 @@ export async function POST(request: Request) {
         : `YouTube Video ${author}`;
       const ytThumbnail = oembed?.thumbnail_url || (videoId ? getYouTubeThumbnailUrl(videoId) : '');
 
-      const tags = classifyContent(`${ytTitle} ${ytDescription} youtube video`, ['Video']);
+      const tags = classifyContent(`${ytTitle} ${ytDescription} youtube video`, ['Video'], {
+        title: ytTitle,
+        url: targetUrl,
+      });
 
       return NextResponse.json({
         title: ytTitle.trim(),
@@ -88,7 +91,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. General web page extraction via Cheerio
+    // 5. General web page extraction via Cheerio
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
@@ -109,7 +112,10 @@ export async function POST(request: Request) {
     if (!res || !res.ok) {
       const fallbackTitle = domain;
       const fallbackSummary = `Saved bookmark from ${domain}.`;
-      const fallbackTags = classifyContent(`${domain} ${targetUrl}`, [domain.split('.')[0] || 'Link']);
+      const fallbackTags = classifyContent(`${domain} ${targetUrl}`, [], {
+        title: domain,
+        url: targetUrl,
+      });
 
       return NextResponse.json({
         title: fallbackTitle,
@@ -126,8 +132,25 @@ export async function POST(request: Request) {
     const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
     const image = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || '';
 
+    const metaKeywordsRaw = $('meta[name="keywords"]').attr('content') || '';
+    const articleTags = $('meta[property="article:tag"]')
+      .map((_, el) => $(el).attr('content'))
+      .get()
+      .filter(Boolean) as string[];
+    const articleSection = $('meta[property="article:section"]').attr('content') || '';
+
+    const metaKeywords = [
+      ...metaKeywordsRaw.split(',').map((k) => k.trim()).filter(Boolean),
+      ...articleTags,
+      articleSection,
+    ].filter(Boolean);
+
     const contentToAnalyze = `${title} ${description} ${domain}`;
-    const tags = classifyContent(contentToAnalyze, [domain.split('.')[0] || 'Link']);
+    const tags = classifyContent(contentToAnalyze, [], {
+      title: title.trim(),
+      url: targetUrl,
+      metaKeywords,
+    });
     const summary = generateAISummary(title, description || contentToAnalyze, 'link');
 
     return NextResponse.json({
@@ -136,7 +159,7 @@ export async function POST(request: Request) {
       image: image ? (image.startsWith('http') ? image : new URL(image, targetUrl).href) : '',
       tags,
     });
-  } catch (error: any) {
+  } catch {
     let domainName = 'Saved Link';
     try {
       if (targetUrl) domainName = new URL(targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl).hostname.replace('www.', '');

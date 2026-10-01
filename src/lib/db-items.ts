@@ -205,7 +205,11 @@ export async function saveItemAction(
   const textForAnalysis = `${cleanTitle} ${cleanContent} ${cleanUrl || ''}`;
   const finalTags = cleanTags.length > 0
     ? cleanTags
-    : classifyContent(textForAnalysis, cleanUrl ? [data.type === 'video' ? 'Video' : 'Link'] : ['Note']);
+    : classifyContent(
+        textForAnalysis,
+        cleanUrl ? (data.type === 'video' ? ['Video'] : []) : ['Note'],
+        { title: cleanTitle, url: cleanUrl, contentType: data.type }
+      );
 
   const finalSummary = data.summary && data.summary !== 'Saving...'
     ? data.summary.slice(0, 2000)

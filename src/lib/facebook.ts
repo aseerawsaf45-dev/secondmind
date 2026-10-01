@@ -212,22 +212,22 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
   }
 
   // Tag classification
-  const defaultTags = ['Facebook', 'Social'];
+  const defaultTags = ['Facebook'];
   if (isVideo) defaultTags.push('Video');
   if (parsedMeta.type === 'group') defaultTags.push('Community');
 
-  const contentToClassify = `${finalTitle} ${cleanedDesc} ${author} facebook social`;
-  const classifiedTags = classifyContent(contentToClassify, defaultTags);
-
-  // Ensure 'Facebook' and 'Social' are always present
-  const tagsSet = new Set<string>(['Facebook', 'Social', ...classifiedTags]);
-  if (isVideo) tagsSet.add('Video');
+  const contentToClassify = `${finalTitle} ${cleanedDesc} ${author}`;
+  const classifiedTags = classifyContent(contentToClassify, defaultTags, {
+    title: finalTitle,
+    url,
+    maxTags: 4,
+  });
 
   return {
     title: finalTitle,
     description: finalSummary,
     image: ogImage || undefined,
-    tags: Array.from(tagsSet).slice(0, 4),
+    tags: classifiedTags,
     type: isVideo ? 'video' : 'link',
     author: author || undefined,
     sourceDomain: 'facebook.com',
