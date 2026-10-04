@@ -19,6 +19,7 @@ import {
   Video,
   FolderKanban,
   X,
+  Trash2,
 } from 'lucide-react';
 import { Collection } from '@/lib/db-collections';
 import { TAG_COLORS } from '@/lib/data';
@@ -34,6 +35,7 @@ interface SidebarProps {
   onCaptureOpen: () => void;
   onCreateCollectionOpen: () => void;
   onSettingsOpen: () => void;
+  onDeleteCollection: (collectionId: string) => void;
   itemCounts: Record<string, number>;
   collections: Collection[];
   user?: any;
@@ -48,6 +50,7 @@ export default function Sidebar({
   onCaptureOpen,
   onCreateCollectionOpen,
   onSettingsOpen,
+  onDeleteCollection,
   itemCounts,
   collections,
   user,
@@ -57,6 +60,7 @@ export default function Sidebar({
   const [expandCollections, setExpandCollections] = useState(true);
   const [expandByType, setExpandByType] = useState(true);
   const [expandTags, setExpandTags] = useState(false);
+  const [hoveredCollectionId, setHoveredCollectionId] = useState<string | null>(null);
 
   return (
     <motion.aside
@@ -377,36 +381,88 @@ export default function Sidebar({
             >
               {collections.map(collection => {
                 const isActive = activeFilter === `collection:${collection.id}`;
+                const isHovered = hoveredCollectionId === collection.id;
                 return (
-                  <motion.button
+                  <div
                     key={collection.id}
-                    whileHover={{ x: 2, backgroundColor: 'rgba(255, 255, 255, 0.04)' }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => onFilterChange(`collection:${collection.id}`)}
-                    style={{
-                      height: '38px',
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '0 14px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                      color: isActive ? '#A7F3D0' : 'rgba(255, 255, 255, 0.65)',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: isActive ? 600 : 400,
-                      textAlign: 'left',
-                      transition: 'all 150ms ease-out',
-                    }}
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setHoveredCollectionId(collection.id)}
+                    onMouseLeave={() => setHoveredCollectionId(null)}
                   >
-                    <span style={{ fontSize: '14px' }}>{collection.emoji}</span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {collection.name}
-                    </span>
-                    {collection.isSmart && <Sparkles size={11} style={{ color: '#10B981', flexShrink: 0 }} />}
-                  </motion.button>
+                    <motion.button
+                      whileHover={{ x: 2, backgroundColor: 'rgba(255, 255, 255, 0.04)' }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onFilterChange(`collection:${collection.id}`)}
+                      style={{
+                        height: '38px',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '0 14px',
+                        paddingRight: isHovered ? '36px' : '14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                        color: isActive ? '#A7F3D0' : 'rgba(255, 255, 255, 0.65)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: isActive ? 600 : 400,
+                        textAlign: 'left',
+                        transition: 'all 150ms ease-out',
+                      }}
+                    >
+                      <span style={{ fontSize: '14px' }}>{collection.emoji}</span>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {collection.name}
+                      </span>
+                      {collection.isSmart && <Sparkles size={11} style={{ color: '#10B981', flexShrink: 0 }} />}
+                    </motion.button>
+
+                    {/* Delete button — appears on hover */}
+                    <AnimatePresence>
+                      {isHovered && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.7 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.7 }}
+                          transition={{ duration: 0.12 }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            onDeleteCollection(collection.id);
+                          }}
+                          title="Delete collection"
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            border: 'none',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: 'rgba(239, 68, 68, 0.8)',
+                            borderRadius: '5px',
+                            width: '22px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                            e.currentTarget.style.color = '#EF4444';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                            e.currentTarget.style.color = 'rgba(239, 68, 68, 0.8)';
+                          }}
+                        >
+                          <Trash2 size={11} />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 );
               })}
               {collections.length === 0 && (

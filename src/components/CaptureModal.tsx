@@ -1,8 +1,9 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus } from 'lucide-react';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { isFacebookUrl } from '@/lib/facebook';
 import { isTwitterUrl } from '@/lib/twitter';
+import { DEFAULT_CATEGORY_COLLECTIONS } from '@/lib/categories';
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -425,6 +426,50 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                       <img src={extractedPreview.image} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.target as HTMLElement).style.display = 'none'} />
                     </div>
                   )}
+
+                  {/* Auto-collection assignment preview */}
+                  {(() => {
+                    const tags = [...(extractedPreview.tags || []), ...customTags];
+                    const matched = DEFAULT_CATEGORY_COLLECTIONS.filter(def =>
+                      def.matchTags.some(t => tags.includes(t))
+                    );
+                    if (!matched.length) return null;
+                    return (
+                      <div style={{
+                        marginTop: '4px',
+                        padding: '8px 10px',
+                        background: 'rgba(255,255,255,0.04)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+                          <FolderPlus size={11} style={{ color: 'var(--violet-bright)', flexShrink: 0 }} />
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--violet-bright)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Auto-added to collections
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                          {matched.map(def => (
+                            <span key={def.name} style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              background: `${def.color}22`,
+                              color: def.color,
+                              border: `1px solid ${def.color}44`,
+                            }}>
+                              <span>{def.emoji}</span>
+                              {def.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

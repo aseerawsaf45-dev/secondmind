@@ -440,6 +440,25 @@ const TAXONOMY: TagRule[] = [
     weight: 1.1,
   },
 
+  // --- TRAVEL & DESTINATIONS ---
+  {
+    tag: 'Travel',
+    category: 'travel',
+    patterns: [
+      /\b(tour|travel|traveler|traveller|traveling|travelling|tourism|tourist|trip|vacation|holiday|backpacking|itinerary|wanderlust|flight|flights|airline|resort|hotel|hostel|getaway|sightseeing|voyage)\b/i,
+    ],
+    weight: 1.4,
+  },
+  {
+    tag: 'Destination',
+    category: 'travel',
+    patterns: [
+      /\b(destination|destinations|travel guide|city guide|attractions|landmark|landmarks|tourist spot|places to visit|things to do in|explore\s+[A-Z][a-z]+|hidden gems?)\b/i,
+      /\b(tour|tourism|travel)\b/i,
+    ],
+    weight: 1.35,
+  },
+
   // --- CONTENT FORMAT & INTENT ---
   {
     tag: 'Guide & Tutorial',
@@ -457,6 +476,11 @@ const TAXONOMY: TagRule[] = [
 
 // Domain mappings for high-precision context
 const DOMAIN_TAGS: Record<string, string[]> = {
+  'tripadvisor.com': ['Travel', 'Destination'],
+  'lonelyplanet.com': ['Travel', 'Destination'],
+  'airbnb.com': ['Travel', 'Destination'],
+  'booking.com': ['Travel', 'Destination'],
+  'expedia.com': ['Travel', 'Destination'],
   'github.com': ['Open Source', 'Web Development'],
   'gitlab.com': ['Open Source', 'Web Development'],
   'arxiv.org': ['Science & Research', 'Academic'],
@@ -682,10 +706,20 @@ export function classifyContent(
 
   // Fallback if no specific categories triggered
   if (selected.length === 0) {
-    return defaultTags.length ? defaultTags : ['Saved'];
+    selected.push(...(defaultTags.length ? defaultTags : ['Saved']));
   }
 
-  return selected.slice(0, maxTags);
+  // Guarantee 'Destination' and 'Travel' tags whenever tour or travel is mentioned
+  if (/\b(tour|travel|tourism|tourist)\b/i.test(fullText) || (url && /\b(tour|travel|tourism|tourist)\b/i.test(url))) {
+    if (!selected.includes('Destination')) {
+      selected.unshift('Destination');
+    }
+    if (!selected.includes('Travel')) {
+      selected.unshift('Travel');
+    }
+  }
+
+  return Array.from(new Set(selected)).slice(0, Math.max(maxTags, selected.includes('Destination') || selected.includes('Travel') ? maxTags + 1 : maxTags));
 }
 
 /**

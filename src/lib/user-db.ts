@@ -2,48 +2,37 @@ import '@/lib/init-dns';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@/db/schema';
-import { getBranchUrl, createBranchForUser } from '@/lib/neon-branch';
 
 // ── Infer the Drizzle client type once ────────────────────────────────────
 type UserDb = ReturnType<typeof drizzle<typeof schema>>;
 
-// ── In-process cache: userId → Drizzle client ─────────────────────────────
-const dbCache = new Map<string, UserDb>();
+// ── Shared Singleton Drizzle Client ───────────────────────────────────────
+let sharedDb: UserDb | null = null;
 
 /**
- * Get (or lazily provision) a Drizzle client for a specific user's branch.
- *
- * @param userId   - Clerk user ID
- * @param email    - User email, required only on first-time provisioning
+ * Get the shared Drizzle client. 
+ * Data isolation is handled via `userId` filtering in the queries.
  */
 export async function getUserDb(userId: string, email?: string): Promise<UserDb> {
-  // 1. Return cached client if available
-  if (dbCache.has(userId)) {
-    return dbCache.get(userId)!;
+  if (sharedDb) {
+    return sharedDb;
   }
 
-  // 2. Look up branch URL from registry
-  let connectionUrl = await getBranchUrl(userId);
-
-  // 3. If no branch exists yet, provision one on-the-fly
-  if (!connectionUrl) {
-    const userEmail = email ?? `${userId}@unknown.user`;
-    console.log(`[user-db] Provisioning new branch for user ${userId}…`);
-    connectionUrl = await createBranchForUser(userId, userEmail);
+  let dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl && !dbUrl.includes('sslmode=')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslmode=require';
   }
 
-  // 4. Build and cache the Drizzle client
-  const sql = neon(connectionUrl);
-  const db = drizzle(sql, { schema });
-  dbCache.set(userId, db);
+  const sql = neon(dbUrl);
+  sharedDb = drizzle(sql, { schema });
 
-  return db;
+  return sharedDb;
 }
 
 /**
- * Remove a cached client instance for a given user.
+ * No-op since we use a shared client.
  */
 export function evictUserDbCache(userId: string): void {
-  dbCache.delete(userId);
+  // No-op
 }
 

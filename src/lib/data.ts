@@ -131,6 +131,10 @@ const CURATED_TAG_COLORS: Record<string, string> = {
   'Video': '#EF4444',
   'Research': '#003a44',
   'Culture': '#FB923C',
+
+  // Travel & Adventure
+  'Travel': '#0EA5E9',
+  'Destination': '#06B6D4',
 };
 
 const VIBRANT_PALETTE = [

@@ -11,6 +11,7 @@ import ItemDetailModal from '@/components/ItemDetailModal';
 import AIInsightsPanel from '@/components/AIInsightsPanel';
 import CreateCollectionModal from '@/components/CreateCollectionModal';
 import type { MemoryItem } from '@/lib/data';
+import { localDb } from '@/lib/local-db';
 
 import {
   fetchItemsAction,
@@ -24,8 +25,12 @@ import {
   fetchCollectionsAction,
   createCollectionAction,
   addItemToCollectionAction,
+  addItemsToCollectionAction,
   removeItemFromCollectionAction,
   fetchCollectionItemMapAction,
+  deleteCollectionAction,
+  seedDefaultCollectionsAction,
+  autoAssignItemToCollectionsAction,
   Collection,
 } from '@/lib/db-collections';
 
@@ -70,10 +75,13 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     if (!userId) return;
     const activeUserId = userId;
 
+    // Seed default category collections (idempotent — skips already-existing ones)
+    userId === 'guest' ? localDb.seedDefaultCollections() : seedDefaultCollectionsAction(activeUserId).catch(() => {});
+
     const [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
-      fetchItemsAction(activeUserId),
-      fetchCollectionsAction(activeUserId),
-      fetchCollectionItemMapAction(activeUserId),
+      userId === 'guest' ? localDb.fetchItems() : fetchItemsAction(activeUserId),
+      userId === 'guest' ? localDb.fetchCollections() : fetchCollectionsAction(activeUserId),
+      userId === 'guest' ? localDb.fetchCollectionItemMap() : fetchCollectionItemMapAction(activeUserId),
     ]);
 
     setItems(fetchedItems);
@@ -114,41 +122,72 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       if (!item) return;
       const next = !item.isFavorite;
       setItems(prev => prev.map(i => (i.id === id ? { ...i, isFavorite: next } : i)));
-      await toggleFavoriteAction(userId, id, next);
+      await (userId === 'guest' ? localDb.toggleFavorite(id, next) : toggleFavoriteAction(userId, id, next));
     },
     [items, userId]
   );
 
   const handleCreateCollection = async (data: any) => {
     if (!userId) return;
-    const saved = await createCollectionAction(userId, data);
+    const { itemIds, ...collectionData } = data;
+    const saved = await (userId === 'guest' ? localDb.createCollection(collectionData) : createCollectionAction(userId, collectionData));
     if (saved) {
-      loadData();
+      if (Array.isArray(itemIds) && itemIds.length > 0) {
+        await (userId === 'guest' ? localDb.addItemsToCollection(itemIds, saved.id) : addItemsToCollectionAction(itemIds, saved.id, userId));
+        // Auto-tag each selected item with the collection name
+        const collectionTag = saved.name.trim();
+        await Promise.all(
+          itemIds.map(async (itemId: string) => {
+            const item = items.find(i => i.id === itemId);
+            if (item && collectionTag && !item.tags.includes(collectionTag)) {
+              await (userId === 'guest' ? localDb.updateItem(itemId, { tags: [...item.tags, collectionTag] }) : updateItemAction(userId, itemId, { tags: [...item.tags, collectionTag] }));
+            }
+          })
+        );
+      }
+      await loadData();
     }
   };
+
+  const handleDeleteCollection = useCallback(
+    async (collectionId: string) => {
+      if (!userId) return;
+      if (!confirm('Delete this collection? Saved links will not be deleted.')) return;
+      const success = await (userId === 'guest' ? localDb.deleteCollection(collectionId) : deleteCollectionAction(collectionId, userId));
+      if (success) {
+        setCollections(prev => prev.filter(c => c.id !== collectionId));
+        if (activeFilter === `collection:${collectionId}`) {
+          setActiveFilter('all');
+        }
+        await loadData();
+      }
+    },
+    [userId, activeFilter, loadData]
+  );
 
   const handleAddToCollection = useCallback(
     async (itemId: string, collectionId: string) => {
       if (!userId) return;
       const coll = collections.find(c => c.id === collectionId);
-      
+
       // Update local itemCollectionMap immediately
       setItemCollectionMap(prev => ({
         ...prev,
         [itemId]: Array.from(new Set([...(prev[itemId] || []), collectionId])),
       }));
 
-      // If smart collection, also tag the item
-      if (coll && coll.isSmart) {
+      // Always auto-tag the item with the collection name
+      if (coll) {
         const item = items.find(i => i.id === itemId);
-        if (item && !item.tags.includes(coll.name)) {
-          const nextTags = [...item.tags, coll.name];
+        const collectionTag = coll.name.trim();
+        if (item && collectionTag && !item.tags.includes(collectionTag)) {
+          const nextTags = [...item.tags, collectionTag];
           setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
-          await updateItemAction(userId, itemId, { tags: nextTags });
+          await (userId === 'guest' ? localDb.updateItem(itemId, { tags: nextTags }) : updateItemAction(userId, itemId, { tags: nextTags }));
         }
       }
 
-      const success = await addItemToCollectionAction(itemId, collectionId, userId);
+      const success = await (userId === 'guest' ? localDb.addItemToCollection(itemId, collectionId) : addItemToCollectionAction(itemId, collectionId, userId));
       if (success) {
         loadData();
       }
@@ -167,17 +206,18 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         [itemId]: (prev[itemId] || []).filter(id => id !== collectionId),
       }));
 
-      // If smart collection, also remove the tag
-      if (coll && coll.isSmart) {
+      // Always remove the collection name tag from the item
+      if (coll) {
         const item = items.find(i => i.id === itemId);
-        if (item && item.tags.includes(coll.name)) {
-          const nextTags = item.tags.filter(t => t !== coll.name);
+        const collectionTag = coll.name.trim();
+        if (item && collectionTag && item.tags.includes(collectionTag)) {
+          const nextTags = item.tags.filter(t => t !== collectionTag);
           setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
-          await updateItemAction(userId, itemId, { tags: nextTags });
+          await (userId === 'guest' ? localDb.updateItem(itemId, { tags: nextTags }) : updateItemAction(userId, itemId, { tags: nextTags }));
         }
       }
 
-      const success = await removeItemFromCollectionAction(itemId, collectionId, userId);
+      const success = await (userId === 'guest' ? localDb.removeItemFromCollection(itemId, collectionId) : removeItemFromCollectionAction(itemId, collectionId, userId));
       if (success) {
         loadData();
       }
@@ -192,7 +232,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       if (!confirm('Are you sure you want to delete this memory?')) return;
       setItems(prev => prev.filter(i => i.id !== id));
       if (selectedItem?.id === id) setSelectedItem(null);
-      await deleteItemAction(activeUserId, id);
+      await (userId === 'guest' ? localDb.deleteItem(id) : deleteItemAction(activeUserId, id));
     },
     [userId, selectedItem]
   );
@@ -200,7 +240,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const handleUpdate = useCallback(
     async (id: string, data: any) => {
       if (!userId) return;
-      const success = await updateItemAction(userId, id, data);
+      const success = await (userId === 'guest' ? localDb.updateItem(id, data) : updateItemAction(userId, id, data));
       if (success) {
         setItems(prev => prev.map(i => (i.id === id ? { ...i, ...data } : i)));
         setSelectedItem(prev => (prev?.id === id ? { ...prev, ...data } : prev));
@@ -248,10 +288,17 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       };
       setItems(prev => [placeholder, ...prev]);
 
-      const saved = await saveItemAction(activeUserId, data);
+      const saved = await (userId === 'guest' ? localDb.saveItem(data) : saveItemAction(activeUserId, data));
       if (saved) {
         setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
-        
+
+        // Auto-assign to matching category collections based on AI tags
+        if (saved.tags?.length) {
+          userId === 'guest' ? localDb.autoAssignItemToCollections() : autoAssignItemToCollectionsAction(activeUserId, saved.id, saved.tags)
+            .then(() => loadData())
+            .catch(() => {});
+        }
+
         if (activeFilter.startsWith('collection:')) {
           const collId = activeFilter.slice(11);
           handleAddToCollection(saved.id, collId);
@@ -391,6 +438,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           setSettingsOpen(true);
           setSidebarOpen(false);
         }}
+        onDeleteCollection={handleDeleteCollection}
         itemCounts={itemCounts}
         collections={collections}
         user={activeUser}
@@ -641,6 +689,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         isOpen={createCollectionOpen}
         onClose={() => setCreateCollectionOpen(false)}
         onSave={handleCreateCollection}
+        items={items}
       />
       <CaptureModal
         isOpen={captureOpen}

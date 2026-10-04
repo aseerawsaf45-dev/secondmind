@@ -68,10 +68,26 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
 
     const items = rows.map(recordToItem);
 
-    // Background auto-enrichment for stale or un-analyzed social items
+    // Background auto-enrichment for stale, un-analyzed social items, or tour/travel items needing destination & travel tags
     (async () => {
       try {
         for (const item of items) {
+          const itemText = `${item.title || ''} ${item.content || ''} ${item.url || ''} ${item.summary || ''}`.toLowerCase();
+          const mentionsTourTravel = /\b(tour|travel|tourism|tourist)\b/i.test(itemText);
+          const needsTourTags = mentionsTourTravel && (!item.tags.includes('Travel') || !item.tags.includes('Destination'));
+
+          if (needsTourTags) {
+            const updatedTags = Array.from(new Set([...item.tags, 'Travel', 'Destination']));
+            await db
+              .update(memoryItems)
+              .set({
+                tags: updatedTags,
+                aiProcessed: true,
+              })
+              .where(eq(memoryItems.id, item.id));
+            item.tags = updatedTags;
+          }
+
           if (!item.url) continue;
           const isFb = isFacebookUrl(item.url);
           const isTw = isTwitterUrl(item.url);
@@ -83,7 +99,11 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
           if (needsAnalysis) {
             if (isFb) {
               const fbData = await extractFacebookMetadata(item.url);
-              const mergedTags = Array.from(new Set([...item.tags, ...fbData.tags]));
+              let mergedTags = Array.from(new Set([...item.tags, ...fbData.tags]));
+              const combinedText = `${fbData.title || ''} ${fbData.description || ''} ${item.url}`.toLowerCase();
+              if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
+                mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
+              }
               await db
                 .update(memoryItems)
                 .set({
@@ -95,9 +115,14 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
                   aiProcessed: true,
                 })
                 .where(eq(memoryItems.id, item.id));
+              item.tags = mergedTags;
             } else if (isTw) {
               const twData = await extractTwitterMetadata(item.url);
-              const mergedTags = Array.from(new Set([...item.tags, ...twData.tags]));
+              let mergedTags = Array.from(new Set([...item.tags, ...twData.tags]));
+              const combinedText = `${twData.title || ''} ${twData.description || ''} ${item.url}`.toLowerCase();
+              if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
+                mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
+              }
               await db
                 .update(memoryItems)
                 .set({
@@ -109,6 +134,7 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
                   aiProcessed: true,
                 })
                 .where(eq(memoryItems.id, item.id));
+              item.tags = mergedTags;
             }
           }
         }
@@ -134,12 +160,32 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
       .where(eq(memoryItems.userId, verifiedUserId));
 
     for (const item of rows) {
+      const curTags = (item.tags as string[]) || [];
+      const itemText = `${item.title || ''} ${item.content || ''} ${item.url || ''} ${item.summary || ''}`.toLowerCase();
+      const mentionsTourTravel = /\b(tour|travel|tourism|tourist)\b/i.test(itemText);
+
+      if (mentionsTourTravel && (!curTags.includes('Travel') || !curTags.includes('Destination'))) {
+        const enrichedTags = Array.from(new Set([...curTags, 'Travel', 'Destination']));
+        await db
+          .update(memoryItems)
+          .set({
+            tags: enrichedTags,
+            aiProcessed: true,
+          })
+          .where(eq(memoryItems.id, item.id));
+        item.tags = enrichedTags;
+      }
+
       if (!item.url) continue;
 
       if (isFacebookUrl(item.url)) {
         const fbData = await extractFacebookMetadata(item.url);
-        const curTags = (item.tags as string[]) || [];
-        const mergedTags = Array.from(new Set([...curTags, ...fbData.tags]));
+        const latestTags = (item.tags as string[]) || [];
+        let mergedTags = Array.from(new Set([...latestTags, ...fbData.tags]));
+        const combinedText = `${fbData.title || ''} ${fbData.description || ''} ${item.url}`.toLowerCase();
+        if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
+          mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
+        }
         await db
           .update(memoryItems)
           .set({
@@ -153,8 +199,12 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
           .where(eq(memoryItems.id, item.id));
       } else if (isTwitterUrl(item.url)) {
         const twData = await extractTwitterMetadata(item.url);
-        const curTags = (item.tags as string[]) || [];
-        const mergedTags = Array.from(new Set([...curTags, ...twData.tags]));
+        const latestTags = (item.tags as string[]) || [];
+        let mergedTags = Array.from(new Set([...latestTags, ...twData.tags]));
+        const combinedText = `${twData.title || ''} ${twData.description || ''} ${item.url}`.toLowerCase();
+        if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
+          mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
+        }
         await db
           .update(memoryItems)
           .set({
@@ -203,13 +253,18 @@ export async function saveItemAction(
   }
 
   const textForAnalysis = `${cleanTitle} ${cleanContent} ${cleanUrl || ''}`;
-  const finalTags = cleanTags.length > 0
+  let finalTags = cleanTags.length > 0
     ? cleanTags
     : classifyContent(
         textForAnalysis,
         cleanUrl ? (data.type === 'video' ? ['Video'] : []) : ['Note'],
         { title: cleanTitle, url: cleanUrl, contentType: data.type }
       );
+
+  // If tour or travel is mentioned in title, content, or URL, ensure both 'Travel' and 'Destination' tags are present
+  if (/\b(tour|travel|tourism|tourist)\b/i.test(textForAnalysis)) {
+    finalTags = Array.from(new Set([...finalTags, 'Travel', 'Destination']));
+  }
 
   const finalSummary = data.summary && data.summary !== 'Saving...'
     ? data.summary.slice(0, 2000)
