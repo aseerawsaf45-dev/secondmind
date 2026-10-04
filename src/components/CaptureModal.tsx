@@ -1,15 +1,20 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus, AlertTriangle, MessageSquare, Search } from 'lucide-react';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { isFacebookUrl } from '@/lib/facebook';
 import { isTwitterUrl } from '@/lib/twitter';
+import type { MemoryItem } from '@/lib/data';
 import { DEFAULT_CATEGORY_COLLECTIONS } from '@/lib/categories';
 
 interface CaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: any;
+  existingItems?: MemoryItem[];
   onSave: (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => void;
+  onAskAboutItem?: (itemTitle: string) => void;
+  initialUrl?: string;
+  initialNote?: string;
 }
 
 type TabType = 'url' | 'bulk' | 'note' | 'upload';
@@ -23,21 +28,22 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
 
 const SUGGESTED_TAGS = ['AI', 'Design', 'Business', 'Tech', 'Productivity', 'Research', 'Social', 'Facebook', 'X'];
 
-export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureModalProps) {
+export default function CaptureModal({ isOpen, onClose, onSave, user, existingItems = [], onAskAboutItem, initialUrl, initialNote }: CaptureModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<TabType>('url');
-  const [url, setUrl] = useState('');
+  const [tab, setTab] = useState<TabType>(initialUrl ? 'url' : initialNote ? 'note' : 'url');
+  const [url, setUrl] = useState(initialUrl || '');
   const [bulkUrls, setBulkUrls] = useState('');
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote || '');
   const [title, setTitle] = useState('');
+  const [editableSummary, setEditableSummary] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   // Live URL Analysis States
   const [isAnalyzingUrl, setIsAnalyzingUrl] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<'fetching' | 'extracting' | 'summarizing' | 'ready'>('fetching');
   const [extractedPreview, setExtractedPreview] = useState<{
     title?: string;
     description?: string;
@@ -46,6 +52,16 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     type?: string;
   } | null>(null);
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
+  const [saveConfirmation, setSaveConfirmation] = useState<{
+    title: string;
+    url?: string;
+    domain?: string;
+    tags: string[];
+  } | null>(null);
+
+  const isDuplicate = Boolean(
+    tab === 'url' && url.trim() && existingItems.some(i => i.url && i.url.toLowerCase() === url.trim().toLowerCase())
+  );
 
   const handleAddTag = (tagToAdd?: string) => {
     const text = (tagToAdd || tagInput).trim().replace(/^#/, '');
@@ -72,25 +88,35 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     }
 
     setIsAnalyzingUrl(true);
+    setAnalysisStage('fetching');
     setLastAnalyzedUrl(clean);
 
     try {
+      const stageTimer1 = setTimeout(() => setAnalysisStage('extracting'), 600);
+      const stageTimer2 = setTimeout(() => setAnalysisStage('summarizing'), 1200);
+
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: clean }),
       });
 
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
+
       if (res.ok) {
         const data = await res.json();
         setExtractedPreview(data);
+        setAnalysisStage('ready');
 
-        // Auto-fill title if user hasn't typed one
         if (!title && data.title) {
           setTitle(data.title);
         }
 
-        // Auto-add extracted tags to tag list
+        if (data.description) {
+          setEditableSummary(data.description);
+        }
+
         if (data.tags && Array.isArray(data.tags)) {
           setCustomTags(prev => {
             const set = new Set([...prev, ...data.tags]);
@@ -112,6 +138,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     if (!trimmed) {
       setExtractedPreview(null);
       setLastAnalyzedUrl('');
+      setEditableSummary('');
       return;
     }
 
@@ -122,7 +149,19 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
     return () => clearTimeout(timer);
   }, [url, tab, analyzeUrl]);
 
-  // Handle immediate paste event
+  useEffect(() => {
+    if (isOpen) {
+      if (initialUrl) {
+        setTab('url');
+        setUrl(initialUrl);
+        analyzeUrl(initialUrl);
+      } else if (initialNote) {
+        setTab('note');
+        setNote(initialNote);
+      }
+    }
+  }, [isOpen, initialUrl, initialNote, analyzeUrl]);
+
   const handleUrlPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData('text');
     if (pasted) {
@@ -130,6 +169,19 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         analyzeUrl(pasted);
       }, 50);
     }
+  };
+
+  const resetForm = () => {
+    setUrl('');
+    setBulkUrls('');
+    setNote('');
+    setTitle('');
+    setEditableSummary('');
+    setCustomTags([]);
+    setTagInput('');
+    setExtractedPreview(null);
+    setLastAnalyzedUrl('');
+    setSaveConfirmation(null);
   };
 
   const handleSave = async () => {
@@ -160,6 +212,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
       }
       itemsToProcess.push({ url: cleanUrl, note, file: selectedFile, tabType: tab });
     }
+
+    let lastSavedItem: { title: string; url?: string; domain?: string; tags: string[] } | null = null;
 
     await Promise.all(itemsToProcess.map(async (item) => {
       let extractedData = item.tabType === 'url' && item.url === url.trim() ? extractedPreview : null;
@@ -220,14 +274,32 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
       }
 
       const useTitle = title.trim() || extractedData?.title || (item.file?.name) || (item.tabType === 'url' ? item.url : item.note.slice(0, 50) + '...');
-      const useContent = item.tabType === 'upload' ? (fileUrl || '') : (item.tabType === 'url' ? (extractedData?.description || item.url) : item.note);
-      const useSummary = extractedData?.description || (item.tabType === 'note' ? item.note : item.tabType === 'upload' ? `Uploaded ${item.file?.name}` : 'Saved memory reference');
+      const useContent = item.tabType === 'upload' ? (fileUrl || '') : (item.tabType === 'url' ? (editableSummary || extractedData?.description || item.url) : item.note);
+      const useSummary = editableSummary.trim() || extractedData?.description || (item.tabType === 'note' ? item.note : item.tabType === 'upload' ? `Uploaded ${item.file?.name}` : 'Saved memory reference');
 
       const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
       if (isFb) mergedTagsSet.add('Facebook');
       if (isTweet) mergedTagsSet.add('X');
       if (item.tabType === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
       if (mergedTagsSet.size === 0) mergedTagsSet.add('Saved');
+
+      const finalTags = Array.from(mergedTagsSet);
+
+      let domain = undefined;
+      if (item.url) {
+        try {
+          domain = new URL(item.url).hostname.replace('www.', '');
+        } catch {
+          domain = undefined;
+        }
+      }
+
+      lastSavedItem = {
+        title: useTitle,
+        url: item.url || undefined,
+        domain,
+        tags: finalTags,
+      };
 
       onSave({
         type,
@@ -236,24 +308,16 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
         url: item.tabType === 'url' ? item.url : (item.tabType === 'upload' ? fileUrl || undefined : undefined),
         thumbnailUrl: finalThumbnail,
         summary: useSummary,
-        tags: Array.from(mergedTagsSet),
+        tags: finalTags,
       });
     }));
 
     setIsSaving(false);
-    setSaved(true);
-
-    await new Promise(r => setTimeout(r, 400));
-    setSaved(false);
-    setUrl('');
-    setBulkUrls('');
-    setNote('');
-    setTitle('');
-    setCustomTags([]);
-    setTagInput('');
-    setExtractedPreview(null);
-    setLastAnalyzedUrl('');
-    onClose();
+    if (lastSavedItem) {
+      setSaveConfirmation(lastSavedItem);
+    } else {
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -322,76 +386,188 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
 
         {/* Body */}
         <div style={{ padding: '16px 20px 20px', overflowY: 'auto', flex: 1 }}>
-          {tab === 'url' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    URL (Facebook, X, YouTube, Articles) *
-                  </label>
-                  {isAnalyzingUrl && (
-                    <span style={{ fontSize: '11px', color: 'var(--violet-bright)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Loader size={11} className="spin" />
-                      Analyzing link...
-                    </span>
-                  )}
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    className="input"
-                    value={url}
-                    onChange={e => setUrl(e.target.value)}
-                    onPaste={handleUrlPaste}
-                    onKeyDown={e => e.key === 'Enter' && handleSave()}
-                    placeholder="Paste Facebook reel/post, X/Twitter, YouTube or article link..."
-                    type="text"
-                    autoFocus
-                    style={{ paddingRight: url ? '36px' : '12px' }}
-                  />
-                  {url && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUrl('');
-                        setExtractedPreview(null);
-                        setLastAnalyzedUrl('');
-                      }}
-                      style={{
-                        position: 'absolute',
-                        right: '10px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
+          {saveConfirmation ? (
+            <div style={{ padding: '20px 10px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }} className="animate-fade-in">
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10B981',
+                boxShadow: '0 0 24px rgba(16, 185, 129, 0.3)',
+              }}>
+                <Check size={28} />
               </div>
 
-              {/* Instant AI Analysis & Brief Preview Card */}
-              {extractedPreview && (
-                <div style={{
-                  padding: '14px',
-                  background: 'linear-gradient(135deg, rgba(6, 86, 91,0.12), rgba(0, 58, 68,0.06))',
-                  border: '1px solid rgba(6, 86, 91,0.3)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }} className="animate-fade-in">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Sparkles size={13} style={{ color: 'var(--violet-bright)' }} />
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--violet-bright)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        AI Content Brief & Analysis
-                      </span>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
+                  Saved to SecondMind! 🎉
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto', lineHeight: 1.4 }}>
+                  {saveConfirmation.domain ? `Source: ${saveConfirmation.domain} · ` : ''}{saveConfirmation.title}
+                </p>
+              </div>
+
+              {/* Recommended Next Actions */}
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                {onAskAboutItem && (
+                  <button
+                    onClick={() => {
+                      const itemTitle = saveConfirmation.title;
+                      resetForm();
+                      onClose();
+                      onAskAboutItem(itemTitle);
+                    }}
+                    className="btn btn-primary"
+                    style={{ justifyContent: 'center', padding: '11px 18px', fontSize: '13px', borderRadius: '10px' }}
+                  >
+                    <MessageSquare size={15} />
+                    Ask about this memory
+                  </button>
+                )}
+
+                {saveConfirmation.url && (
+                  <a
+                    href={saveConfirmation.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost"
+                    style={{ justifyContent: 'center', padding: '10px 18px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '10px' }}
+                  >
+                    <ExternalLink size={14} />
+                    Open Original Source
+                  </a>
+                )}
+
+                <button
+                  onClick={resetForm}
+                  className="btn btn-ghost"
+                  style={{ justifyContent: 'center', padding: '10px 18px', fontSize: '13px', borderRadius: '10px' }}
+                >
+                  <Plus size={14} />
+                  Save Another Memory
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {tab === 'url' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        URL (Facebook, X, YouTube, Articles) *
+                      </label>
                     </div>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="input"
+                        value={url}
+                        onChange={e => setUrl(e.target.value)}
+                        onPaste={handleUrlPaste}
+                        onKeyDown={e => e.key === 'Enter' && handleSave()}
+                        placeholder="Paste Facebook reel/post, X/Twitter, YouTube or article link..."
+                        type="text"
+                        autoFocus
+                        style={{ paddingRight: url ? '36px' : '12px' }}
+                      />
+                      {url && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUrl('');
+                            setExtractedPreview(null);
+                            setLastAnalyzedUrl('');
+                            setEditableSummary('');
+                          }}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                          }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stage-by-Stage Live Analysis Banner */}
+                  {isAnalyzingUrl && (
+                    <div style={{
+                      padding: '10px 14px',
+                      background: 'rgba(6, 86, 91, 0.15)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '12px',
+                      color: '#FFFFFF',
+                    }} className="animate-fade-in">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Loader size={13} className="spin" style={{ color: '#10B981' }} />
+                        <span>
+                          {analysisStage === 'fetching' && 'Stage 1/3: Fetching source HTML (0-2s)...'}
+                          {analysisStage === 'extracting' && 'Stage 2/3: Extracting metadata & content...'}
+                          {analysisStage === 'summarizing' && 'Stage 3/3: Generating AI brief & tags...'}
+                          {analysisStage === 'ready' && 'Ready!'}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)' }}>Est. ~3s</span>
+                    </div>
+                  )}
+
+                  {/* Duplicate URL Warning */}
+                  {isDuplicate && (
+                    <div style={{
+                      padding: '10px 14px',
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '12px',
+                      color: '#F59E0B',
+                    }} className="animate-fade-in">
+                      <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                      <span><strong>Duplicate detected:</strong> You saved this URL previously in SecondMind.</span>
+                    </div>
+                  )}
+
+                  {/* Instant AI Analysis & Brief Preview Card */}
+                  {extractedPreview && (
+                    <div style={{
+                      padding: '14px',
+                      background: 'linear-gradient(135deg, rgba(6, 86, 91,0.12), rgba(0, 58, 68,0.06))',
+                      border: '1px solid rgba(6, 86, 91,0.3)',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }} className="animate-fade-in">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={13} style={{ color: 'var(--violet-bright)' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--violet-bright)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            AI Content Brief & Analysis
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 600 }}>
+                          High Confidence (Full Coverage)
+                        </span>
+                      </div>
                     {isFacebookUrl(url) && (
                       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(24, 119, 242, 0.2)', color: '#60A5FA', fontWeight: 600 }}>
                         📘 Facebook
@@ -407,7 +583,6 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                         🎬 YouTube
                       </span>
                     )}
-                  </div>
 
                   {extractedPreview.title && (
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
@@ -587,7 +762,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
               
               <div>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
-                  Space (Optional)
+                  Collection (Optional)
                 </label>
                 <input
                   className="input"
@@ -723,7 +898,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || saved || (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : tab === 'bulk' ? !bulkUrls.trim() : !selectedFile)}
+              disabled={isSaving || Boolean(saveConfirmation) || (tab === 'url' ? !url.trim() : tab === 'note' ? !note.trim() : tab === 'bulk' ? !bulkUrls.trim() : !selectedFile)}
               className="btn btn-primary"
               style={{
                 flex: 2,
@@ -735,7 +910,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
                   <Loader size={14} className="spin" />
                   {tab === 'upload' ? 'Uploading...' : tab === 'bulk' ? 'Saving Links...' : 'Saving Memory...'}
                 </>
-              ) : saved ? (
+              ) : saveConfirmation ? (
                 <>
                   <Check size={14} />
                   Saved!
@@ -748,8 +923,10 @@ export default function CaptureModal({ isOpen, onClose, onSave, user }: CaptureM
               )}
             </button>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
-  );
+  </div>
+</div>
+);
 }

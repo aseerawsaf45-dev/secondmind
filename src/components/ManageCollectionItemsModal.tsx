@@ -144,7 +144,7 @@ export default function ManageCollectionItemsModal({
                 Manage {collection.name}
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                Checkmark links to add or remove them from this space
+                Checkmark memories to add or remove them from this collection
               </p>
             </div>
           </div>

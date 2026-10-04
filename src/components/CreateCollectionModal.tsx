@@ -123,8 +123,8 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
               <FolderPlus size={18} />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>New Space</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Create a collection and select existing saved links</p>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>New Collection</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Create a collection and select existing saved memories</p>
             </div>
           </div>
           <button onClick={onClose} className="btn btn-ghost btn-icon">
@@ -137,7 +137,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
           {/* Name */}
           <div>
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Space Name
+              Collection Name
             </label>
             <input
               className="input"
@@ -234,7 +234,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
               <Sparkles size={16} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: isSmart ? 'var(--text-primary)' : 'var(--text-muted)' }}>Smart Space</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: isSmart ? 'var(--text-primary)' : 'var(--text-muted)' }}>Smart Collection</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-organize items by tag name</div>
             </div>
             <div style={{
@@ -493,7 +493,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
                 <Check size={16} /> Created!
               </span>
             ) : (
-              `Create Space ${selectedItemIds.length > 0 ? `(${selectedItemIds.length} item${selectedItemIds.length > 1 ? 's' : ''})` : ''}`
+              `Create Collection ${selectedItemIds.length > 0 ? `(${selectedItemIds.length} item${selectedItemIds.length > 1 ? 's' : ''})` : ''}`
             )}
           </button>
         </div>

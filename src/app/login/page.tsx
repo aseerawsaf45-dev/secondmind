@@ -7,9 +7,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleGuestLogin = () => {
-    document.cookie = "guest_mode=true; path=/; max-age=31536000";
-    router.push('/');
-    router.refresh();
+    router.push('/guest');
   };
 
   return (
@@ -36,7 +34,7 @@ export default function LoginPage() {
       }} />
 
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-        <SignIn routing="hash" signUpUrl="/signup" fallbackRedirectUrl="/" />
+        <SignIn routing="hash" signUpUrl="/signup" fallbackRedirectUrl="/app" />
         
         <button
           onClick={handleGuestLogin}

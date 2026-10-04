@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://secondmind-aa.vercel.app/sitemap.xml

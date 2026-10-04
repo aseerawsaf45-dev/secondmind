@@ -33,8 +33,8 @@ export interface Collection {
 
 const CURATED_TAG_COLORS: Record<string, string> = {
   // AI & ML
-  'AI': '#06565b',
-  'AI & ML': '#06565b',
+  'AI': '#6366F1',
+  'AI & ML': '#8B5CF6',
   'Generative AI': '#8B5CF6',
   'LLMs & Reasoning': '#7C3AED',
   'AI Agents': '#6366F1',

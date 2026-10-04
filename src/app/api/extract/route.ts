@@ -130,7 +130,25 @@ export async function POST(request: Request) {
 
     const title = $('meta[property="og:title"]').attr('content') || $('title').text() || domain;
     const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-    const image = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || '';
+    const rawImage = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || $('link[rel="image_src"]').attr('href') || '';
+    let image = '';
+    if (rawImage) {
+      if (rawImage.startsWith('//')) {
+        image = 'https:' + rawImage;
+      } else if (rawImage.startsWith('http')) {
+        image = rawImage;
+      } else {
+        try {
+          image = new URL(rawImage, targetUrl).href;
+        } catch {
+          image = '';
+        }
+      }
+    }
+
+    if (!image && domain) {
+      image = `https://image.thum.io/get/width/600/crop/800/${targetUrl}`;
+    }
 
     const metaKeywordsRaw = $('meta[name="keywords"]').attr('content') || '';
     const articleTags = $('meta[property="article:tag"]')
@@ -156,7 +174,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       title: title.trim(),
       description: summary.trim(),
-      image: image ? (image.startsWith('http') ? image : new URL(image, targetUrl).href) : '',
+      image: image || `https://image.thum.io/get/width/600/crop/800/${targetUrl}`,
       tags,
     });
   } catch {
@@ -170,7 +188,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       title: domainName,
       description: `Saved memory link from ${domainName}.`,
-      image: '',
+      image: targetUrl ? `https://image.thum.io/get/width/600/crop/800/${targetUrl}` : '',
       tags,
     });
   }

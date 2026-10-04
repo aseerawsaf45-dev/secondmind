@@ -37,8 +37,14 @@ export function getFixedDnsServers(): string[] {
 }
 
 export function setupFixedDns(): void {
-  // Only execute in Node.js server environments
-  if (typeof window !== 'undefined') {
+  // Only execute in local Node.js environments; Vercel and cloud platforms manage their own DNS resolution.
+  if (
+    typeof window !== 'undefined' ||
+    process.env.VERCEL === '1' ||
+    process.env.VERCEL_ENV ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.AWS_EXECUTION_ENV
+  ) {
     return;
   }
 
@@ -51,7 +57,7 @@ export function setupFixedDns(): void {
   const servers = getFixedDnsServers();
 
   try {
-    // 1. Force IPv4 first to eliminate Windows / ISP IPv6 resolution delays & connection aborts
+    // 1. Force IPv4 first to eliminate IPv6 resolution delays & connection aborts
     if (typeof dns.setDefaultResultOrder === 'function') {
       dns.setDefaultResultOrder('ipv4first');
     }
@@ -64,8 +70,8 @@ export function setupFixedDns(): void {
     console.warn('[DNS] Failed to set default result order or DNS servers:', err);
   }
 
-  // 3. Create a dedicated resolver using the fixed DNS servers
-  const resolver = new dns.promises.Resolver({ timeout: 3500, tries: 2 });
+  // 3. Create a dedicated resolver using fixed Google and Cloudflare DNS servers
+  const resolver = new dns.promises.Resolver({ timeout: 2500, tries: 2 });
   try {
     resolver.setServers(servers);
   } catch (err) {
@@ -82,7 +88,6 @@ export function setupFixedDns(): void {
           dnsCache.delete(key);
         }
       }
-      // If still too large, delete oldest half
       if (dnsCache.size > MAX_CACHE_SIZE) {
         let count = 0;
         for (const key of dnsCache.keys()) {
@@ -92,6 +97,118 @@ export function setupFixedDns(): void {
         }
       }
     }
+  }
+
+  /**
+   * Primary UDP resolution via dedicated Google & Cloudflare resolver
+   */
+  async function resolveUdp(hostname: string, family: number): Promise<DnsRecord[]> {
+    let records: DnsRecord[] = [];
+
+    if (family === 6) {
+      const v6 = await resolver.resolve6(hostname);
+      records = v6.map((addr) => ({ address: addr, family: 6 }));
+    } else if (family === 4) {
+      try {
+        const v4 = await resolver.resolve4(hostname);
+        records = v4.map((addr) => ({ address: addr, family: 4 }));
+      } catch {
+        const v6 = await resolver.resolve6(hostname);
+        records = v6.map((addr) => ({ address: addr, family: 6 }));
+      }
+    } else {
+      try {
+        const v4 = await resolver.resolve4(hostname);
+        records = v4.map((addr) => ({ address: addr, family: 4 }));
+      } catch {
+        const v6 = await resolver.resolve6(hostname);
+        records = v6.map((addr) => ({ address: addr, family: 6 }));
+      }
+    }
+
+    return records;
+  }
+
+  /**
+   * Fallback DNS over HTTPS (DoH) via raw Google & Cloudflare IP endpoints.
+   * Completely bypasses UDP port 53 blocks, local router DNS errors, and ISP DNS failures.
+   */
+  async function resolveDoH(hostname: string, family: number): Promise<DnsRecord[]> {
+    const records: DnsRecord[] = [];
+    const typeParam = family === 6 ? 'AAAA' : 'A';
+
+    const endpoints = [
+      `https://1.1.1.1/dns-query?name=${encodeURIComponent(hostname)}&type=${typeParam}`,
+      `https://1.0.0.1/dns-query?name=${encodeURIComponent(hostname)}&type=${typeParam}`,
+      `https://8.8.8.8/resolve?name=${encodeURIComponent(hostname)}&type=${typeParam}`,
+      `https://8.8.4.4/resolve?name=${encodeURIComponent(hostname)}&type=${typeParam}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          headers: { accept: 'application/dns-json' },
+          signal: AbortSignal.timeout(3000),
+        });
+
+        if (!res.ok) continue;
+
+        const data = (await res.json()) as {
+          Answer?: Array<{ name: string; type: number; data: string }>;
+        };
+
+        if (data && Array.isArray(data.Answer)) {
+          for (const ans of data.Answer) {
+            const rawAddr = ans.data?.trim()?.replace(/\.$/, '');
+            if (!rawAddr) continue;
+            const isV4 = net.isIPv4(rawAddr);
+            const isV6 = net.isIPv6(rawAddr);
+            if (isV4) {
+              records.push({ address: rawAddr, family: 4 });
+            } else if (isV6) {
+              records.push({ address: rawAddr, family: 6 });
+            }
+          }
+        }
+
+        if (records.length > 0) {
+          break;
+        }
+      } catch {
+        // Try next DoH endpoint
+      }
+    }
+
+    if (records.length === 0 && family !== 6) {
+      for (const url of [
+        `https://1.1.1.1/dns-query?name=${encodeURIComponent(hostname)}&type=AAAA`,
+        `https://8.8.8.8/resolve?name=${encodeURIComponent(hostname)}&type=AAAA`,
+      ]) {
+        try {
+          const res = await fetch(url, {
+            headers: { accept: 'application/dns-json' },
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!res.ok) continue;
+          const data = (await res.json()) as {
+            Answer?: Array<{ name: string; type: number; data: string }>;
+          };
+          if (data && Array.isArray(data.Answer)) {
+            for (const ans of data.Answer) {
+              const rawAddr = ans.data?.trim()?.replace(/\.$/, '');
+              if (rawAddr && net.isIPv6(rawAddr)) {
+                records.push({ address: rawAddr, family: 6 });
+              }
+            }
+          }
+          if (records.length > 0) break;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return records;
   }
 
   async function resolveHostname(hostname: string, family: number): Promise<DnsRecord[]> {
@@ -105,20 +222,17 @@ export function setupFixedDns(): void {
 
     let records: DnsRecord[] = [];
 
-    if (family === 6) {
-      const v6 = await resolver.resolve6(hostname);
-      records = v6.map((addr) => ({ address: addr, family: 6 }));
-    } else if (family === 4) {
-      const v4 = await resolver.resolve4(hostname);
-      records = v4.map((addr) => ({ address: addr, family: 4 }));
-    } else {
-      // family 0 or unspecified: prioritize IPv4, fallback to IPv6
+    try {
+      records = await resolveUdp(hostname, family);
+    } catch {
+      records = [];
+    }
+
+    if (!records || records.length === 0) {
       try {
-        const v4 = await resolver.resolve4(hostname);
-        records = v4.map((addr) => ({ address: addr, family: 4 }));
+        records = await resolveDoH(hostname, family);
       } catch {
-        const v6 = await resolver.resolve6(hostname);
-        records = v6.map((addr) => ({ address: addr, family: 6 }));
+        records = [];
       }
     }
 
@@ -133,7 +247,6 @@ export function setupFixedDns(): void {
     return records;
   }
 
-  // 4. Hook dns.lookup so that global fetch, undici, https, http, and net sockets use fixed DNS
   const origLookup = dns.lookup;
   const origPromisesLookup = dns.promises?.lookup;
 
@@ -148,7 +261,6 @@ export function setupFixedDns(): void {
     return false;
   }
 
-  // Type definitions for dns.lookup signature
   type LookupCallback = (
     err: NodeJS.ErrnoException | null,
     address: string | DnsRecord[],
@@ -202,7 +314,6 @@ export function setupFixedDns(): void {
         }
       })
       .catch(() => {
-        // Fall back gracefully to original lookup if custom resolver encounters an error
         Reflect.apply(origLookup, dns, [hostname, options, callback]);
       });
   };
@@ -263,10 +374,17 @@ export function setupFixedDns(): void {
     });
   }
 
-  console.log(`[DNS] Fixed DNS enabled (${servers.join(', ')}) with IPv4 first`);
+  console.log(`[DNS] High-reliability Google & Cloudflare DNS initialized (${servers.join(', ')})`);
 }
 
-// Auto-initialize on module load if in server environment
-if (typeof window === 'undefined') {
+// Auto-initialize on module load if in server environment (not Vercel)
+if (
+  typeof window === 'undefined' &&
+  !process.env.VERCEL &&
+  !process.env.VERCEL_ENV &&
+  !process.env.AWS_LAMBDA_FUNCTION_NAME &&
+  !process.env.AWS_EXECUTION_ENV
+) {
   setupFixedDns();
 }
+

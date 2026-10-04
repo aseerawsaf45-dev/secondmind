@@ -25,7 +25,7 @@ export default function SignupPage() {
       }} />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
-        <SignUp routing="hash" signInUrl="/login" fallbackRedirectUrl="/" />
+        <SignUp routing="hash" signInUrl="/login" fallbackRedirectUrl="/app" />
       </div>
     </div>
   );

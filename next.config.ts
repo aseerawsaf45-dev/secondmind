@@ -5,6 +5,7 @@ import "./src/lib/init-dns";
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
+  disable: process.env.NODE_ENV !== "production",
 });
 
 const securityHeaders = [
@@ -36,12 +37,14 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.clerk.com",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.clerk.com",
+      "worker-src 'self' blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
+      "media-src 'self' blob: https:",
       "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.neon.tech https://*.supabase.co https://api.vxtwitter.com https://publish.twitter.com https://www.youtube.com https://img.youtube.com",
-      "frame-src 'self' https://challenges.cloudflare.com https://*.clerk.accounts.dev",
+      "frame-src 'self' https://challenges.cloudflare.com https://*.clerk.accounts.dev https://www.youtube.com https://youtube.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
