@@ -5,11 +5,13 @@ export default function SignupPage() {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
       background: '#08080F',
       overflow: 'hidden',
+      padding: '24px 16px',
     }}>
       {/* Decorative grid lines */}
       <div style={{
@@ -24,8 +26,12 @@ export default function SignupPage() {
         WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 70%)',
       }} />
 
-      <div style={{ position: 'relative', zIndex: 10 }}>
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
         <SignUp routing="hash" signInUrl="/login" fallbackRedirectUrl="/app" />
+        
+        <footer style={{ marginTop: '12px', fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+          © Developed by Aseer Awsaf
+        </footer>
       </div>
     </div>
   );

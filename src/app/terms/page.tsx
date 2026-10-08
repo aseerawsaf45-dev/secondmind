@@ -287,8 +287,11 @@ export default function TermsPage() {
           >
             Privacy Policy →
           </Link>
-        </div>
       </article>
+
+      <footer style={{ marginTop: '40px', fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+        © Developed by Aseer Awsaf
+      </footer>
 
       <style>{`
         article ul { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }

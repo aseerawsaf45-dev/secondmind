@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import NextLink from 'next/link';
 import {
   Search,
   Plus,
@@ -23,12 +24,18 @@ import {
   PanelLeftOpen,
   HardDrive,
   CheckCircle2,
+  Tag as TagIcon,
+  ArrowUpDown,
+  LogIn,
+  LogOut,
+  UserCheck,
 } from 'lucide-react';
 import { Collection } from '@/lib/db-collections';
-import { UserButton } from '@clerk/nextjs';
+import type { MemoryItem } from '@/lib/data';
+import { UserButton, useClerk } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const TOP_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
+const DEFAULT_PRESET_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
 
 interface SidebarProps {
   activeFilter: string;
@@ -40,6 +47,7 @@ interface SidebarProps {
   onDeleteCollection: (collectionId: string) => void;
   itemCounts: Record<string, number>;
   collections: Collection[];
+  items?: MemoryItem[];
   user?: any;
   isOpen?: boolean;
   onClose?: () => void;
@@ -55,6 +63,7 @@ export default function Sidebar({
   onDeleteCollection,
   itemCounts,
   collections,
+  items,
   user,
   isOpen,
   onClose,
@@ -62,9 +71,62 @@ export default function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [expandCollections, setExpandCollections] = useState(true);
   const [expandByType, setExpandByType] = useState(true);
-  const [expandTags, setExpandTags] = useState(false);
+  const [expandTags, setExpandTags] = useState(true);
+  const [tagSortBy, setTagSortBy] = useState<'count' | 'name'>('count');
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
+
+  // Dynamically compute all unique tags from items + fallback preset tags
+  const tagCountsMap = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    // Seed preset tags with 0 count initial state
+    DEFAULT_PRESET_TAGS.forEach(t => {
+      counts[t] = 0;
+    });
+
+    if (items && items.length > 0) {
+      items.forEach(item => {
+        if (Array.isArray(item.tags)) {
+          item.tags.forEach(tag => {
+            const clean = tag.trim();
+            if (clean) {
+              counts[clean] = (counts[clean] || 0) + 1;
+            }
+          });
+        }
+      });
+    }
+
+    return counts;
+  }, [items]);
+
+  const sortedTags = useMemo(() => {
+    let list = Object.entries(tagCountsMap).map(([tag, count]) => ({ tag, count }));
+
+    if (tagSearchQuery.trim()) {
+      const q = tagSearchQuery.toLowerCase();
+      list = list.filter(item => item.tag.toLowerCase().includes(q));
+    }
+
+    if (tagSortBy === 'count') {
+      list.sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    } else {
+      list.sort((a, b) => a.tag.localeCompare(b.tag));
+    }
+
+    return list;
+  }, [tagCountsMap, tagSortBy, tagSearchQuery]);
   const [hoveredCollectionId, setHoveredCollectionId] = useState<string | null>(null);
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
+
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Initialize and persist collapsed state
   useEffect(() => {
@@ -103,6 +165,7 @@ export default function Sidebar({
   }, []);
 
   const isGuest = user?.id === 'guest' || !user?.id;
+  const { signOut } = useClerk();
   const totalItems = itemCounts.all || 0;
   const maxGuestItems = 25;
   const usedPercent = Math.min(100, Math.round((totalItems / maxGuestItems) * 100));
@@ -125,7 +188,7 @@ export default function Sidebar({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: isCollapsed ? 76 : 280 }}
+      animate={isMobile ? { width: 'auto' } : { width: isCollapsed ? 76 : 280 }}
       transition={{ type: 'spring', stiffness: 350, damping: 32 }}
       className={`sidebar ${isOpen ? 'sidebar-mobile-open' : ''}`}
       style={{
@@ -133,7 +196,8 @@ export default function Sidebar({
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        padding: isCollapsed ? '20px 10px' : '20px 16px',
+        padding: isCollapsed && !isMobile ? '20px 10px' : '20px 16px',
+        paddingBottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : '20px',
         gap: '20px',
         background: 'linear-gradient(180deg, rgba(14, 15, 27, 0.94) 0%, rgba(7, 8, 17, 0.98) 100%)',
         backdropFilter: 'blur(28px) saturate(160%)',
@@ -144,7 +208,7 @@ export default function Sidebar({
         overflowX: 'hidden',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
-        position: 'relative',
+        position: isMobile ? undefined : 'relative',
         zIndex: 25,
       }}
     >
@@ -180,15 +244,16 @@ export default function Sidebar({
       {/* BRAND HEADER & COLLAPSE TOGGLE */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', minHeight: '42px' }}>
-          <div
-            onClick={isCollapsed ? toggleCollapsed : undefined}
+          <NextLink
+            href="/"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              cursor: isCollapsed ? 'pointer' : 'default',
+              textDecoration: 'none',
+              cursor: 'pointer',
             }}
-            title={isCollapsed ? 'Click to expand sidebar (⌘B)' : undefined}
+            title="Load Hero Landing Page"
           >
             {/* Luminous Logo Container */}
             <motion.div
@@ -270,7 +335,7 @@ export default function Sidebar({
                 </div>
               </motion.div>
             )}
-          </div>
+          </NextLink>
 
           {/* Desktop Collapse & Mobile Close Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -296,6 +361,29 @@ export default function Sidebar({
                 }}
               >
                 <PanelLeftClose size={16} />
+              </motion.button>
+            )}
+
+            {onClose && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="mobile-menu-btn"
+                title="Close sidebar"
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '9px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: '#FFFFFF',
+                  display: 'none',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={18} />
               </motion.button>
             )}
 
@@ -955,7 +1043,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* TOP TAGS SECTION */}
+      {/* SORT BY CATEGORY / TAGS SECTION */}
       {!isCollapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px' }}>
@@ -985,8 +1073,62 @@ export default function Sidebar({
                   transform: expandTags ? 'rotate(90deg)' : 'rotate(0deg)',
                 }}
               />
-              TOP TAGS
+              <TagIcon size={12} style={{ color: '#06B6D4', flexShrink: 0 }} />
+              TAGS & TOPICS
             </motion.button>
+
+            {/* Sort Order Switcher (Count vs A-Z) */}
+            {expandTags && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: '6px',
+                  padding: '2px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setTagSortBy('count')}
+                  title="Sort by item count (Popular)"
+                  style={{
+                    border: 'none',
+                    background: tagSortBy === 'count' ? 'rgba(99, 102, 241, 0.35)' : 'transparent',
+                    color: tagSortBy === 'count' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono), monospace',
+                    transition: 'all 120ms ease',
+                  }}
+                >
+                  Popular
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setTagSortBy('name')}
+                  title="Sort alphabetically (A-Z)"
+                  style={{
+                    border: 'none',
+                    background: tagSortBy === 'name' ? 'rgba(99, 102, 241, 0.35)' : 'transparent',
+                    color: tagSortBy === 'name' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono), monospace',
+                    transition: 'all 120ms ease',
+                  }}
+                >
+                  A-Z
+                </motion.button>
+              </div>
+            )}
           </div>
 
           <AnimatePresence initial={false}>
@@ -996,36 +1138,105 @@ export default function Sidebar({
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.2 }}
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', padding: '0 4px', overflow: 'hidden' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden' }}
               >
-                {TOP_TAGS.map(tag => {
-                  const isActive = activeFilter === `tag:${tag}`;
-                  return (
-                    <motion.button
-                      key={tag}
-                      whileHover={{ scale: 1.05, backgroundColor: 'rgba(99, 102, 241, 0.16)', borderColor: 'rgba(99, 102, 241, 0.4)' }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => onFilterChange(`tag:${tag}`)}
+                {/* Search filter for tags if tag list is large */}
+                {sortedTags.length > 5 && (
+                  <div style={{ padding: '0 4px', marginBottom: '2px' }}>
+                    <div
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        padding: '4px 9px',
-                        borderRadius: '999px',
-                        border: `1px solid ${isActive ? 'rgba(99, 102, 241, 0.45)' : 'rgba(255, 255, 255, 0.08)'}`,
-                        background: isActive ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255, 255, 255, 0.035)',
-                        color: isActive ? '#C7D2FE' : 'rgba(255, 255, 255, 0.60)',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        transition: 'all 150ms ease-out',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
                       }}
                     >
-                      <Hash size={10} />
-                      {tag}
-                    </motion.button>
-                  );
-                })}
+                      <Search size={11} style={{ color: 'rgba(255, 255, 255, 0.35)' }} />
+                      <input
+                        type="text"
+                        placeholder="Filter tags..."
+                        value={tagSearchQuery}
+                        onChange={e => setTagSearchQuery(e.target.value)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          color: '#FFFFFF',
+                          fontSize: '11px',
+                          width: '100%',
+                        }}
+                      />
+                      {tagSearchQuery && (
+                        <button
+                          onClick={() => setTagSearchQuery('')}
+                          style={{ border: 'none', background: 'transparent', color: 'rgba(255, 255, 255, 0.5)', cursor: 'pointer', padding: 0 }}
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tag Pills Grid */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', padding: '0 4px' }}>
+                  {sortedTags.map(({ tag, count }) => {
+                    const isActive = activeFilter === `tag:${tag}`;
+                    return (
+                      <motion.button
+                        key={tag}
+                        whileHover={{ scale: 1.05, backgroundColor: 'rgba(99, 102, 241, 0.18)', borderColor: 'rgba(99, 102, 241, 0.45)' }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => onFilterChange(`tag:${tag}`)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '4px 9px',
+                          borderRadius: '999px',
+                          border: `1px solid ${isActive ? 'rgba(99, 102, 241, 0.5)' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: isActive
+                            ? 'linear-gradient(90deg, rgba(99, 102, 241, 0.28), rgba(6, 182, 212, 0.12))'
+                            : 'rgba(255, 255, 255, 0.035)',
+                          color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: isActive ? 600 : 500,
+                          transition: 'all 150ms ease-out',
+                          boxShadow: isActive ? '0 0 12px rgba(99, 102, 241, 0.25)' : 'none',
+                        }}
+                      >
+                        <Hash size={10} style={{ color: isActive ? '#A5B4FC' : 'rgba(255, 255, 255, 0.4)' }} />
+                        <span>{tag}</span>
+                        {count > 0 && (
+                          <span
+                            style={{
+                              fontSize: '9.5px',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: '999px',
+                              background: isActive ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)',
+                              color: isActive ? '#E0E7FF' : 'rgba(255, 255, 255, 0.45)',
+                              fontFamily: 'var(--font-mono), monospace',
+                              marginLeft: '2px',
+                            }}
+                          >
+                            {count}
+                          </span>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+
+                  {sortedTags.length === 0 && (
+                    <div style={{ padding: '6px 8px', fontSize: '11px', color: 'rgba(255, 255, 255, 0.35)', fontStyle: 'italic' }}>
+                      No matching tags found
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1265,6 +1476,120 @@ export default function Sidebar({
             </motion.button>
           </div>
         )}
+
+        {/* 3 Quick Mode Actions in Sidebar Footer (Only when expanded) */}
+        {!isCollapsed && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '4px',
+              marginTop: '4px',
+              padding: '3px',
+              background: 'rgba(0, 0, 0, 0.25)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+            }}
+          >
+            {/* 1. Sign In */}
+            <button
+              onClick={() => { window.location.href = '/login'; }}
+              title="Sign in with Google or Email"
+              style={{
+                padding: '5px 4px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'transparent',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                transition: 'all 0.12s ease',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)'; e.currentTarget.style.color = '#A5B4FC'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)'; }}
+            >
+              <LogIn size={12} />
+              <span>Sign In</span>
+            </button>
+
+            {/* 2. Guest Login */}
+            <button
+              onClick={() => {
+                document.cookie = 'guest_mode=true; path=/; max-age=31536000; SameSite=Lax';
+                document.cookie = 'guest_seed_demo=true; path=/; max-age=600; SameSite=Lax';
+                window.location.href = '/app';
+              }}
+              title="Switch to Guest Mode (Local Storage)"
+              style={{
+                padding: '5px 4px',
+                borderRadius: '6px',
+                border: 'none',
+                background: isGuest ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                color: isGuest ? '#34D399' : 'rgba(255, 255, 255, 0.7)',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                transition: 'all 0.12s ease',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'; e.currentTarget.style.color = '#34D399'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = isGuest ? 'rgba(16, 185, 129, 0.2)' : 'transparent'; e.currentTarget.style.color = isGuest ? '#34D399' : 'rgba(255, 255, 255, 0.7)'; }}
+            >
+              <UserCheck size={12} />
+              <span>Guest</span>
+            </button>
+
+            {/* 3. Sign Out */}
+            <button
+              onClick={async () => {
+                document.cookie = 'guest_mode=; path=/; max-age=0';
+                document.cookie = 'guest_seed_demo=; path=/; max-age=0';
+                if (isGuest) {
+                  window.location.href = '/login';
+                } else {
+                  await signOut({ redirectUrl: '/login' });
+                }
+              }}
+              title="Sign out of current session"
+              style={{
+                padding: '5px 4px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'transparent',
+                color: '#F87171',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                transition: 'all 0.12s ease',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              <LogOut size={12} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
+
+        {/* Developer Credit Footer */}
+        {!isCollapsed && (
+          <div style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.35)', textAlign: 'center', marginTop: '2px', fontWeight: 500 }}>
+            © Developed by Aseer Awsaf
+          </div>
+        )}
+      </div>
       </div>
     </motion.aside>
   );

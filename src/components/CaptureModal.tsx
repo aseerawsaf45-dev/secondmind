@@ -3,6 +3,8 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { isFacebookUrl } from '@/lib/facebook';
 import { isTwitterUrl } from '@/lib/twitter';
+import { motion, AnimatePresence } from 'framer-motion';
+import { popoverVariant } from '@/lib/motion';
 import type { MemoryItem } from '@/lib/data';
 import { DEFAULT_CATEGORY_COLLECTIONS } from '@/lib/categories';
 
@@ -323,23 +325,35 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '540px',
-          maxHeight: 'min(90dvh, 720px)',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: '20px',
-          overflow: 'hidden',
-          boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(6, 86, 91,0.1)',
-        }}
-        className="animate-fade-in-up"
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="modal-overlay"
+          onClick={onClose}
+        >
+          <motion.div
+            variants={popoverVariant}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '540px',
+              maxHeight: 'min(90dvh, 720px)',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: '20px',
+              overflow: 'hidden',
+              boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(6, 86, 91,0.1)',
+            }}
+          >
         {/* Header */}
         <div style={{ padding: '18px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
@@ -926,7 +940,9 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
         </>
       )}
     </div>
-  </div>
-</div>
-);
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }

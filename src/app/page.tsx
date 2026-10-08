@@ -1,6 +1,3 @@
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import LandingPage from './LandingPage';
 
 export const metadata = {
@@ -21,26 +18,6 @@ export const metadata = {
   },
 };
 
-export default async function HomePage() {
-  const cookieStore = await cookies();
-  const isGuest = cookieStore.get('guest_mode')?.value === 'true';
-
-  if (isGuest) {
-    redirect('/app');
-  }
-
-  let userId: string | null = null;
-  try {
-    const authObj = await auth();
-    userId = authObj?.userId || null;
-  } catch {
-    userId = null;
-  }
-
-  // Authenticated users → go straight to dashboard
-  if (userId) {
-    redirect('/app');
-  }
-
+export default function HomePage() {
   return <LandingPage />;
 }

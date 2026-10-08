@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2 } from 'lucide-react';
+import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useClerk, useUser } from '@clerk/nextjs';
+import { motion, AnimatePresence } from 'framer-motion';
+import { pageReveal, staggerContainer, cardReveal } from '@/lib/motion';
+
 import Sidebar from '@/components/Sidebar';
 import MemoryCard from '@/components/MemoryCard';
 import SearchOverlay from '@/components/SearchOverlay';
@@ -69,6 +72,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showAuthMenu, setShowAuthMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [guestBannerDismissed, setGuestBannerDismissed] = useState(false);
   const [initialCaptureUrl, setInitialCaptureUrl] = useState('');
@@ -176,6 +180,27 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       setIsMigrating(false);
     }
   }, [userId, loadData, showToast]);
+
+  // Auth mode switch handlers (Sign In, Sign Out, Guest Login)
+  const handleSignOutAction = async () => {
+    document.cookie = 'guest_mode=; path=/; max-age=0';
+    document.cookie = 'guest_seed_demo=; path=/; max-age=0';
+    if (userId === 'guest') {
+      window.location.href = '/login';
+    } else {
+      await signOut({ redirectUrl: '/login' });
+    }
+  };
+
+  const handleGuestLoginAction = () => {
+    document.cookie = 'guest_mode=true; path=/; max-age=31536000; SameSite=Lax';
+    document.cookie = 'guest_seed_demo=true; path=/; max-age=600; SameSite=Lax';
+    window.location.href = '/app';
+  };
+
+  const handleSignInAction = () => {
+    window.location.href = '/login';
+  };
 
   // Check for unmigrated guest data on authenticated login
   useEffect(() => {
@@ -553,36 +578,28 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
 
   return (
     <div className="noise-bg" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)', position: 'relative' }}>
-      {/* WebGL Ambient Scanner Background */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, opacity: 0.35 }}>
-        <Scanner
-          color1="#312E81"
-          color2="#6366F1"
-          color3="#06B6D4"
-          speed={0.3}
-          sweepSpeed={0.2}
-          sweepWidth={1.6}
-          sweepFalloff={6}
-          scale={1.5}
-          frequency={2}
-          ripple={0.22}
-          bandDensity={11}
-          lineSharpness={5.5}
-          glow={0.22}
-          scanDirection="vertical"
-          colorSpread={0.7}
-          brightness={1}
-          contrast={1.15}
-          softness={1.4}
-          vignette={0.45}
-          scanline
-          grain
-          grainIntensity={0.05}
-          opacity={1}
-          mouseInteraction
-          mouseRadius={0.5}
-          mouseStrength={0.5}
-        />
+      {/* Premium Ambient Background Field */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute',
+          top: '-20%',
+          left: '-10%',
+          width: '70vw',
+          height: '70vw',
+          background: 'radial-gradient(circle, rgba(124, 58, 237, 0.08) 0%, transparent 60%)',
+          filter: 'blur(100px)',
+          opacity: 0.8,
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-20%',
+          right: '-10%',
+          width: '60vw',
+          height: '60vw',
+          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.05) 0%, transparent 60%)',
+          filter: 'blur(100px)',
+          opacity: 0.8,
+        }} />
       </div>
 
       {/* Mobile sidebar backdrop */}
@@ -616,6 +633,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         onDeleteCollection={handleDeleteCollection}
         itemCounts={itemCounts}
         collections={collections}
+        items={items}
         user={activeUser}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -789,6 +807,164 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                 </div>
               )}
             </div>
+
+            {/* Account & Session Mode Controls (Sign In, Guest Login, Sign Out) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowAuthMenu(!showAuthMenu)}
+                className="btn btn-ghost"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12.5px',
+                  borderRadius: '9px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: userId === 'guest' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                  color: userId === 'guest' ? '#F59E0B' : '#A5B4FC',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {userId === 'guest' ? <UserCheck size={14} /> : <User size={14} />}
+                <span className="hide-xs">
+                  {userId === 'guest' ? 'Guest Mode' : 'Account'}
+                </span>
+                <ChevronDown size={11} />
+              </button>
+
+              {showAuthMenu && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '44px',
+                    right: 0,
+                    background: '#0F111E',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    borderRadius: '12px',
+                    padding: '8px',
+                    zIndex: 100,
+                    minWidth: '210px',
+                    boxShadow: '0 16px 36px rgba(0,0,0,0.6)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      padding: '4px 8px',
+                    }}
+                  >
+                    Session Mode
+                  </div>
+
+                  {/* Option 1: Sign In */}
+                  <button
+                    onClick={() => {
+                      setShowAuthMenu(false);
+                      handleSignInAction();
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+                    onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <LogIn size={15} color="#818CF8" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600 }}>Sign In</span>
+                      <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
+                        Google & Email Login
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Guest Login */}
+                  <button
+                    onClick={() => {
+                      setShowAuthMenu(false);
+                      handleGuestLoginAction();
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: userId === 'guest' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                      color: userId === 'guest' ? '#34D399' : '#FFFFFF',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)')}
+                    onMouseOut={(e) => (e.currentTarget.style.background = userId === 'guest' ? 'rgba(16, 185, 129, 0.15)' : 'transparent')}
+                  >
+                    <UserCheck size={15} color="#34D399" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600 }}>Guest Login</span>
+                      <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
+                        Local Browser Storage
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Option 3: Sign Out */}
+                  <button
+                    onClick={() => {
+                      setShowAuthMenu(false);
+                      handleSignOutAction();
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#F87171',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)')}
+                    onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <LogOut size={15} color="#EF4444" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600 }}>Sign Out</span>
+                      <span style={{ fontSize: '10.5px', color: 'rgba(239, 68, 68, 0.7)' }}>
+                        End current session
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -796,7 +972,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         {migrationPrompt && userId !== 'guest' && (
           <div
             style={{
-              margin: '12px 24px 0',
+              margin: '12px 14px 0',
               padding: '12px 16px',
               borderRadius: '12px',
               background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.28) 0%, rgba(6, 182, 212, 0.18) 100%)',
@@ -848,8 +1024,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         {userId === 'guest' && !guestBannerDismissed && (
           <div
             style={{
-              margin: '12px 24px 0',
-              padding: '12px 16px',
+              margin: '10px 14px 0',
+              padding: '10px 14px',
               borderRadius: '12px',
               background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
               border: '1px solid rgba(245, 158, 11, 0.25)',
@@ -862,16 +1038,16 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px', minWidth: 0 }}>
               <span style={{ fontSize: '14px', flexShrink: 0 }}>⚡</span>
               <div style={{ minWidth: 0 }}>
-                <strong>Guest Mode</strong> — Your data is stored only in this browser.
+                <strong>Guest Mode</strong> — Local preview mode.
                 <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '6px' }} className="hide-xs">
                   Sign up to back up and sync across devices.
                 </span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={() => localDb.exportData()}
                 className="btn btn-ghost"
@@ -884,20 +1060,20 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               <a
                 href={`/signup?migrate=1`}
                 className="btn btn-primary"
-                style={{ padding: '5px 12px', fontSize: '11px', background: '#F59E0B', color: '#000', border: 'none', fontWeight: 700 }}
+                style={{ padding: '6px 12px', fontSize: '11px', background: '#F59E0B', color: '#000', border: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
               >
-                Save to account
+                Save account
               </a>
               <a
                 href="/login"
-                className="btn btn-ghost"
+                className="btn btn-ghost hide-xs"
                 style={{ padding: '5px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}
               >
                 Sign in
               </a>
               <button
                 onClick={() => setGuestBannerDismissed(true)}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '4px' }}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '4px' }}
                 aria-label="Dismiss banner"
               >
                 ×
@@ -991,12 +1167,17 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} onSeedDemo={handleSeedDemoMemory} />
           ) : filteredItems !== null ? (
             viewMode === 'grid' ? (
-              <div className="masonry-grid">
+              <motion.div 
+                className="masonry-grid"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
                 {filteredItems.map((item, idx) => (
-                  <div
+                  <motion.div
                     key={item.id}
-                    className="animate-fade-in-up masonry-item"
-                    style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both', opacity: 0 }}
+                    className="masonry-item"
+                    variants={cardReveal}
                   >
                     <MemoryCard
                       item={item}
@@ -1012,9 +1193,9 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                       onAddToCollection={collId => handleAddToCollection(item.id, collId)}
                       onRemoveFromCollection={collId => handleRemoveFromCollection(item.id, collId)}
                     />
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : (
               <div
                 style={{

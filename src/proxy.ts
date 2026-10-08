@@ -11,7 +11,7 @@ export default clerkMiddleware(async (_auth, req: NextRequest) => {
     req.headers.get('x-real-ip') ||
     '127.0.0.1';
 
-  // 1. Rate limiting on Auth Routes (5 req/min per IP)
+  // 1. Rate limiting on Auth Routes (30 req/min per IP to avoid blocking OAuth redirects)
   if (isAuthRoute(req)) {
     const rateCheck = checkAuthRateLimit(ip);
     if (!rateCheck.success) {
@@ -68,7 +68,6 @@ export default clerkMiddleware(async (_auth, req: NextRequest) => {
           );
         }
       } catch {
-        // Invalid origin format
         return new NextResponse(
           JSON.stringify({ error: 'Invalid origin header.' }),
           {
@@ -85,7 +84,7 @@ export default clerkMiddleware(async (_auth, req: NextRequest) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
+    // Skip Next.js internals and all static files
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for Clerk's auto-proxy path
     '/__clerk/:path*',

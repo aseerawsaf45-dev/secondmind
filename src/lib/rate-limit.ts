@@ -85,7 +85,7 @@ export const rateLimiter = new InMemoryRateLimiter();
  * - API extraction: 30 requests per minute per IP
  */
 export function checkAuthRateLimit(ip: string) {
-  return rateLimiter.check(`auth:${ip}`, 5, 60 * 1000);
+  return rateLimiter.check(`auth:${ip}`, 30, 60 * 1000);
 }
 
 export function checkApiRateLimit(ip: string) {

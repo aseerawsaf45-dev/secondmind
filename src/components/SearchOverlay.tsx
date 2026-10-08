@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, ArrowRight, Hash, Clock, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { commandPaletteVariant } from '@/lib/motion';
 import type { MemoryItem } from '@/lib/data';
 
 interface SearchOverlayProps {
@@ -56,7 +58,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
       setSelectedIndex(0);
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, items]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -79,8 +81,6 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
     return () => window.removeEventListener('keydown', handle);
   }, [isOpen, results, selectedIndex, onClose, onSelectItem]);
 
-  if (!isOpen) return null;
-
   const typeIcon = (type: string) => {
     const map: Record<string, string> = {
       link: '🔗', note: '📝', image: '🖼️', pdf: '📄', tweet: '🐦', video: '🎬',
@@ -89,28 +89,40 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
   };
 
   return (
-    <div className="search-overlay animate-fade-in" onClick={onClose}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '680px',
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
-        }}
-        className="animate-fade-in-up"
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="search-overlay"
+          onClick={onClose}
+        >
+          <motion.div
+            variants={commandPaletteVariant}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '680px',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
+            }}
+          >
         {/* Search Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <Search size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search your memory... or ask anything"
+            placeholder="Search memory or ask..."
             style={{
               flex: 1,
               background: 'transparent',
@@ -125,20 +137,25 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
             <button
               onClick={() => setQuery('')}
               className="btn btn-ghost btn-icon"
-              style={{ width: '28px', height: '28px', borderRadius: '6px', padding: '4px' }}
+              style={{ width: '32px', height: '32px', borderRadius: '8px', padding: '4px' }}
             >
               <X size={14} />
             </button>
           )}
-          <kbd style={{
-            padding: '2px 8px',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '6px',
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-            fontFamily: 'inherit',
-          }}>ESC</kbd>
+          <kbd
+            className="hide-xs"
+            style={{
+              padding: '2px 8px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              fontFamily: 'inherit',
+            }}
+          >
+            ESC
+          </kbd>
         </div>
 
         {/* Content */}
@@ -273,7 +290,9 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
             </div>
           )}
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

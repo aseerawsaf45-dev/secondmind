@@ -844,7 +844,6 @@ export default function LandingPage() {
               { label: 'Simulator', href: '#simulator' },
               { label: 'Features', href: '#features' },
               { label: 'How It Works', href: '#how-it-works' },
-              { label: 'Pricing', href: '#pricing' },
               { label: 'FAQ', href: '#faq' },
             ].map(l => (
               <a
@@ -866,6 +865,23 @@ export default function LandingPage() {
 
           {/* Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Link
+              href="/app"
+              style={{
+                padding: '8px 14px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#A5B4FC',
+                textDecoration: 'none',
+                borderRadius: '999px',
+                transition: 'all 0.2s',
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+              }}
+              className="landing-nav-link"
+            >
+              Dashboard
+            </Link>
             <Link
               href="/login"
               style={{
@@ -1420,178 +1436,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ───────────────────────────────────────────────────── */}
-      <section style={{ padding: '100px 24px', maxWidth: '1000px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-          <h2
-            style={{
-              fontSize: 'clamp(24px, 4vw, 40px)',
-              fontWeight: 800,
-              fontFamily: 'var(--font-heading)',
-              letterSpacing: '-0.03em',
-              color: '#FFFFFF',
-            }}
-          >
-            Loved by knowledge workers
-          </h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {TESTIMONIALS.map(t => (
-            <div
-              key={t.author}
-              style={{
-                padding: '28px',
-                borderRadius: '16px',
-                background: 'rgba(255,255,255,0.035)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
-              <div style={{ display: 'flex', gap: '3px', marginBottom: '16px' }}>
-                {[...Array(t.stars)].map((_, i) => (
-                  <Star key={i} size={14} fill="#F59E0B" color="#F59E0B" />
-                ))}
-              </div>
-              <p
-                style={{
-                  fontSize: '14px',
-                  color: 'rgba(255,255,255,0.85)',
-                  lineHeight: 1.65,
-                  marginBottom: '20px',
-                  fontStyle: 'italic',
-                }}
-              >
-                {t.text}
-              </p>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{t.author}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.role}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── PRICING ────────────────────────────────────────────────────────── */}
-      <section
-        id="pricing"
-        style={{
-          padding: '100px 24px',
-          background: 'rgba(255,255,255,0.015)',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}
-      >
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-            <h2
-              style={{
-                fontSize: 'clamp(28px, 5vw, 44px)',
-                fontWeight: 800,
-                fontFamily: 'var(--font-heading)',
-                letterSpacing: '-0.03em',
-                color: '#FFFFFF',
-                marginBottom: '12px',
-              }}
-            >
-              Simple, transparent pricing
-            </h2>
-            <p style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>
-              Start free. Upgrade when you need more.
-            </p>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            {PLANS.map(plan => (
-              <div
-                key={plan.name}
-                style={{
-                  padding: '32px',
-                  borderRadius: '24px',
-                  background: plan.featured
-                    ? 'linear-gradient(145deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.1) 100%)'
-                    : 'rgba(255,255,255,0.03)',
-                  border: plan.featured
-                    ? '1px solid rgba(139,92,246,0.5)'
-                    : '1px solid rgba(255,255,255,0.08)',
-                  boxShadow: plan.featured ? '0 20px 60px -15px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none',
-                  position: 'relative',
-                }}
-              >
-                {plan.badge && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '-12px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      padding: '4px 16px',
-                      background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-                      borderRadius: '999px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      fontFamily: 'var(--font-mono)',
-                      color: '#fff',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-                    }}
-                  >
-                    {plan.badge}
-                  </div>
-                )}
-                <div style={{ marginBottom: '8px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'var(--font-heading)' }}>
-                    {plan.name}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
-                  <span
-                    style={{
-                      fontSize: '40px',
-                      fontWeight: 900,
-                      color: '#FFFFFF',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    {plan.price}
-                  </span>
-                  <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{plan.period}</span>
-                </div>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>{plan.desc}</p>
-                <Link
-                  href={plan.href}
-                  style={{
-                    display: 'block',
-                    padding: '13px',
-                    borderRadius: '12px',
-                    textAlign: 'center',
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                    marginBottom: '24px',
-                    background: plan.featured
-                      ? 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)'
-                      : 'rgba(255,255,255,0.07)',
-                    color: '#fff',
-                    border: plan.featured ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: plan.featured ? '0 4px 18px rgba(99,102,241,0.4)' : 'none',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {plan.cta}
-                </Link>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {plan.features.map(f => (
-                    <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      <Check size={14} style={{ color: '#10B981', flexShrink: 0 }} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── FAQ SECTION ───────────────────────────────────────────────────── */}
       <FAQSection />
 
@@ -1710,8 +1554,8 @@ export default function LandingPage() {
             </Link>
           ))}
         </div>
-        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
-          © {new Date().getFullYear()} SecondMind. Built for people who never stop learning.
+        <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: 0, fontWeight: 500 }}>
+          © Developed by Aseer Awsaf
         </p>
       </footer>
 

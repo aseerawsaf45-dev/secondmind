@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import "./globals.css";
