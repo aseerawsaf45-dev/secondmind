@@ -268,6 +268,7 @@ export default function PrivacyPage() {
           >
             Terms of Service →
           </Link>
+        </div>
       </article>
 
       <footer style={{ marginTop: '40px', fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>

@@ -305,6 +305,9 @@ export default function LoginPage() {
             >
               Go straight to Dashboard
             </button>
+          </div>
+        )}
+
         <footer style={{ marginTop: '16px', fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
           © Developed by Aseer Awsaf
         </footer>
