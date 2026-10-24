@@ -5,12 +5,14 @@ import { Search, X, ArrowRight, Hash, Clock, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { commandPaletteVariant } from '@/lib/motion';
 import type { MemoryItem } from '@/lib/data';
+import { semanticSearchAction } from '@/lib/db-items';
 
 interface SearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectItem: (item: MemoryItem) => void;
   items: MemoryItem[];
+  userId?: string;
 }
 
 const QUICK_SUGGESTIONS = [
@@ -21,7 +23,7 @@ const QUICK_SUGGESTIONS = [
   'Philosophy and mental models',
 ];
 
-export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: SearchOverlayProps) {
+export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, userId }: SearchOverlayProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MemoryItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -44,7 +46,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
       return;
     }
     setIsSearching(true);
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const q = query.toLowerCase();
       const filtered = items.filter(
         item =>
@@ -53,12 +55,27 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items }: 
           item.tags.some(t => t.toLowerCase().includes(q)) ||
           item.content.toLowerCase().includes(q)
       );
-      setResults(filtered);
+      
+      let semanticResults: MemoryItem[] = [];
+      if (userId && q.length > 2) {
+        semanticResults = await semanticSearchAction(userId, query, 5);
+      }
+      
+      // Merge unique
+      const mergedMap = new Map<string, MemoryItem>();
+      filtered.forEach(i => mergedMap.set(i.id, i));
+      semanticResults.forEach(i => {
+        if (!mergedMap.has(i.id)) {
+          mergedMap.set(i.id, i);
+        }
+      });
+      
+      setResults(Array.from(mergedMap.values()));
       setIsSearching(false);
       setSelectedIndex(0);
-    }, 300);
+    }, 600); // 600ms debounce to avoid spamming the semantic search API
     return () => clearTimeout(timer);
-  }, [query, items]);
+  }, [query, items, userId]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {

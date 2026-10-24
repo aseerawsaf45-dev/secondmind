@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+
 import { Outfit } from "next/font/google";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { JetBrains_Mono } from "next/font/google";
@@ -7,11 +7,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
+
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -95,7 +91,7 @@ export default function RootLayout({
         theme: dark,
       }}
     >
-      <html lang="en" className={`${inter.variable} ${outfit.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}>
+      <html lang="en" className={`${outfit.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col bg-[#040408] text-white relative">
           <div className="gradient-mesh-container">
             <div className="gradient-mesh-orb gradient-mesh-orb-1" />

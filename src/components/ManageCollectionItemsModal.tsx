@@ -290,8 +290,8 @@ export default function ManageCollectionItemsModal({
                     padding: '8px 10px',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    background: isChecked ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                    border: `1px solid ${isChecked ? 'rgba(16, 185, 129, 0.3)' : 'transparent'}`,
+                    background: isChecked ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
+                    border: `1px solid ${isChecked ? 'rgba(6, 182, 212, 0.3)' : 'transparent'}`,
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={e => {
@@ -311,8 +311,8 @@ export default function ManageCollectionItemsModal({
                       width: '18px',
                       height: '18px',
                       borderRadius: '5px',
-                      border: `1.5px solid ${isChecked ? '#10B981' : 'rgba(255, 255, 255, 0.3)'}`,
-                      background: isChecked ? '#10B981' : 'transparent',
+                      border: `1.5px solid ${isChecked ? '#06B6D4' : 'rgba(255, 255, 255, 0.3)'}`,
+                      background: isChecked ? '#06B6D4' : 'transparent',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

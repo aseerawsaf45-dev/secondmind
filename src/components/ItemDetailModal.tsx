@@ -27,9 +27,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '@/lib/youtube';
 import { motion, AnimatePresence } from 'framer-motion';
+import { semanticSearchAction } from '@/lib/db-items';
+import ContentRenderer from '@/components/ContentRenderer';
+import LinkableTextarea from '@/components/LinkableTextarea';
 
 interface ItemDetailModalProps {
   item: MemoryItem | null;
+  userId?: string;
   onClose: () => void;
   onSelectItem: (item: MemoryItem) => void;
   onFavorite: (id: string) => void;
@@ -40,8 +44,8 @@ interface ItemDetailModalProps {
 }
 
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  link: { icon: <Link2 size={14} />, label: 'Link', color: '#818CF8' },
-  note: { icon: <FileText size={14} />, label: 'Note', color: '#10B981' },
+  link: { icon: <Link2 size={14} />, label: 'Link', color: '#38BDF8' },
+  note: { icon: <FileText size={14} />, label: 'Note', color: '#06B6D4' },
   video: { icon: <Film size={14} />, label: 'Video', color: '#F87171' },
   tweet: { icon: <MessageCircle size={14} />, label: 'Tweet', color: '#38BDF8' },
   pdf: { icon: <FileText size={14} />, label: 'PDF Document', color: '#FBBF24' },
@@ -49,6 +53,7 @@ const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string; color:
 
 export default function ItemDetailModal({
   item,
+  userId,
   onClose,
   onSelectItem,
   onFavorite,
@@ -65,6 +70,9 @@ export default function ItemDetailModal({
   const [newTag, setNewTag] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  const [aiRelatedItems, setAiRelatedItems] = useState<MemoryItem[]>([]);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -73,8 +81,24 @@ export default function ItemDetailModal({
       setEditSummary(item.summary);
       setEditTags([...item.tags]);
       setIsEditing(!!initialEditMode);
+      
+      // Fetch Proactive AI Suggestions
+      if (userId && item.aiProcessed) {
+        setIsLoadingRelated(true);
+        // Query string derived from title and summary to get semantic proximity
+        const queryText = `${item.title} ${item.summary}`;
+        semanticSearchAction(userId, queryText, 5)
+          .then(results => {
+            // Filter out the item itself
+            setAiRelatedItems(results.filter(r => r.id !== item.id));
+            setIsLoadingRelated(false);
+          })
+          .catch(() => setIsLoadingRelated(false));
+      } else {
+        setAiRelatedItems([]);
+      }
     }
-  }, [item, initialEditMode]);
+  }, [item, initialEditMode, userId]);
 
   // Clean domain display
   const cleanDomain = useMemo(() => {
@@ -142,6 +166,12 @@ export default function ItemDetailModal({
   };
 
   const relatedItems = allItems.filter(i => item.relatedIds.includes(i.id));
+  const backlinkedItems = allItems.filter(i => 
+    i.id !== item.id && 
+    (i.content.includes(`[[${item.title}]]`) || i.summary.includes(`[[${item.title}]]`))
+  );
+  
+  const allRelated = Array.from(new Set([...relatedItems, ...backlinkedItems]));
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
   const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.link;
 
@@ -187,8 +217,8 @@ export default function ItemDetailModal({
                 width: '32px',
                 height: '32px',
                 borderRadius: '9px',
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
+                background: 'rgba(6, 182, 212, 0.12)',
+                border: '1px solid rgba(6, 182, 212, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -247,7 +277,7 @@ export default function ItemDetailModal({
                   alignItems: 'center',
                   gap: '6px',
                   color: copied ? '#34D399' : 'rgba(255, 255, 255, 0.7)',
-                  background: copied ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                  background: copied ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.04)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '8px',
                 }}
@@ -264,8 +294,8 @@ export default function ItemDetailModal({
               style={{
                 width: '32px',
                 height: '32px',
-                color: isEditing ? '#818CF8' : 'rgba(255, 255, 255, 0.65)',
-                background: isEditing ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                color: isEditing ? '#38BDF8' : 'rgba(255, 255, 255, 0.65)',
+                background: isEditing ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.04)',
                 borderRadius: '8px',
               }}
               title={isEditing ? 'Cancel Edit' : 'Edit Memory'}
@@ -363,7 +393,7 @@ export default function ItemDetailModal({
                 marginBottom: '20px',
                 width: '100%',
                 background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(99, 102, 241, 0.35)',
+                border: '1px solid rgba(6, 182, 212, 0.35)',
                 borderRadius: '12px',
                 padding: '10px 14px',
               }}
@@ -461,12 +491,13 @@ export default function ItemDetailModal({
                     marginBottom: '10px',
                   }}
                 >
-                  <BookOpen size={12} style={{ color: '#818CF8' }} />
+                  <BookOpen size={12} style={{ color: '#38BDF8' }} />
                   <span>READER BODY</span>
                 </div>
 
                 {isEditing ? (
-                  <textarea
+                  <LinkableTextarea
+                    items={allItems}
                     className="input"
                     value={editContent}
                     onChange={e => setEditContent(e.target.value)}
@@ -496,7 +527,11 @@ export default function ItemDetailModal({
                       whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {item.content || item.summary || 'No extended content saved.'}
+                    <ContentRenderer 
+                      content={item.content || item.summary || 'No extended content saved.'} 
+                      items={allItems} 
+                      onSelectItem={onSelectItem} 
+                    />
                   </div>
                 )}
               </div>
@@ -519,7 +554,7 @@ export default function ItemDetailModal({
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {(isEditing ? editTags : item.tags).map(tag => {
-                    const color = TAG_COLORS[tag] || '#818CF8';
+                    const color = TAG_COLORS[tag] || '#38BDF8';
                     return (
                       <span
                         key={tag}
@@ -575,8 +610,8 @@ export default function ItemDetailModal({
                 </div>
               </div>
 
-              {/* Related Memories */}
-              {relatedItems.length > 0 && (
+              {/* Related & Backlinked Memories */}
+              {allRelated.length > 0 && (
                 <div>
                   <div
                     style={{
@@ -589,10 +624,10 @@ export default function ItemDetailModal({
                       marginBottom: '10px',
                     }}
                   >
-                    RELATED IN SECONDMIND
+                    LINKED MEMORIES
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {relatedItems.map(rel => (
+                    {allRelated.map(rel => (
                       <button
                         key={rel.id}
                         onClick={() => onSelectItem(rel)}
@@ -609,8 +644,8 @@ export default function ItemDetailModal({
                           transition: 'all 0.16s ease',
                         }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
-                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                          e.currentTarget.style.background = 'rgba(6, 182, 212, 0.12)';
+                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
                         }}
                         onMouseLeave={e => {
                           e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
@@ -655,10 +690,10 @@ export default function ItemDetailModal({
               <div
                 style={{
                   padding: '18px',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.06) 100%)',
-                  border: '1px solid rgba(99, 102, 241, 0.28)',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(6, 182, 212, 0.06) 100%)',
+                  border: '1px solid rgba(6, 182, 212, 0.28)',
                   borderRadius: '16px',
-                  boxShadow: '0 8px 30px rgba(99, 102, 241, 0.12)',
+                  boxShadow: '0 8px 30px rgba(6, 182, 212, 0.12)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' }}>
@@ -704,8 +739,8 @@ export default function ItemDetailModal({
                               width: '5px',
                               height: '5px',
                               borderRadius: '50%',
-                              background: '#818CF8',
-                              boxShadow: '0 0 8px #6366F1',
+                              background: '#38BDF8',
+                              boxShadow: '0 0 8px #06B6D4',
                               marginTop: '6px',
                               flexShrink: 0,
                             }}
@@ -780,6 +815,73 @@ export default function ItemDetailModal({
                 ))}
               </div>
 
+              {/* AI Proactive Connections */}
+              <div
+                style={{
+                  padding: '16px',
+                  background: 'rgba(6, 182, 212, 0.05)',
+                  border: '1px solid rgba(6, 182, 212, 0.15)',
+                  borderRadius: '14px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: 'rgba(6, 182, 212, 0.8)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    fontFamily: 'var(--font-mono), monospace',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Sparkles size={12} />
+                  PROACTIVE CONNECTIONS
+                </div>
+                
+                {isLoadingRelated ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px' }}>
+                    <Loader size={12} className="spin" />
+                    Finding related thoughts...
+                  </div>
+                ) : aiRelatedItems.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {aiRelatedItems.map(related => (
+                      <div
+                        key={related.id}
+                        onClick={() => onSelectItem(related)}
+                        style={{
+                          fontSize: '12.5px',
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          padding: '8px 12px',
+                          background: 'rgba(0,0,0,0.2)',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
+                      >
+                        <div style={{ fontWeight: 500, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {related.title}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)' }}>
+                          {TYPE_CONFIG[related.type]?.label || 'Note'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                    {userId ? "No strong semantic connections found yet." : "Sign in to enable AI connections."}
+                  </div>
+                )}
+              </div>
+
               {/* Action Buttons in Sidecar */}
               {isEditing ? (
                 <button
@@ -789,7 +891,7 @@ export default function ItemDetailModal({
                   style={{
                     width: '100%',
                     justifyContent: 'center',
-                    background: 'linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)',
+                    background: 'linear-gradient(135deg, #06B6D4 0%, #06B6D4 100%)',
                     height: '42px',
                     borderRadius: '12px',
                   }}
@@ -807,11 +909,11 @@ export default function ItemDetailModal({
                     style={{
                       textDecoration: 'none',
                       justifyContent: 'center',
-                      background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)',
+                      background: 'linear-gradient(135deg, #06B6D4 0%, #0369A1 50%, #06B6D4 100%)',
                       height: '42px',
                       borderRadius: '12px',
                       fontWeight: 600,
-                      boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
+                      boxShadow: '0 8px 24px rgba(6, 182, 212, 0.35)',
                     }}
                     onClick={e => e.stopPropagation()}
                   >

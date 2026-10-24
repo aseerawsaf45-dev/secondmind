@@ -1,4 +1,5 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus, AlertTriangle, MessageSquare, Search } from 'lucide-react';
+import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus, AlertTriangle, MessageSquare, Search, ArrowUpRight } from 'lucide-react';
+import LinkableTextarea from '@/components/LinkableTextarea';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { isFacebookUrl } from '@/lib/facebook';
@@ -188,6 +189,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
 
   const handleSave = async () => {
     if (tab === 'url' && !url.trim()) return;
+    if (isDuplicate) return;
     if (tab === 'note' && !note.trim()) return;
     if (tab === 'upload' && !selectedFile) return;
     if (tab === 'bulk' && !bulkUrls.trim()) return;
@@ -406,13 +408,13 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(6, 182, 212, 0.15)',
+                border: '1px solid rgba(6, 182, 212, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#10B981',
-                boxShadow: '0 0 24px rgba(16, 185, 129, 0.3)',
+                color: '#06B6D4',
+                boxShadow: '0 0 24px rgba(6, 182, 212, 0.3)',
               }}>
                 <Check size={28} />
               </div>
@@ -521,7 +523,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                     <div style={{
                       padding: '10px 14px',
                       background: 'rgba(6, 86, 91, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      border: '1px solid rgba(6, 182, 212, 0.3)',
                       borderRadius: '10px',
                       display: 'flex',
                       alignItems: 'center',
@@ -530,7 +532,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                       color: '#FFFFFF',
                     }} className="animate-fade-in">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Loader size={13} className="spin" style={{ color: '#10B981' }} />
+                        <Loader size={13} className="spin" style={{ color: '#06B6D4' }} />
                         <span>
                           {analysisStage === 'fetching' && 'Stage 1/3: Fetching source HTML (0-2s)...'}
                           {analysisStage === 'extracting' && 'Stage 2/3: Extracting metadata & content...'}
@@ -578,7 +580,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                             AI Content Brief & Analysis
                           </span>
                         </div>
-                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 600 }}>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(6, 182, 212, 0.15)', color: '#06B6D4', fontWeight: 600 }}>
                           High Confidence (Full Coverage)
                         </span>
                       </div>
@@ -703,7 +705,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
                   Your thought *
                 </label>
-                <textarea
+                <LinkableTextarea
+                  items={existingItems}
                   className="input"
                   value={note}
                   onChange={e => setNote(e.target.value)}
@@ -713,6 +716,53 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                   autoFocus
                 />
               </div>
+              
+              {/* PROACTIVE AI SUGGESTIONS WIDGET */}
+              {note.length > 10 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ padding: '12px', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#06B6D4', fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>
+                    <Sparkles size={12} />
+                    AI Proactive Suggestions
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(() => {
+                      const words = note.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+                      if (words.length === 0) return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Keep typing, AI is looking for connections...</div>;
+                      
+                      const suggested = existingItems.filter(item => 
+                        words.some(w => item.title.toLowerCase().includes(w) || item.summary?.toLowerCase().includes(w))
+                      ).slice(0, 3);
+                      
+                      if (suggested.length === 0) return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No related memories found yet.</div>;
+                      
+                      return suggested.map(item => (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            if (onAskAboutItem) {
+                              onClose();
+                              onAskAboutItem(item.title);
+                            }
+                          }}
+                          style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingRight: '8px' }}>
+                            {item.title}
+                          </span>
+                          <ArrowUpRight size={12} style={{ color: '#06B6D4', flexShrink: 0 }} />
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </motion.div>
+              )}
+              
               <div>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
                   Title (optional — AI will generate one)

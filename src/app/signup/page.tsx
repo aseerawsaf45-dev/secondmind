@@ -27,7 +27,7 @@ export default function SignupPage() {
       }} />
 
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-        <SignUp routing="hash" signInUrl="/login" fallbackRedirectUrl="/app" />
+        <SignUp routing="hash" signInUrl="/login" fallbackRedirectUrl="/app" forceRedirectUrl="/app" />
         
         <footer style={{ marginTop: '12px', fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
           © Developed by Aseer Awsaf

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, jsonb, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, jsonb, uuid, vector } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── User Branch Registry (lives on the ROOT branch only) ───────────────────
@@ -24,6 +24,7 @@ export const memoryItems = pgTable('memory_items', {
   tags: jsonb('tags').$type<string[]>().default([]),
   isFavorite: boolean('is_favorite').default(false).notNull(),
   aiProcessed: boolean('ai_processed').default(false).notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

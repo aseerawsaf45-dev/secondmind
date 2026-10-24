@@ -3,10 +3,11 @@
 import { auth } from '@clerk/nextjs/server';
 import { getUserDb } from '@/lib/user-db';
 import { memoryItems } from '@/db/schema';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, sql } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
-import { classifyContent, generateAISummary } from '@/lib/ai-engine';
+import { classifyContent, generateAISummary, generateEmbedding } from '@/lib/ai-engine';
+// Trigger recompile
 import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
 import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
 
@@ -270,6 +271,9 @@ export async function saveItemAction(
     ? data.summary.slice(0, 2000)
     : generateAISummary(cleanTitle, cleanContent, data.type);
 
+  const embeddingText = `${cleanTitle} ${finalSummary} ${cleanContent}`.trim();
+  const embedding = await generateEmbedding(embeddingText);
+
   const fallbackItem: MemoryItem = {
     id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     type: data.type as MemoryItem['type'],
@@ -302,6 +306,7 @@ export async function saveItemAction(
         tags: finalTags,
         isFavorite: false,
         aiProcessed: true,
+        embedding,
       })
       .returning();
 
@@ -377,3 +382,28 @@ export async function updateItemAction(
     return true;
   }
 }
+
+export async function semanticSearchAction(userId: string, query: string, limit = 10): Promise<MemoryItem[]> {
+  try {
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
+    const { cosineDistance } = await import("drizzle-orm");
+    
+    const queryEmbedding = await generateEmbedding(query);
+    
+    const similarity = sql`1 - (${cosineDistance(memoryItems.embedding, queryEmbedding)})`;
+    
+    const results = await db
+      .select({ item: memoryItems, similarity })
+      .from(memoryItems)
+      .where(sql`${memoryItems.userId} = ${verifiedUserId} AND ${memoryItems.embedding} IS NOT NULL`)
+      .orderBy((t) => desc(t.similarity))
+      .limit(limit);
+      
+    return results.map(r => recordToItem(r.item));
+  } catch (err) {
+    console.error('semanticSearch error:', err);
+    return [];
+  }
+}
+

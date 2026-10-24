@@ -12,7 +12,7 @@ interface CreateCollectionModalProps {
 }
 
 const EMOJIS = ['📁', '🎨', '💼', '🚀', '🧠', '📚', '⚡', '🌈', '🥑', '🎬', '🎮', '💡'];
-const COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#10B981', '#003a44', '#3B82F6', '#06565b', '#66a4ac'];
+const COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#06B6D4', '#003a44', '#3B82F6', '#06565b', '#66a4ac'];
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   link: <Link2 size={13} />,
@@ -393,8 +393,8 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
                         padding: '7px 10px',
                         borderRadius: '8px',
                         cursor: 'pointer',
-                        background: isChecked ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                        border: `1px solid ${isChecked ? 'rgba(16, 185, 129, 0.3)' : 'transparent'}`,
+                        background: isChecked ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
+                        border: `1px solid ${isChecked ? 'rgba(6, 182, 212, 0.3)' : 'transparent'}`,
                         transition: 'all 0.15s ease',
                       }}
                       onMouseEnter={e => {
@@ -413,8 +413,8 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
                         width: '18px',
                         height: '18px',
                         borderRadius: '5px',
-                        border: `1.5px solid ${isChecked ? '#10B981' : 'rgba(255, 255, 255, 0.3)'}`,
-                        background: isChecked ? '#10B981' : 'transparent',
+                        border: `1.5px solid ${isChecked ? '#06B6D4' : 'rgba(255, 255, 255, 0.3)'}`,
+                        background: isChecked ? '#06B6D4' : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

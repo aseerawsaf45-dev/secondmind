@@ -852,3 +852,34 @@ export function generateAISummary(title: string, content: string, type: string =
 
   return summary;
 }
+// Force Next.js Turbopack recompile after null byte fix
+
+export async function generateEmbedding(text: string): Promise<number[]> {
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn("GEMINI_API_KEY is missing, generating mock embedding of 1536 zeros");
+    return Array(1536).fill(0);
+  }
+  try {
+    const OpenAI = (await import("openai")).default;
+    // Use Gemini via OpenAI Compatibility API
+    const openai = new OpenAI({ 
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    });
+    const response = await openai.embeddings.create({
+      model: "text-embedding-004", 
+      input: text.slice(0, 8000), 
+    });
+    
+    // Gemini outputs 768 dimensions. We must pad to 1536 to match the database vector column.
+    const geminiEmbedding = response.data[0].embedding;
+    const paddedEmbedding = new Array(1536).fill(0);
+    for (let i = 0; i < geminiEmbedding.length; i++) {
+      paddedEmbedding[i] = geminiEmbedding[i];
+    }
+    return paddedEmbedding;
+  } catch (error) {
+    console.error("Failed to generate embedding:", error);
+    return Array(1536).fill(0);
+  }
+}

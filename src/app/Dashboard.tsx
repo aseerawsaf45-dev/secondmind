@@ -6,14 +6,21 @@ import { formatDistanceToNow } from 'date-fns';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { pageReveal, staggerContainer, cardReveal } from '@/lib/motion';
+import { useSearchParams } from 'next/navigation';
 
-import Sidebar from '@/components/Sidebar';
-import MemoryCard from '@/components/MemoryCard';
-import SearchOverlay from '@/components/SearchOverlay';
-import CaptureModal from '@/components/CaptureModal';
-import ItemDetailModal from '@/components/ItemDetailModal';
-import AIInsightsPanel from '@/components/AIInsightsPanel';
-import CreateCollectionModal from '@/components/CreateCollectionModal';
+import dynamic from 'next/dynamic';
+
+const Sidebar = dynamic(() => import('@/components/Sidebar'));
+const MemoryCard = dynamic(() => import('@/components/MemoryCard'));
+const SearchOverlay = dynamic(() => import('@/components/SearchOverlay'));
+const CaptureModal = dynamic(() => import('@/components/CaptureModal'));
+const ItemDetailModal = dynamic(() => import('@/components/ItemDetailModal'));
+const AIInsightsPanel = dynamic(() => import('@/components/AIInsightsPanel'));
+const CreateCollectionModal = dynamic(() => import('@/components/CreateCollectionModal'));
+const GraphView = dynamic(() => import('@/components/GraphView'));
+const Scanner = dynamic(() => import('@/components/Scanner'));
+const MagicBento = dynamic(() => import('@/components/MagicBento'));
+const OnboardingModal = dynamic(() => import('@/components/OnboardingModal'));
 import type { MemoryItem } from '@/lib/data';
 import { localDb } from '@/lib/local-db';
 
@@ -37,9 +44,6 @@ import {
   autoAssignItemToCollectionsAction,
   Collection,
 } from '@/lib/db-collections';
-
-import Scanner from '@/components/Scanner';
-import MagicBento from '@/components/MagicBento';
 
 type SortOption = 'newest' | 'oldest' | 'favorites';
 
@@ -81,8 +85,38 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'info' | 'error' } | null>(null);
   const [migrationPrompt, setMigrationPrompt] = useState<{ count: number } | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(true);
+  const [proTipsDismissed, setProTipsDismissed] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const searchParams = useSearchParams();
+
+  // Mobile Web Share Target API handler
+  useEffect(() => {
+    if (!searchParams) return;
+    
+    const sharedTitle = searchParams.get('title');
+    const sharedText = searchParams.get('text');
+    const sharedUrl = searchParams.get('url');
+
+    if (sharedTitle || sharedText || sharedUrl) {
+      // Build a combined note or prioritize URL
+      const combined = [sharedTitle, sharedText, sharedUrl].filter(Boolean).join('\n');
+      
+      // If it looks like a URL, pre-fill the URL tab. Otherwise, the note tab.
+      if (sharedUrl || (sharedText && (sharedText.startsWith('http') || sharedText.includes('://')))) {
+        setInitialCaptureUrl(sharedUrl || sharedText || '');
+        setInitialCaptureNote(sharedTitle || '');
+      } else {
+        setInitialCaptureNote(combined);
+        setInitialCaptureUrl('');
+      }
+      
+      setCaptureOpen(true);
+      
+      // Clean up the URL so refreshing doesn't re-trigger capture
+      window.history.replaceState({}, '', '/app');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -105,9 +139,20 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     }, 3200);
   }, []);
 
-  // Initialize onboarding dismissed state
+  const handleDismissOnboarding = useCallback(() => {
+    setOnboardingDismissed(true);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('secondmind_onboarding_dismissed', '1');
+      } catch (_) {}
+    }
+  }, []);
+
+  // Initialize tips and onboarding dismissed state
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const tipsDismissed = localStorage.getItem('secondmind_protips_dismissed') === '1';
+      if (tipsDismissed) setProTipsDismissed(true);
       const dismissed = localStorage.getItem('secondmind_onboarding_dismissed');
       if (dismissed === '1') setOnboardingDismissed(true);
     }
@@ -131,25 +176,42 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     setCollections(fetchedCollections);
     setItemCollectionMap(itemMap);
     setLoading(false);
+
+    // Only show onboarding modal for true first-time users (0 items and never dismissed)
+    const isDismissed = typeof window !== 'undefined' && localStorage.getItem('secondmind_onboarding_dismissed') === '1';
+    if (isDismissed || fetchedItems.length > 0) {
+      setOnboardingDismissed(true);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('secondmind_onboarding_dismissed', '1');
+        } catch (_) {}
+      }
+    } else {
+      // First-time user with 0 items
+      setOnboardingDismissed(false);
+    }
   }, [userId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Seed demo content for guests arriving from /try (checks cookie flag)
+  // Purge any legacy template data or demo cookies from guest mode
   useEffect(() => {
-    if (userId !== 'guest') return;
-    const hasSeedCookie = document.cookie.includes('guest_seed_demo=true');
-    if (hasSeedCookie) {
-      document.cookie = 'guest_seed_demo=; path=/; max-age=0';
-      localDb.seedDemoContent().then(() => {
-        loadData();
-        showToast('✨ Loaded sample knowledge base for instant exploration', 'success');
-      });
+    if (typeof document !== 'undefined' && document.cookie.includes('guest_seed_demo=true')) {
+      document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, loadData, showToast]);
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('secondmind_guest_items');
+      if (raw && raw.includes('demo-')) {
+        try {
+          const parsed = JSON.parse(raw);
+          const clean = parsed.filter((i: any) => !i.id?.startsWith('demo-'));
+          localStorage.setItem('secondmind_guest_items', JSON.stringify(clean));
+        } catch (_) {}
+      }
+    }
+  }, []);
 
   // Migrate guest data to authenticated account
   const performMigration = useCallback(async (guestItems: MemoryItem[]) => {
@@ -170,6 +232,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         migratedCount++;
       }
       localDb.clearGuestData();
+      document.cookie = 'guest_mode=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
       setMigrationPrompt(null);
       await loadData();
       showToast(`🎉 Migrated ${migratedCount} memories from guest session to your account!`, 'success');
@@ -219,6 +283,16 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       });
     }
   }, [userId, performMigration]);
+
+  // Ensure obsolete guest cookies are purged when signed in to Clerk
+  useEffect(() => {
+    if (clerkUser) {
+      if (typeof document !== 'undefined' && (document.cookie.includes('guest_mode=true') || document.cookie.includes('guest_seed_demo=true'))) {
+        document.cookie = 'guest_mode=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
+      }
+    }
+  }, [clerkUser]);
 
   // Global paste handler: paste a URL or text anywhere to capture instantly
   useEffect(() => {
@@ -721,7 +795,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                   padding: '5px 8px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: viewMode === 'grid' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                  background: viewMode === 'grid' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
                   color: viewMode === 'grid' ? '#A5B4FC' : 'rgba(255, 255, 255, 0.45)',
                   cursor: 'pointer',
                   display: 'flex',
@@ -739,7 +813,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                   padding: '5px 8px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: viewMode === 'list' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                  background: viewMode === 'list' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
                   color: viewMode === 'list' ? '#A5B4FC' : 'rgba(255, 255, 255, 0.45)',
                   cursor: 'pointer',
                   display: 'flex',
@@ -792,7 +866,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                         padding: '8px 12px',
                         borderRadius: '7px',
                         border: 'none',
-                        background: sortBy === opt ? 'rgba(99, 102, 241, 0.22)' : 'transparent',
+                        background: sortBy === opt ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
                         color: sortBy === opt ? '#A5B4FC' : 'var(--text-secondary)',
                         cursor: 'pointer',
                         fontSize: '13px',
@@ -818,7 +892,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                   fontSize: '12.5px',
                   borderRadius: '9px',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
-                  background: userId === 'guest' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                  background: userId === 'guest' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
                   color: userId === 'guest' ? '#F59E0B' : '#A5B4FC',
                   fontWeight: 600,
                   display: 'flex',
@@ -888,7 +962,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                     onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
                     onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <LogIn size={15} color="#818CF8" />
+                    <LogIn size={15} color="#38BDF8" />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontWeight: 600 }}>Sign In</span>
                       <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
@@ -907,7 +981,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                       padding: '8px 12px',
                       borderRadius: '8px',
                       border: 'none',
-                      background: userId === 'guest' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                      background: userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
                       color: userId === 'guest' ? '#34D399' : '#FFFFFF',
                       fontSize: '13px',
                       fontWeight: 500,
@@ -918,8 +992,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                       textAlign: 'left',
                       transition: 'background 0.15s ease',
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)')}
-                    onMouseOut={(e) => (e.currentTarget.style.background = userId === 'guest' ? 'rgba(16, 185, 129, 0.15)' : 'transparent')}
+                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)')}
+                    onMouseOut={(e) => (e.currentTarget.style.background = userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent')}
                   >
                     <UserCheck size={15} color="#34D399" />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -975,8 +1049,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               margin: '12px 14px 0',
               padding: '12px 16px',
               borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.28) 0%, rgba(6, 182, 212, 0.18) 100%)',
-              border: '1px solid rgba(99, 102, 241, 0.4)',
+              background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0.18) 100%)',
+              border: '1px solid rgba(6, 182, 212, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -988,7 +1062,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-              <Sparkles size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+              <Sparkles size={16} style={{ color: '#06B6D4', flexShrink: 0 }} />
               <div>
                 <strong>Welcome!</strong> We found <strong>{migrationPrompt.count}</strong> memories from your guest preview.
                 <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
@@ -1001,7 +1075,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                 disabled={isMigrating}
                 onClick={() => localDb.getGuestDataForMigration().then(({ items: gItems }) => performMigration(gItems))}
                 className="btn btn-primary"
-                style={{ padding: '6px 14px', fontSize: '12px', background: '#10B981', border: 'none', fontWeight: 700 }}
+                style={{ padding: '6px 14px', fontSize: '12px', background: '#06B6D4', border: 'none', fontWeight: 700 }}
               >
                 {isMigrating ? 'Saving...' : 'Save to my account'}
               </button>
@@ -1027,7 +1101,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               margin: '10px 14px 0',
               padding: '10px 14px',
               borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
+              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
               border: '1px solid rgba(245, 158, 11, 0.25)',
               display: 'flex',
               alignItems: 'center',
@@ -1083,7 +1157,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         )}
 
         {/* Quick-Start Pro Tips Strip */}
-        {!onboardingDismissed && items.length > 0 && items.length <= 12 && (
+        {!proTipsDismissed && items.length > 0 && items.length <= 12 && (
           <div
             style={{
               margin: '10px 24px 0',
@@ -1117,8 +1191,12 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             </div>
             <button
               onClick={() => {
-                setOnboardingDismissed(true);
-                if (typeof window !== 'undefined') localStorage.setItem('secondmind_onboarding_dismissed', '1');
+                setProTipsDismissed(true);
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.setItem('secondmind_protips_dismissed', '1');
+                  } catch (_) {}
+                }
               }}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '12px' }}
               title="Dismiss tip"
@@ -1134,6 +1212,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             { id: 'all', label: 'All', icon: '🧠' },
             { id: 'favorites', label: 'Favorites', icon: '⭐' },
             { id: 'ai-insights', label: 'AI Insights', icon: '✨' },
+            { id: 'graph', label: 'Graph', icon: '🕸️' },
             { id: 'link', label: 'Links', icon: '🔗' },
             { id: 'video', label: 'Videos', icon: '🎬' },
             { id: 'tweet', label: 'X / Tweets', icon: '𝕏' },
@@ -1163,8 +1242,10 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             <div style={{ maxWidth: '850px', width: '100%', margin: '0 auto' }}>
               <AIInsightsPanel items={items} collections={collections} onSelectItem={item => setSelectedItem(item)} />
             </div>
+          ) : activeFilter === 'graph' ? (
+            <GraphView items={items} onSelectItem={item => setSelectedItem(item)} />
           ) : filteredItems !== null && filteredItems.length === 0 ? (
-            <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} onSeedDemo={handleSeedDemoMemory} />
+            <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} />
           ) : filteredItems !== null ? (
             viewMode === 'grid' ? (
               <motion.div 
@@ -1304,6 +1385,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           setSearchOpen(false);
         }}
         items={items}
+        userId={activeUser?.id}
       />
       <CreateCollectionModal
         isOpen={createCollectionOpen}
@@ -1327,6 +1409,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       />
       <ItemDetailModal
         item={selectedItem}
+        userId={activeUser?.id}
         onClose={() => {
           setSelectedItem(null);
           setIsEditMode(false);
@@ -1410,6 +1493,55 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                 {activeUser?.email || 'N/A'}
               </div>
             </div>
+            
+            {/* Export Data Section */}
+            <div
+              style={{
+                padding: '16px',
+                background: 'rgba(56,189,248,0.04)',
+                border: '1px solid rgba(56,189,248,0.15)',
+                borderRadius: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#38bdf8',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '6px',
+                  fontWeight: 600,
+                }}
+              >
+                Data Export
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+                Download a JSON copy of all your saved links, notes, and generated summaries.
+              </p>
+              <a
+                href="/api/export"
+                download
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'center',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(56,189,248,0.3)',
+                  background: 'rgba(56,189,248,0.1)',
+                  color: '#38bdf8',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                  transition: 'all 150ms ease',
+                }}
+              >
+                Download My Data (JSON)
+              </a>
+            </div>
+
             <div
               style={{
                 padding: '16px',
@@ -1520,7 +1652,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
                 Close
               </button>
               <button
-                onClick={() => signOut({ redirectUrl: '/login' })}
+                onClick={handleSignOutAction}
                 className="btn btn-ghost"
                 style={{
                   flex: 1,
@@ -1660,7 +1792,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             border: toast.type === 'error'
               ? '1px solid rgba(239, 68, 68, 0.4)'
               : toast.type === 'success'
-              ? '1px solid rgba(16, 185, 129, 0.4)'
+              ? '1px solid rgba(6, 182, 212, 0.4)'
               : '1px solid rgba(102, 164, 172, 0.4)',
             color: '#FFFFFF',
             fontSize: '13px',
@@ -1674,6 +1806,60 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         >
           <span>{toast.message}</span>
         </div>
+      )}
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="mobile-bottom-bar">
+        <button
+          onClick={() => { setActiveFilter('all'); setSidebarOpen(false); }}
+          className={`mobile-nav-item ${activeFilter === 'all' ? 'active' : ''}`}
+        >
+          <LayoutGrid size={20} />
+          <span>Home</span>
+        </button>
+        
+        <button
+          onClick={() => { setActiveFilter('favorites'); setSidebarOpen(false); }}
+          className={`mobile-nav-item ${activeFilter === 'favorites' ? 'active' : ''}`}
+        >
+          <Star size={20} />
+          <span>Favs</span>
+        </button>
+        
+        <button
+          onClick={() => setCaptureOpen(true)}
+          className="mobile-nav-fab"
+          aria-label="Capture new memory"
+        >
+          <Plus size={24} strokeWidth={2.5} />
+        </button>
+
+        <button
+          onClick={() => { setActiveFilter('ai-insights'); setSidebarOpen(false); }}
+          className={`mobile-nav-item ${activeFilter === 'ai-insights' ? 'active' : ''}`}
+        >
+          <Sparkles size={20} />
+          <span>AI</span>
+        </button>
+        
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="mobile-nav-item"
+        >
+          <Search size={20} />
+          <span>Search</span>
+        </button>
+      </nav>
+
+      {/* Onboarding Flow */}
+      {!onboardingDismissed && (
+        <OnboardingModal
+          isOpen={!onboardingDismissed}
+          onClose={handleDismissOnboarding}
+          onComplete={() => {
+            handleDismissOnboarding();
+            setCaptureOpen(true);
+          }}
+        />
       )}
     </div>
   );
@@ -1738,7 +1924,7 @@ function ListViewRow({
         transition: 'background 140ms ease',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
+        e.currentTarget.style.background = 'rgba(6, 182, 212, 0.08)';
       }}
       onMouseLeave={e => {
         e.currentTarget.style.background = 'transparent';
@@ -1828,8 +2014,8 @@ function ListViewRow({
             style={{
               padding: '2px 7px',
               borderRadius: '5px',
-              background: 'rgba(99, 102, 241, 0.12)',
-              border: '1px solid rgba(99, 102, 241, 0.22)',
+              background: 'rgba(6, 182, 212, 0.12)',
+              border: '1px solid rgba(6, 182, 212, 0.22)',
               color: '#A5B4FC',
               fontSize: '10px',
               fontFamily: 'var(--font-mono), monospace',
@@ -1867,7 +2053,7 @@ function ListViewRow({
               height: '26px',
               borderRadius: '6px',
               border: 'none',
-              background: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+              background: copied ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.04)',
               color: copied ? '#34D399' : 'rgba(255, 255, 255, 0.6)',
               cursor: 'pointer',
               display: 'flex',
@@ -1956,7 +2142,7 @@ function LoadingState() {
   );
 }
 
-function EmptyState({ filter, onCapture, onSeedDemo }: { filter: string; onCapture: () => void; onSeedDemo: () => void }) {
+function EmptyState({ filter, onCapture }: { filter: string; onCapture: () => void }) {
   const messages: Record<string, { emoji: string; title: string; sub: string }> = {
     favorites: { emoji: '⭐', title: 'No favorites yet', sub: 'Star items you want to revisit quickly' },
     link: { emoji: '🔗', title: 'No links saved', sub: 'Save URLs to articles, tools, and resources' },
@@ -1988,14 +2174,14 @@ function EmptyState({ filter, onCapture, onSeedDemo }: { filter: string; onCaptu
         width: '80px',
         height: '80px',
         borderRadius: '24px',
-        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.15) 100%)',
-        border: '1px solid rgba(16, 185, 129, 0.3)',
+        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.15) 100%)',
+        border: '1px solid rgba(6, 182, 212, 0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '40px',
         marginBottom: '20px',
-        boxShadow: '0 20px 40px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
+        boxShadow: '0 20px 40px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
         backdropFilter: 'blur(20px)',
       }}>
         {msg.emoji}
@@ -2043,8 +2229,8 @@ function EmptyState({ filter, onCapture, onSeedDemo }: { filter: string; onCaptu
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{
                   width: '22px', height: '22px', borderRadius: '50%',
-                  background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)',
-                  color: '#10B981', fontSize: '11px', fontWeight: 700,
+                  background: 'rgba(6, 182, 212, 0.2)', border: '1px solid rgba(6, 182, 212, 0.4)',
+                  color: '#06B6D4', fontSize: '11px', fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {s.step}
@@ -2065,20 +2251,22 @@ function EmptyState({ filter, onCapture, onSeedDemo }: { filter: string; onCaptu
           Save Content
         </button>
         {filter === 'all' && (
-          <button
-            onClick={onSeedDemo}
-            className="btn btn-ghost"
-            style={{
-              padding: '12px 20px',
-              fontSize: '14px',
-              borderRadius: '12px',
-              border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.05)',
-              color: '#FFFFFF',
-            }}
-          >
-            ✨ Try a Demo Memory
-          </button>
+          <>
+            <button
+              onClick={() => alert('Import from Notion/Evernote coming soon!')}
+              className="btn btn-ghost"
+              style={{
+                padding: '12px 20px',
+                fontSize: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.05)',
+                color: '#FFFFFF',
+              }}
+            >
+              📥 Import Data
+            </button>
+          </>
         )}
       </div>
     </div>

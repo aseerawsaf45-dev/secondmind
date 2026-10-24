@@ -40,8 +40,8 @@ interface MemoryCardProps {
 }
 
 const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
-  link: { emoji: '🔗', label: 'Link', color: '#818CF8', bg: 'rgba(99, 102, 241, 0.12)' },
-  note: { emoji: '📝', label: 'Note', color: '#10B981', bg: 'rgba(16, 185, 129, 0.12)' },
+  link: { emoji: '🔗', label: 'Link', color: '#38BDF8', bg: 'rgba(6, 182, 212, 0.12)' },
+  note: { emoji: '📝', label: 'Note', color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.12)' },
   image: { emoji: '🖼️', label: 'Image', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.12)' },
   pdf: { emoji: '📄', label: 'PDF', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.12)' },
   tweet: { emoji: '𝕏', label: 'Tweet', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.12)' },
@@ -166,12 +166,12 @@ export default function MemoryCard({
         onClick={onClick}
         style={{
           borderRadius: '16px',
-          background: 'linear-gradient(180deg, rgba(20, 22, 38, 0.75) 0%, rgba(10, 11, 20, 0.85) 100%)',
+          background: 'linear-gradient(180deg, rgba(15, 15, 15, 0.75) 0%, rgba(5, 5, 5, 0.85) 100%)',
           backdropFilter: 'blur(24px) saturate(140%)',
           WebkitBackdropFilter: 'blur(24px) saturate(140%)',
-          border: isHovered ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+          border: isHovered ? '1px solid rgba(6, 182, 212, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
           boxShadow: isHovered
-            ? '0 20px 48px -12px rgba(0, 0, 0, 0.8), 0 0 28px rgba(99, 102, 241, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
+            ? '0 20px 48px -12px rgba(0, 0, 0, 0.8), 0 0 28px rgba(6, 182, 212, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
             : '0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
           overflow: 'hidden',
           cursor: 'pointer',
@@ -191,8 +191,8 @@ export default function MemoryCard({
             width: '140px',
             height: '140px',
             background: isHovered
-              ? 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.18) 0%, transparent 70%)'
-              : 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.08) 0%, transparent 70%)',
+              ? 'radial-gradient(circle at top right, rgba(6, 182, 212, 0.18) 0%, transparent 70%)'
+              : 'radial-gradient(circle at top right, rgba(6, 182, 212, 0.08) 0%, transparent 70%)',
             pointerEvents: 'none',
             transition: 'background 0.3s ease',
           }}
@@ -281,7 +281,7 @@ export default function MemoryCard({
           <div
             style={{
               padding: '16px 16px 14px',
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.04) 100%)',
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(6, 182, 212, 0.04) 100%)',
               borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
               position: 'relative',
               display: 'flex',
@@ -366,7 +366,7 @@ export default function MemoryCard({
             display: 'flex',
             alignItems: 'center',
             gap: '5px',
-            background: 'rgba(10, 11, 20, 0.82)',
+            background: 'rgba(5, 5, 5, 0.82)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -389,7 +389,7 @@ export default function MemoryCard({
                 height: '28px',
                 borderRadius: '7px',
                 border: 'none',
-                background: copied ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                background: copied ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
                 color: copied ? '#34D399' : 'rgba(255, 255, 255, 0.7)',
                 display: 'flex',
                 alignItems: 'center',
@@ -597,7 +597,7 @@ export default function MemoryCard({
           {/* TAGS & COLLECTIONS PILLS */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
             {item.tags.slice(0, 3).map(tag => {
-              const color = TAG_COLORS[tag] || '#818CF8';
+              const color = TAG_COLORS[tag] || '#38BDF8';
               return (
                 <span
                   key={tag}
@@ -640,8 +640,8 @@ export default function MemoryCard({
                   gap: '4px',
                   padding: '2px 6px',
                   borderRadius: '5px',
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  background: 'rgba(6, 182, 212, 0.15)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
                   color: '#A5B4FC',
                   fontSize: '9.5px',
                   fontWeight: 700,
@@ -674,7 +674,7 @@ export default function MemoryCard({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                color: isHovered ? '#818CF8' : 'rgba(255, 255, 255, 0.45)',
+                color: isHovered ? '#38BDF8' : 'rgba(255, 255, 255, 0.45)',
                 fontWeight: 600,
                 fontSize: '11px',
                 transition: 'color 160ms ease',
@@ -853,7 +853,7 @@ export default function MemoryCard({
                               padding: '7px 10px',
                               borderRadius: '7px',
                               border: 'none',
-                              background: isMember ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
+                              background: isMember ? 'rgba(6, 182, 212, 0.18)' : 'transparent',
                               cursor: 'pointer',
                               fontSize: '12px',
                               color: isMember ? '#C7D2FE' : 'rgba(255, 255, 255, 0.75)',
@@ -862,13 +862,13 @@ export default function MemoryCard({
                             }}
                             onMouseEnter={e => {
                               e.currentTarget.style.background = isMember
-                                ? 'rgba(99, 102, 241, 0.28)'
+                                ? 'rgba(6, 182, 212, 0.28)'
                                 : 'rgba(255, 255, 255, 0.08)';
                               e.currentTarget.style.color = '#FFFFFF';
                             }}
                             onMouseLeave={e => {
                               e.currentTarget.style.background = isMember
-                                ? 'rgba(99, 102, 241, 0.18)'
+                                ? 'rgba(6, 182, 212, 0.18)'
                                 : 'transparent';
                               e.currentTarget.style.color = isMember ? '#C7D2FE' : 'rgba(255, 255, 255, 0.75)';
                             }}
@@ -877,7 +877,7 @@ export default function MemoryCard({
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {c.name}
                             </span>
-                            {isMember && <Check size={12} style={{ color: '#818CF8' }} />}
+                            {isMember && <Check size={12} style={{ color: '#38BDF8' }} />}
                           </button>
                         );
                       })

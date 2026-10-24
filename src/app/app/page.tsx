@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import Dashboard from '../Dashboard';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 
 export const metadata = {
   title: 'SecondMind — Your AI Memory Dashboard',
@@ -10,16 +11,18 @@ export const metadata = {
 
 export default async function AppPage() {
   const cookieStore = await cookies();
-  const isGuest = cookieStore.get('guest_mode')?.value === 'true';
 
+  // 1. Always check authenticated Clerk session first.
+  // A verified user session MUST ALWAYS take precedence over any guest cookie.
   let user = null;
-  if (!isGuest) {
-    try {
-      user = await currentUser();
-    } catch (e) {
-      console.warn('[App] Failed to fetch current user from Clerk:', e);
-    }
+  try {
+    user = await currentUser();
+  } catch (e) {
+    console.warn('[App] Failed to fetch current user from Clerk:', e);
   }
+
+  // 2. Guest mode is only valid when there is NO authenticated user.
+  const isGuest = !user && cookieStore.get('guest_mode')?.value === 'true';
 
   if (!user && !isGuest) {
     redirect('/login');
@@ -41,5 +44,9 @@ export default async function AppPage() {
     };
   }
 
-  return <Dashboard user={activeUser} />;
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-base)' }} />}>
+      <Dashboard user={activeUser} />
+    </Suspense>
+  );
 }

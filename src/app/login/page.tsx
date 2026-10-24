@@ -3,7 +3,7 @@
 import { SignIn, useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LogIn, LogOut, UserCheck, Sparkles, Shield, ArrowRight } from 'lucide-react';
+import { LogIn, LogOut, UserCheck, Sparkles, Shield, ArrowRight, ExternalLink } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,21 +17,32 @@ export default function LoginPage() {
     const hasGuestCookie = document.cookie.includes('guest_mode=true');
     setIsGuestActive(hasGuestCookie);
 
-    // If authenticated via Clerk, route straight to dashboard
+    // If authenticated via Clerk:
+    // 1. Immediately purge any leftover guest cookies so real account is never shadowed
+    // 2. Route straight to dashboard
     if (isLoaded && isSignedIn) {
+      document.cookie = 'guest_mode=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
       router.replace('/app');
     }
   }, [isLoaded, isSignedIn, router]);
 
   const handleGuestLogin = () => {
     document.cookie = 'guest_mode=true; path=/; max-age=31536000; SameSite=Lax';
-    document.cookie = 'guest_seed_demo=true; path=/; max-age=600; SameSite=Lax';
+    document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
     router.replace('/app');
   };
 
+  const handleClearGuestSession = () => {
+    document.cookie = 'guest_mode=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
+    setIsGuestActive(false);
+    router.refresh();
+  };
+
   const handleSignOut = async () => {
-    document.cookie = 'guest_mode=; path=/; max-age=0';
-    document.cookie = 'guest_seed_demo=; path=/; max-age=0';
+    document.cookie = 'guest_mode=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
     setIsGuestActive(false);
     if (isSignedIn) {
       await signOut({ redirectUrl: '/login' });
@@ -79,7 +90,7 @@ export default function LoginPage() {
           transform: 'translateX(-50%)',
           width: '500px',
           height: '500px',
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%)',
           filter: 'blur(90px)',
           pointerEvents: 'none',
         }}
@@ -95,7 +106,7 @@ export default function LoginPage() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '24px',
+          gap: '20px',
         }}
       >
         {/* Brand Header */}
@@ -105,11 +116,11 @@ export default function LoginPage() {
               width: '48px',
               height: '48px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #D946EF 100%)',
+              background: 'linear-gradient(135deg, #06B6D4 0%, #0369A1 50%, #D946EF 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
+              boxShadow: '0 8px 24px rgba(6, 182, 212, 0.35)',
               marginBottom: '4px',
             }}
           >
@@ -123,96 +134,194 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* 3 Main Action Mode Selector Bar */}
-        <div
-          style={{
-            width: '100%',
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: '6px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            padding: '4px',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          {/* Option 1: Sign In */}
-          <button
-            onClick={() => setActiveTab('signin')}
+        {/* Guest Session Notification Banner (if user came from guest sandbox) */}
+        {isGuestActive && !isSignedIn && (
+          <div
             style={{
-              padding: '8px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'signin' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
-              color: activeTab === 'signin' ? '#FFF' : 'rgba(255, 255, 255, 0.6)',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(6, 182, 212, 0.1)',
+              border: '1px solid rgba(6, 182, 212, 0.25)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
+              justifyContent: 'space-between',
+              gap: '10px',
+              fontSize: '12px',
+              color: 'rgba(255, 255, 255, 0.85)',
             }}
           >
-            <LogIn size={14} />
-            <span>Sign In</span>
-          </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px' }}>💡</span>
+              <span>Currently in <strong>Guest Mode</strong>. Sign in below to sync your memories to cloud.</span>
+            </div>
+            <button
+              onClick={handleClearGuestSession}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#F87171',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}
+              title="Clear guest session"
+            >
+              Exit Guest
+            </button>
+          </div>
+        )}
 
-          {/* Option 2: Guest Login */}
-          <button
-            onClick={() => {
-              setActiveTab('guest');
-              handleGuestLogin();
-            }}
+        {/* 2-Option Mode Selector Bar (Sign In vs Instant Guest) */}
+        {!isSignedIn && (
+          <div
             style={{
-              padding: '8px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'guest' ? 'rgba(16, 185, 129, 0.3)' : 'transparent',
-              color: activeTab === 'guest' ? '#34D399' : 'rgba(255, 255, 255, 0.6)',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: '100%',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
               gap: '6px',
-              transition: 'all 0.15s ease',
+              background: 'rgba(255, 255, 255, 0.04)',
+              padding: '4px',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
             }}
           >
-            <UserCheck size={14} />
-            <span>Guest</span>
-          </button>
+            {/* Option 1: Sign In */}
+            <button
+              onClick={() => setActiveTab('signin')}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'signin' ? 'rgba(6, 182, 212, 0.3)' : 'transparent',
+                color: activeTab === 'signin' ? '#FFF' : 'rgba(255, 255, 255, 0.6)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <LogIn size={15} />
+              <span>Sign In</span>
+            </button>
 
-          {/* Option 3: Sign Out */}
-          <button
-            onClick={handleSignOut}
-            style={{
-              padding: '8px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'transparent',
-              color: '#F87171',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)')}
-            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <LogOut size={14} />
-            <span>Sign Out</span>
-          </button>
-        </div>
+            {/* Option 2: Guest Mode */}
+            <button
+              onClick={() => setActiveTab('guest')}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'guest' ? 'rgba(6, 182, 212, 0.3)' : 'transparent',
+                color: activeTab === 'guest' ? '#34D399' : 'rgba(255, 255, 255, 0.6)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <UserCheck size={15} />
+              <span>Instant Guest</span>
+            </button>
+          </div>
+        )}
 
         {/* Content Box */}
-        {activeTab === 'signin' ? (
+        {isSignedIn ? (
+          <div
+            style={{
+              width: '100%',
+              padding: '24px',
+              borderRadius: '16px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              textAlign: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: 'rgba(6, 182, 212, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38BDF8',
+              }}
+            >
+              <Sparkles size={22} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px 0', color: '#FFF' }}>
+                Signed In
+              </h3>
+              <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', margin: 0 }}>
+                {user?.fullName || user?.primaryEmailAddress?.emailAddress || 'User account active'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => router.replace('/app')}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #06B6D4 0%, #0369A1 100%)',
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
+                }}
+              >
+                <span>Continue to Dashboard</span>
+                <ArrowRight size={16} />
+              </button>
+              <button
+                onClick={handleSignOut}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'transparent',
+                  color: '#F87171',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <LogOut size={14} />
+                <span>Sign Out / Switch Account</span>
+              </button>
+            </div>
+          </div>
+        ) : activeTab === 'signin' ? (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
             <SignIn
               routing="hash"
@@ -241,7 +350,7 @@ export default function LoginPage() {
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  background: 'rgba(16, 185, 129, 0.15)',
+                  background: 'rgba(6, 182, 212, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -266,7 +375,7 @@ export default function LoginPage() {
                 padding: '12px 16px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #06B6D4 0%, #059669 100%)',
                 color: '#FFFFFF',
                 fontSize: '14px',
                 fontWeight: 600,
@@ -275,7 +384,7 @@ export default function LoginPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
                 transition: 'transform 0.15s ease',
               }}
               onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
@@ -287,23 +396,27 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Footer Note */}
-        {(isSignedIn || isGuestActive) && (
+        {/* Active Guest Quick Jump Link */}
+        {isGuestActive && !isSignedIn && activeTab === 'signin' && (
           <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', textAlign: 'center' }}>
-            Currently active session detected.{' '}
+            Looking for your guest data?{' '}
             <button
               onClick={() => router.push('/app')}
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#818CF8',
+                color: '#38BDF8',
                 cursor: 'pointer',
                 textDecoration: 'underline',
                 padding: 0,
                 fontSize: '12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
               }}
             >
-              Go straight to Dashboard
+              <span>Open Guest Dashboard</span>
+              <ExternalLink size={11} />
             </button>
           </div>
         )}

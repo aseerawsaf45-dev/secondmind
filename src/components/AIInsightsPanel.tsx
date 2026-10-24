@@ -92,8 +92,8 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
       <div
         style={{
           padding: '24px',
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.06) 100%)',
-          border: '1px solid rgba(16, 185, 129, 0.25)',
+          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(6, 182, 212, 0.06) 100%)',
+          border: '1px solid rgba(6, 182, 212, 0.25)',
           borderRadius: '18px',
           display: 'flex',
           flexDirection: 'column',
@@ -106,15 +106,15 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
               width: '36px',
               height: '36px',
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.2))',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(6, 182, 212, 0.2))',
+              border: '1px solid rgba(6, 182, 212, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 0 16px rgba(6, 182, 212, 0.25)',
             }}
           >
-            <Sparkles size={18} style={{ color: '#10B981' }} />
+            <Sparkles size={18} style={{ color: '#06B6D4' }} />
           </div>
           <div>
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-heading)' }}>
@@ -134,7 +134,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
       {/* User-Friendly Live Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
         {[
-          { label: 'Total Saved Memories', value: stats.totalItems, subtext: 'In your second mind', icon: <Brain size={20} style={{ color: '#10B981' }} /> },
+          { label: 'Total Saved Memories', value: stats.totalItems, subtext: 'In your second mind', icon: <Brain size={20} style={{ color: '#06B6D4' }} /> },
           { label: 'Smart Connections', value: stats.connectionsCount, subtext: 'Cross-linked topics', icon: <Network size={20} style={{ color: '#06B6D4' }} /> },
           { label: 'Topic Clusters', value: stats.clustersCount, subtext: 'Auto-organized categories', icon: <Layers size={20} style={{ color: '#34D399' }} /> },
         ].map(({ label, value, subtext, icon }) => (
@@ -166,7 +166,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
       {/* Interactive Insights & Clusters */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-          <Compass size={14} style={{ color: '#10B981' }} />
+          <Compass size={14} style={{ color: '#06B6D4' }} />
           <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Interactive Discoveries & Memory Clusters
           </div>
@@ -189,7 +189,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <Zap size={15} style={{ color: '#10B981' }} />
+                    <Zap size={15} style={{ color: '#06B6D4' }} />
                     <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#FFFFFF' }}>{disc.title}</h3>
                   </div>
                   <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.5 }}>{disc.desc}</p>
@@ -213,8 +213,8 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
                         transition: 'all 0.15s ease',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)';
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                        e.currentTarget.style.background = 'rgba(6, 182, 212, 0.12)';
+                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
                       }}
                       onMouseLeave={e => {
                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
@@ -257,7 +257,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
               gap: '12px',
             }}
           >
-            <Lightbulb size={28} style={{ color: '#10B981' }} />
+            <Lightbulb size={28} style={{ color: '#06B6D4' }} />
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#FFFFFF' }}>AI Memory Processing Ready</div>
             <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.5)', maxWidth: '340px', lineHeight: 1.6 }}>
               Save links or quick notes using the "+ Save to Memory" button to automatically generate smart knowledge clusters!
