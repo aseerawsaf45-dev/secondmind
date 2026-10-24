@@ -852,34 +852,200 @@ export function generateAISummary(title: string, content: string, type: string =
 
   return summary;
 }
-// Force Next.js Turbopack recompile after null byte fix
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn("GEMINI_API_KEY is missing, generating mock embedding of 1536 zeros");
-    return Array(1536).fill(0);
-  }
-  try {
-    const OpenAI = (await import("openai")).default;
-    // Use Gemini via OpenAI Compatibility API
-    const openai = new OpenAI({ 
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
-    });
-    const response = await openai.embeddings.create({
-      model: "text-embedding-004", 
-      input: text.slice(0, 8000), 
-    });
-    
-    // Gemini outputs 768 dimensions. We must pad to 1536 to match the database vector column.
-    const geminiEmbedding = response.data[0].embedding;
-    const paddedEmbedding = new Array(1536).fill(0);
-    for (let i = 0; i < geminiEmbedding.length; i++) {
-      paddedEmbedding[i] = geminiEmbedding[i];
-    }
-    return paddedEmbedding;
-  } catch (error) {
-    console.error("Failed to generate embedding:", error);
-    return Array(1536).fill(0);
-  }
+import { CATEGORY_DEFINITIONS, getPrimaryCategory } from '@/lib/categories';
+
+export interface AISynthesisResult {
+  title?: string;
+  summary: string;
+  category: string;
+  categoryEmoji: string;
+  categoryColor: string;
+  tags: string[];
+  keyTakeaways?: string[];
 }
+
+// In-memory embedding cache to avoid redundant API requests (Instant 0ms retrieval)
+const embeddingCache = new Map<string, number[]>();
+const MAX_EMBEDDING_CACHE = 500;
+
+// In-memory synthesis cache for URL and content extractions (TTL: 10 mins)
+const synthesisCache = new Map<string, { result: AISynthesisResult; timestamp: number }>();
+const SYNTHESIS_CACHE_TTL = 10 * 60 * 1000;
+
+let cachedAIClient: any = null;
+
+function getAIClient() {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+  if (!cachedAIClient) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const OpenAI = require('openai');
+      cachedAIClient = new OpenAI({
+        apiKey,
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        timeout: 3500,
+        maxRetries: 1,
+      });
+    } catch {
+      return null;
+    }
+  }
+  return cachedAIClient;
+}
+
+/**
+ * High-speed semantic embedding generation with in-memory caching and fail-safe timeout.
+ * Uses gemini-embedding-001 configured to exactly 1536 dimensions.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const clean = (text || '').trim().slice(0, 4000);
+  if (!clean) return Array(1536).fill(0);
+
+  // Return cached embedding immediately (0ms)
+  if (embeddingCache.has(clean)) {
+    return embeddingCache.get(clean)!;
+  }
+
+  const client = getAIClient();
+  if (!client) {
+    return Array(1536).fill(0);
+  }
+
+  try {
+    const embedPromise = client.embeddings.create({
+      model: 'gemini-embedding-001',
+      input: clean,
+      dimensions: 1536,
+    });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Embedding generation timeout')), 2500)
+    );
+
+    const response = (await Promise.race([embedPromise, timeoutPromise])) as any;
+    const embedding = response?.data?.[0]?.embedding;
+    if (Array.isArray(embedding) && embedding.length === 1536) {
+      if (embeddingCache.size >= MAX_EMBEDDING_CACHE) {
+        const firstKey = embeddingCache.keys().next().value;
+        if (firstKey) embeddingCache.delete(firstKey);
+      }
+      embeddingCache.set(clean, embedding);
+      return embedding;
+    }
+  } catch (error: any) {
+    // Fail gracefully with zero vector so database operations never fail
+    console.warn('Embedding notice (falling back gracefully):', error?.message || error);
+  }
+
+  return Array(1536).fill(0);
+}
+
+/**
+ * Intelligent AI Synthesis & Categorization Engine.
+ * Combines fast Gemini 3.8 Flash model with our fine-grained local heuristic taxonomy.
+ */
+export async function synthesizeContentWithAI(input: {
+  title?: string;
+  url?: string;
+  text?: string;
+  contentType?: string;
+  metaKeywords?: string[];
+}): Promise<AISynthesisResult> {
+  const title = (input.title || '').trim();
+  const url = (input.url || '').trim();
+  const text = (input.text || '').trim();
+  const cacheKey = (url || `${title}_${text.slice(0, 100)}`).toLowerCase();
+
+  // 1. Check in-memory cache
+  const cached = synthesisCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < SYNTHESIS_CACHE_TTL) {
+    return cached.result;
+  }
+
+  // Baseline fast heuristic computation (instant 0ms)
+  const heuristicTags = classifyContent(`${title} ${text}`, [], {
+    title,
+    url,
+    metaKeywords: input.metaKeywords,
+    contentType: input.contentType,
+  });
+  const heuristicSummary = generateAISummary(title, text, input.contentType || 'link');
+  const primaryCat = getPrimaryCategory(heuristicTags, `${title} ${text}`, url);
+
+  const baselineResult: AISynthesisResult = {
+    title,
+    summary: heuristicSummary,
+    category: primaryCat.name,
+    categoryEmoji: primaryCat.emoji,
+    categoryColor: primaryCat.color,
+    tags: heuristicTags,
+  };
+
+  const client = getAIClient();
+  if (!client) {
+    return baselineResult;
+  }
+
+  try {
+    const categoryNames = CATEGORY_DEFINITIONS.map(c => c.name);
+    const systemPrompt = `You are SecondMind AI, an elite knowledge classification and summarization engine.
+Analyze the provided link or text and respond with pure JSON:
+{
+  "summary": "1-2 sentence high-signal executive takeaway highlighting the core value or insight",
+  "category": "Must strictly be one of: ${categoryNames.join(', ')}",
+  "tags": ["3 to 4 concise topic tags"],
+  "keyTakeaways": ["insight 1", "insight 2"]
+}`;
+
+    const userPrompt = `Title: ${title}\nURL: ${url}\nContent Snippet: ${text.slice(0, 2500)}`;
+
+    const completionPromise = client.chat.completions.create({
+      model: 'gemini-3.8-flash',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.2,
+      max_tokens: 280,
+    });
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('AI synthesis timeout')), 3000)
+    );
+
+    const completion = (await Promise.race([completionPromise, timeoutPromise])) as any;
+    const content = completion?.choices?.[0]?.message?.content;
+
+    if (content) {
+      const parsed = JSON.parse(content);
+      const catName = parsed.category || primaryCat.name;
+      const matchedCat = CATEGORY_DEFINITIONS.find(
+        c => c.name.toLowerCase() === String(catName).toLowerCase()
+      ) || primaryCat;
+
+      const aiTags = Array.isArray(parsed.tags) && parsed.tags.length > 0
+        ? parsed.tags.map((t: string) => String(t).trim()).filter(Boolean).slice(0, 4)
+        : heuristicTags;
+
+      const result: AISynthesisResult = {
+        title,
+        summary: cleanSocialText(parsed.summary || heuristicSummary),
+        category: matchedCat.name,
+        categoryEmoji: matchedCat.emoji,
+        categoryColor: matchedCat.color,
+        tags: Array.from(new Set([...aiTags, ...heuristicTags])).slice(0, 4),
+        keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways.slice(0, 2) : undefined,
+      };
+
+      synthesisCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+    }
+  } catch (err: any) {
+    // Seamless fallback to heuristic baseline if AI times out or errors
+  }
+
+  return baselineResult;
+}
+

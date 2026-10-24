@@ -42,8 +42,10 @@ import {
   deleteCollectionAction,
   seedDefaultCollectionsAction,
   autoAssignItemToCollectionsAction,
+  backfillAllItemsToCategoryCollectionsAction,
   Collection,
 } from '@/lib/db-collections';
+import { CATEGORY_DEFINITIONS, isItemInCategory } from '@/lib/categories';
 
 type SortOption = 'newest' | 'oldest' | 'favorites';
 
@@ -163,8 +165,15 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     if (!userId) return;
     const activeUserId = userId;
 
-    // Seed default category collections (idempotent — skips already-existing ones)
-    userId === 'guest' ? localDb.seedDefaultCollections() : seedDefaultCollectionsAction(activeUserId).catch(() => {});
+    // Seed default smart category collections and assign categories
+    if (userId === 'guest') {
+      await localDb.seedDefaultCollections();
+      await localDb.autoAssignItemToCollections();
+    } else {
+      seedDefaultCollectionsAction(activeUserId)
+        .then(() => backfillAllItemsToCategoryCollectionsAction(activeUserId))
+        .catch(() => {});
+    }
 
     const [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
       userId === 'guest' ? localDb.fetchItems() : fetchItemsAction(activeUserId),
@@ -607,10 +616,19 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       const collId = activeFilter.slice(11);
       const coll = collections.find(c => c.id === collId);
       if (coll && coll.isSmart) {
-        filtered = filtered.filter(i => i.tags.includes(coll.name));
+        filtered = filtered.filter(i => {
+          const matchTags: string[] = coll.rules?.matchTags || [];
+          const hasTagMatch = matchTags.some(t => i.tags.includes(t)) || i.tags.includes(coll.name);
+          const hasCategoryMatch = isItemInCategory(i, coll.name);
+          const isInCollectionMap = itemCollectionMap[i.id]?.includes(collId);
+          return hasTagMatch || hasCategoryMatch || isInCollectionMap;
+        });
       } else {
         filtered = filtered.filter(i => itemCollectionMap[i.id]?.includes(collId));
       }
+    } else if (activeFilter.startsWith('category:')) {
+      const catKey = activeFilter.slice(9);
+      filtered = filtered.filter(i => isItemInCategory(i, catKey));
     }
 
     if (sortBy === 'newest') {
@@ -646,6 +664,11 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     if (activeFilter.startsWith('collection:')) {
       const coll = collections.find(c => c.id === activeFilter.slice(11));
       return coll ? `${coll.emoji} ${coll.name}` : 'Collection';
+    }
+    if (activeFilter.startsWith('category:')) {
+      const key = activeFilter.slice(9);
+      const cat = CATEGORY_DEFINITIONS.find(c => c.id === key || c.name.toLowerCase() === key.toLowerCase());
+      return cat ? `${cat.emoji} ${cat.name}` : 'Category';
     }
     return activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1) + 's';
   };

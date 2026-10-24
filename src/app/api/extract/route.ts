@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { extractYouTubeVideoId, fetchYouTubeOEmbed, isYouTubeUrl, getYouTubeThumbnailUrl } from '@/lib/youtube';
 import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
 import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
-import { classifyContent, generateAISummary } from '@/lib/ai-engine';
+import { classifyContent, generateAISummary, synthesizeContentWithAI } from '@/lib/ai-engine';
 
 export async function POST(request: Request) {
   let targetUrl = '';
@@ -16,14 +16,21 @@ export async function POST(request: Request) {
     // 1. If only text/note is provided (Quick Note tab)
     if (!targetUrl && rawText) {
       const generatedTitle = rawText.length > 50 ? rawText.slice(0, 50).trim() + '...' : rawText;
-      const summary = generateAISummary(generatedTitle, rawText, 'note');
-      const tags = classifyContent(rawText, ['Note'], { title: generatedTitle });
+      const aiResult = await synthesizeContentWithAI({
+        title: generatedTitle,
+        text: rawText,
+        contentType: 'note',
+      });
 
       return NextResponse.json({
         title: generatedTitle,
-        description: summary,
+        description: aiResult.summary,
+        category: aiResult.category,
+        categoryEmoji: aiResult.categoryEmoji,
+        categoryColor: aiResult.categoryColor,
         image: '',
-        tags,
+        tags: Array.from(new Set(['Note', ...aiResult.tags])),
+        keyTakeaways: aiResult.keyTakeaways,
       });
     }
 
@@ -163,19 +170,24 @@ export async function POST(request: Request) {
       articleSection,
     ].filter(Boolean);
 
-    const contentToAnalyze = `${title} ${description} ${domain}`;
-    const tags = classifyContent(contentToAnalyze, [], {
+    const contentToAnalyze = `${title}. ${description}. Domain: ${domain}`;
+    const aiResult = await synthesizeContentWithAI({
       title: title.trim(),
       url: targetUrl,
+      text: description || contentToAnalyze,
+      contentType: 'link',
       metaKeywords,
     });
-    const summary = generateAISummary(title, description || contentToAnalyze, 'link');
 
     return NextResponse.json({
       title: title.trim(),
-      description: summary.trim(),
+      description: aiResult.summary.trim(),
+      category: aiResult.category,
+      categoryEmoji: aiResult.categoryEmoji,
+      categoryColor: aiResult.categoryColor,
       image: image || `https://image.thum.io/get/width/600/crop/800/${targetUrl}`,
-      tags,
+      tags: aiResult.tags,
+      keyTakeaways: aiResult.keyTakeaways,
     });
   } catch {
     let domainName = 'Saved Link';
@@ -183,13 +195,21 @@ export async function POST(request: Request) {
       if (targetUrl) domainName = new URL(targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl).hostname.replace('www.', '');
     } catch {}
 
-    const tags = classifyContent(`${domainName} ${rawText}`, ['Link']);
+    const aiResult = await synthesizeContentWithAI({
+      title: domainName,
+      url: targetUrl,
+      text: rawText || domainName,
+      contentType: 'link',
+    });
 
     return NextResponse.json({
       title: domainName,
-      description: `Saved memory link from ${domainName}.`,
+      description: aiResult.summary,
+      category: aiResult.category,
+      categoryEmoji: aiResult.categoryEmoji,
+      categoryColor: aiResult.categoryColor,
       image: targetUrl ? `https://image.thum.io/get/width/600/crop/800/${targetUrl}` : '',
-      tags,
+      tags: aiResult.tags,
     });
   }
 }

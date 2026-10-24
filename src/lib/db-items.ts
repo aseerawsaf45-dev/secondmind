@@ -3,13 +3,14 @@
 import { auth } from '@clerk/nextjs/server';
 import { getUserDb } from '@/lib/user-db';
 import { memoryItems } from '@/db/schema';
-import { eq, desc, inArray, sql } from 'drizzle-orm';
+import { eq, desc, inArray, sql, and } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { classifyContent, generateAISummary, generateEmbedding } from '@/lib/ai-engine';
 // Trigger recompile
 import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
 import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
+import { autoAssignItemToCollectionsAction } from '@/lib/db-collections';
 
 // Helper to convert Drizzle record to MemoryItem
 function recordToItem(record: typeof memoryItems.$inferSelect): MemoryItem {
@@ -310,6 +311,15 @@ export async function saveItemAction(
       })
       .returning();
 
+    // Asynchronously auto-assign item to smart category collections
+    autoAssignItemToCollectionsAction(
+      verifiedUserId,
+      inserted.id,
+      finalTags,
+      `${cleanTitle} ${cleanContent}`,
+      cleanUrl
+    ).catch(err => console.warn('Auto-assign non-critical notice:', err?.message || err));
+
     return recordToItem(inserted);
   } catch (err: any) {
     console.error('saveItem DB insert error:', err?.message || 'Database operation failed');
@@ -390,6 +400,25 @@ export async function semanticSearchAction(userId: string, query: string, limit 
     const { cosineDistance } = await import("drizzle-orm");
     
     const queryEmbedding = await generateEmbedding(query);
+    const isZeroVector = !queryEmbedding.some(v => v !== 0);
+
+    if (isZeroVector) {
+      // High-speed resilient SQL fallback when embedding API is offline or warming up
+      const escapedQuery = `%${query.trim()}%`;
+      const fallbackResults = await db
+        .select()
+        .from(memoryItems)
+        .where(
+          and(
+            eq(memoryItems.userId, verifiedUserId),
+            sql`(${memoryItems.title} ILIKE ${escapedQuery} OR ${memoryItems.summary} ILIKE ${escapedQuery} OR ${memoryItems.content} ILIKE ${escapedQuery})`
+          )
+        )
+        .orderBy(desc(memoryItems.createdAt))
+        .limit(limit);
+
+      return fallbackResults.map(r => recordToItem(r));
+    }
     
     const similarity = sql`1 - (${cosineDistance(memoryItems.embedding, queryEmbedding)})`;
     

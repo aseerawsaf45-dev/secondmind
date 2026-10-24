@@ -850,6 +850,18 @@ export default function Sidebar({
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {collection.name}
                         </span>
+                        {collection.itemCount > 0 && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: isActive ? '#A5B4FC' : 'rgba(255, 255, 255, 0.4)',
+                              fontFamily: 'var(--font-mono), monospace',
+                              marginRight: isHovered ? '24px' : '4px',
+                            }}
+                          >
+                            {collection.itemCount}
+                          </span>
+                        )}
                         {collection.isSmart && <Sparkles size={11} style={{ color: '#06B6D4', flexShrink: 0 }} />}
                       </motion.button>
 

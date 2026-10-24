@@ -50,9 +50,13 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
   const [extractedPreview, setExtractedPreview] = useState<{
     title?: string;
     description?: string;
+    category?: string;
+    categoryEmoji?: string;
+    categoryColor?: string;
     image?: string;
     tags?: string[];
     type?: string;
+    keyTakeaways?: string[];
   } | null>(null);
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
   const [saveConfirmation, setSaveConfirmation] = useState<{
@@ -597,6 +601,23 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                     {isYouTubeUrl(url) && (
                       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', color: '#F87171', fontWeight: 600 }}>
                         🎬 YouTube
+                      </span>
+                    )}
+                    {extractedPreview.category && (
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: `${extractedPreview.categoryColor || '#8B5CF6'}25`,
+                        color: extractedPreview.categoryColor || '#C4B5FD',
+                        border: `1px solid ${extractedPreview.categoryColor || '#8B5CF6'}40`,
+                        fontWeight: 650,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                        <span>{extractedPreview.categoryEmoji || '📁'}</span>
+                        <span>{extractedPreview.category}</span>
                       </span>
                     )}
 

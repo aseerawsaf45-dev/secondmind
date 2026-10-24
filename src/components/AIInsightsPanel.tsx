@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Sparkles, Network, Brain, Layers, ArrowUpRight, Zap, FileText, Link as LinkIcon, File, Lightbulb, Compass } from 'lucide-react';
+import { Sparkles, Network, Brain, Layers, ArrowUpRight, Zap, FileText, Link as LinkIcon, File, Lightbulb, Compass, BarChart3 } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
+import { CATEGORY_DEFINITIONS, getPrimaryCategory, type CategoryDefinition } from '@/lib/categories';
 
 interface AIInsightsPanelProps {
   items: MemoryItem[];
@@ -42,7 +43,28 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
     };
   }, [items, collections]);
 
-  // 2. Synthesized Knowledge Clusters
+  // 2. Optimized Category Distribution
+  const categoryDistribution = useMemo(() => {
+    const map = new Map<string, { def: CategoryDefinition; count: number; items: MemoryItem[] }>();
+    CATEGORY_DEFINITIONS.forEach(def => {
+      map.set(def.id, { def, count: 0, items: [] });
+    });
+
+    items.forEach(item => {
+      const cat = getPrimaryCategory(item.tags, `${item.title} ${item.content}`, item.url);
+      const entry = map.get(cat.id);
+      if (entry) {
+        entry.count++;
+        entry.items.push(item);
+      }
+    });
+
+    return Array.from(map.values())
+      .filter(c => c.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [items]);
+
+  // 3. Synthesized Knowledge Clusters
   const tagClusters = useMemo(() => {
     const map: Record<string, MemoryItem[]> = {};
     items.forEach(item => {
@@ -162,6 +184,77 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
           </div>
         ))}
       </div>
+
+      {/* Optimized Category Knowledge Matrix */}
+      {categoryDistribution.length > 0 && (
+        <div
+          style={{
+            padding: '22px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart3 size={15} style={{ color: '#06B6D4' }} />
+              <h3 style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono), monospace' }}>
+                Knowledge Domain Breakdown
+              </h3>
+            </div>
+            <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'var(--font-mono), monospace' }}>
+              {categoryDistribution.length} Active Categories
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+            {categoryDistribution.map(({ def, count }) => {
+              const percentage = Math.round((count / (items.length || 1)) * 100);
+              return (
+                <div
+                  key={def.id}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.025)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '15px', lineHeight: 1 }}>{def.emoji}</span>
+                      <span style={{ fontSize: '12.5px', fontWeight: 650, color: '#FFFFFF' }}>{def.name}</span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: def.color, fontFamily: 'var(--font-mono), monospace' }}>
+                      {count} {count === 1 ? 'item' : 'items'} ({percentage}%)
+                    </span>
+                  </div>
+
+                  {/* Visual Proportion Bar */}
+                  <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.max(percentage, 5)}%`,
+                        background: def.color,
+                        borderRadius: '2px',
+                        transition: 'width 0.4s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Interactive Insights & Clusters */}
       <div>

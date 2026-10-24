@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { commandPaletteVariant } from '@/lib/motion';
 import type { MemoryItem } from '@/lib/data';
 import { semanticSearchAction } from '@/lib/db-items';
+import { getPrimaryCategory } from '@/lib/categories';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -45,35 +46,45 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
       setIsSearching(false);
       return;
     }
+
+    const q = query.toLowerCase().trim();
+
+    // 1. Instant local match (0ms latency — instant feedback!)
+    const localMatches = items.filter(
+      item =>
+        item.title.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q) ||
+        item.tags.some(t => t.toLowerCase().includes(q)) ||
+        item.content.toLowerCase().includes(q)
+    );
+    setResults(localMatches);
+    setSelectedIndex(0);
+
+    // 2. Debounced AI semantic enhancement (300ms)
     setIsSearching(true);
     const timer = setTimeout(async () => {
-      const q = query.toLowerCase();
-      const filtered = items.filter(
-        item =>
-          item.title.toLowerCase().includes(q) ||
-          item.summary.toLowerCase().includes(q) ||
-          item.tags.some(t => t.toLowerCase().includes(q)) ||
-          item.content.toLowerCase().includes(q)
-      );
-      
       let semanticResults: MemoryItem[] = [];
       if (userId && q.length > 2) {
-        semanticResults = await semanticSearchAction(userId, query, 5);
+        try {
+          semanticResults = await semanticSearchAction(userId, query, 5);
+        } catch {
+          semanticResults = [];
+        }
       }
-      
-      // Merge unique
+
+      // Merge unique semantic results
       const mergedMap = new Map<string, MemoryItem>();
-      filtered.forEach(i => mergedMap.set(i.id, i));
+      localMatches.forEach(i => mergedMap.set(i.id, i));
       semanticResults.forEach(i => {
         if (!mergedMap.has(i.id)) {
           mergedMap.set(i.id, i);
         }
       });
-      
+
       setResults(Array.from(mergedMap.values()));
       setIsSearching(false);
-      setSelectedIndex(0);
-    }, 600); // 600ms debounce to avoid spamming the semantic search API
+    }, 300);
+
     return () => clearTimeout(timer);
   }, [query, items, userId]);
 
@@ -217,7 +228,31 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.summary}
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {(() => {
+                        const cat = getPrimaryCategory(item.tags, `${item.title} ${item.content}`, item.url);
+                        if (!cat || cat.id === 'general') return null;
+                        return (
+                          <span
+                            key="cat-badge"
+                            style={{
+                              padding: '1px 7px',
+                              background: `${cat.color}18`,
+                              border: `1px solid ${cat.color}35`,
+                              borderRadius: '6px',
+                              fontSize: '10px',
+                              fontWeight: 650,
+                              color: cat.color,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                            }}
+                          >
+                            <span>{cat.emoji}</span>
+                            <span>{cat.name}</span>
+                          </span>
+                        );
+                      })()}
                       {item.tags.slice(0, 3).map(tag => (
                         <span key={tag} style={{ padding: '1px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '10px', color: 'var(--text-muted)' }}>
                           {tag}

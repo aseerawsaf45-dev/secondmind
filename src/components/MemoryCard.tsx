@@ -26,6 +26,7 @@ import type { Collection } from '@/lib/db-collections';
 import { formatDistanceToNow } from 'date-fns';
 import { getYouTubeThumbnailUrl, extractYouTubeVideoId } from '@/lib/youtube';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getPrimaryCategory } from '@/lib/categories';
 
 interface MemoryCardProps {
   item: MemoryItem;
@@ -112,6 +113,11 @@ export default function MemoryCard({
     }
     return null;
   }, [item.thumbnailUrl, item.url, imgFailed]);
+
+  // Primary AI Category resolution
+  const primaryCategory = useMemo(() => {
+    return getPrimaryCategory(item.tags, `${item.title} ${item.content}`, item.url);
+  }, [item.tags, item.title, item.content, item.url]);
 
   // Copy link handler
   const handleCopyLink = async (e: React.MouseEvent) => {
@@ -596,6 +602,29 @@ export default function MemoryCard({
 
           {/* TAGS & COLLECTIONS PILLS */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+            {/* Primary Category Pill */}
+            {primaryCategory && primaryCategory.id !== 'general' && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: `${primaryCategory.color}18`,
+                  color: primaryCategory.color,
+                  border: `1px solid ${primaryCategory.color}35`,
+                  fontFamily: 'var(--font-sans), sans-serif',
+                  fontSize: '10px',
+                  fontWeight: 650,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                <span style={{ fontSize: '11px', lineHeight: 1 }}>{primaryCategory.emoji}</span>
+                <span>{primaryCategory.name}</span>
+              </span>
+            )}
+
             {item.tags.slice(0, 3).map(tag => {
               const color = TAG_COLORS[tag] || '#38BDF8';
               return (

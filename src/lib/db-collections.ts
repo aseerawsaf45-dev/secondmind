@@ -2,9 +2,9 @@
 
 import { auth } from '@clerk/nextjs/server';
 import { getUserDb } from '@/lib/user-db';
-import { collections, collectionItems } from '@/db/schema';
+import { collections, collectionItems, memoryItems } from '@/db/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
-import { DEFAULT_CATEGORY_COLLECTIONS } from '@/lib/categories';
+import { DEFAULT_CATEGORY_COLLECTIONS, isItemInCategory } from '@/lib/categories';
 export type { CategoryCollectionDef } from '@/lib/categories';
 
 export interface Collection {
@@ -262,23 +262,29 @@ export async function seedDefaultCollectionsAction(userId: string): Promise<Coll
 }
 
 /**
- * Given a saved item's ID and its tags, auto-assigns the item to every
- * matching default category collection. Silently skips on duplicate.
+ * Given a saved item's ID and its tags (plus optional content & url), auto-assigns the item to every
+ * matching category collection. Silently skips on duplicate.
  */
 export async function autoAssignItemToCollectionsAction(
   userId: string,
   itemId: string,
-  itemTags: string[]
+  itemTags: string[],
+  contentOrTitle?: string,
+  url?: string
 ): Promise<void> {
-  if (!itemTags.length) return;
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
 
     const matchingNames: string[] = [];
+    const itemData = { tags: itemTags, title: contentOrTitle, content: contentOrTitle, url };
+
     for (const def of DEFAULT_CATEGORY_COLLECTIONS) {
-      const hasMatch = def.matchTags.some(t => itemTags.includes(t));
-      if (hasMatch) matchingNames.push(def.name);
+      const hasTagMatch = def.matchTags.some(t => itemTags.includes(t));
+      const hasCategoryMatch = isItemInCategory(itemData, def.name);
+      if (hasTagMatch || hasCategoryMatch) {
+        matchingNames.push(def.name);
+      }
     }
     if (!matchingNames.length) return;
 
@@ -302,3 +308,73 @@ export async function autoAssignItemToCollectionsAction(
     console.error('autoAssignItemToCollections error:', err);
   }
 }
+
+/**
+ * Ensures all existing memory items for a user are classified and assigned
+ * to the smart category collections.
+ */
+export async function backfillAllItemsToCategoryCollectionsAction(userId: string): Promise<number> {
+  try {
+    const verifiedUserId = await getVerifiedUserId(userId);
+    const db = await getUserDb(verifiedUserId);
+
+    // 1. Ensure smart collections exist
+    await seedDefaultCollectionsAction(verifiedUserId);
+
+    // 2. Query all memory items for this user
+    const items = await db
+      .select({
+        id: memoryItems.id,
+        tags: memoryItems.tags,
+        title: memoryItems.title,
+        content: memoryItems.content,
+        url: memoryItems.url,
+      })
+      .from(memoryItems)
+      .where(eq(memoryItems.userId, verifiedUserId));
+
+    if (!items.length) return 0;
+
+    // 3. Query all user collections
+    const userColls = await db
+      .select({ id: collections.id, name: collections.name })
+      .from(collections)
+      .where(eq(collections.userId, verifiedUserId));
+
+    const collMap = new Map<string, string>();
+    userColls.forEach(c => collMap.set(c.name, c.id));
+
+    const inserts: { itemId: string; collectionId: string }[] = [];
+
+    for (const item of items) {
+      const itemTags = item.tags || [];
+      const itemData = { tags: itemTags, title: item.title, content: item.content, url: item.url || undefined };
+
+      for (const def of DEFAULT_CATEGORY_COLLECTIONS) {
+        const collId = collMap.get(def.name);
+        if (!collId) continue;
+
+        const hasTagMatch = def.matchTags.some(t => itemTags.includes(t));
+        const hasCategoryMatch = isItemInCategory(itemData, def.name);
+
+        if (hasTagMatch || hasCategoryMatch) {
+          inserts.push({ itemId: item.id, collectionId: collId });
+        }
+      }
+    }
+
+    if (inserts.length > 0) {
+      // Chunk inserts in batches of 100 for maximum query efficiency
+      for (let i = 0; i < inserts.length; i += 100) {
+        const chunk = inserts.slice(i, i + 100);
+        await db.insert(collectionItems).values(chunk).onConflictDoNothing();
+      }
+    }
+
+    return inserts.length;
+  } catch (err) {
+    console.error('backfillAllItemsToCategoryCollectionsAction error:', err);
+    return 0;
+  }
+}
+

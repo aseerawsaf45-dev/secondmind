@@ -1,5 +1,6 @@
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
+import { CATEGORY_DEFINITIONS, isItemInCategory } from '@/lib/categories';
 
 const PREFIX = 'secondmind_guest_';
 
@@ -140,11 +141,21 @@ export const localDb = {
   
   seedDefaultCollections: async (): Promise<void> => {
     const colls = await localDb.fetchCollections();
-    if (colls.length === 0) {
-      setLocal('collections', [
-        { id: 'c1', name: 'Read Later', emoji: '📚', color: '#3B82F6', isSmart: false, rules: {}, itemCount: 0 },
-        { id: 'c2', name: 'Inspiration', emoji: '✨', color: '#8B5CF6', isSmart: false, rules: {}, itemCount: 0 },
-      ]);
+    const existingNames = new Set(colls.map(c => c.name));
+    const toAdd = CATEGORY_DEFINITIONS
+      .filter(def => !existingNames.has(def.name))
+      .map(def => ({
+        id: `guest-cat-${def.id}`,
+        name: def.name,
+        emoji: def.emoji,
+        color: def.color,
+        isSmart: true,
+        rules: { matchTags: def.matchTags },
+        itemCount: 0,
+      }));
+
+    if (toAdd.length > 0) {
+      setLocal('collections', [...colls, ...toAdd]);
     }
   },
 
@@ -155,7 +166,31 @@ export const localDb = {
   },
   
   autoAssignItemToCollections: async (): Promise<boolean> => {
-    return true; // No-op for guests
+    try {
+      const items = await localDb.fetchItems();
+      const colls = await localDb.fetchCollections();
+      const map = await localDb.fetchCollectionItemMap();
+
+      for (const item of items) {
+        if (!map[item.id]) map[item.id] = [];
+        const itemTags = item.tags || [];
+
+        for (const coll of colls) {
+          const matchTags: string[] = coll.rules?.matchTags || [];
+          const hasTagMatch = matchTags.some(t => itemTags.includes(t));
+          const hasCategoryMatch = isItemInCategory(item, coll.name);
+
+          if ((hasTagMatch || hasCategoryMatch) && !map[item.id].includes(coll.id)) {
+            map[item.id].push(coll.id);
+          }
+        }
+      }
+
+      setLocal('itemMap', map);
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   /** Checks if there are real user items stored in localStorage waiting to be migrated */
