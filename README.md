@@ -109,13 +109,13 @@ flowchart TD
     NeonRoot["Neon Postgres Root Database"]
     UserBranches["Isolated User Postgres Branches (Branch per User)"]
 
-    Client -->|Session & Tokens| Auth
-    Client -->|API Requests & Mutations| EdgeAPI
-    EdgeAPI -->|URL Ingestion| Scraper
-    EdgeAPI -->|Vectorize & Synthesize| AIService
-    Auth -.->|user.created Webhook (Svix)| EdgeAPI
-    EdgeAPI -->|Registry Mapping| NeonRoot
-    EdgeAPI -->|Drizzle ORM Queries| UserBranches
+    Client -->|"Session & Tokens"| Auth
+    Client -->|"API Requests & Mutations"| EdgeAPI
+    EdgeAPI -->|"URL Ingestion"| Scraper
+    EdgeAPI -->|"Vectorize & Synthesize"| AIService
+    Auth -.->|"Svix Webhook: user.created"| EdgeAPI
+    EdgeAPI -->|"Registry Mapping"| NeonRoot
+    EdgeAPI -->|"Drizzle ORM Queries"| UserBranches
 ```
 
 ---
