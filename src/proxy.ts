@@ -11,10 +11,16 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     req.headers.get('x-real-ip') ||
     '127.0.0.1';
 
-  const session = await auth();
+  let sessionUserId: string | null = null;
+  try {
+    const session = await auth();
+    sessionUserId = session?.userId ?? null;
+  } catch (_) {
+    // In offline environments or network interruptions, allow request to pass through
+  }
 
   // If user is already authenticated and visits '/', '/login', '/signup', '/try', or '/guest', route them directly to dashboard
-  if (session.userId && (
+  if (sessionUserId && (
     req.nextUrl.pathname === '/' ||
     req.nextUrl.pathname === '/login' ||
     req.nextUrl.pathname === '/signup' ||
@@ -119,7 +125,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const response = NextResponse.next();
 
   // 4. Automatically purge obsolete guest cookies whenever a verified user session exists
-  if (session.userId && (req.cookies.has('guest_mode') || req.cookies.has('guest_seed_demo'))) {
+  if (sessionUserId && (req.cookies.has('guest_mode') || req.cookies.has('guest_seed_demo'))) {
     response.cookies.delete('guest_mode');
     response.cookies.delete('guest_seed_demo');
   }

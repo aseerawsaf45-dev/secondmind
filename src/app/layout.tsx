@@ -80,6 +80,8 @@ export const metadata: Metadata = {
   }
 };
 
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -93,6 +95,7 @@ export default function RootLayout({
     >
       <html lang="en" className={`${outfit.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col bg-[#040408] text-white relative">
+          <ServiceWorkerRegister />
           <div className="gradient-mesh-container">
             <div className="gradient-mesh-orb gradient-mesh-orb-1" />
             <div className="gradient-mesh-orb gradient-mesh-orb-2" />

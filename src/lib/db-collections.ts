@@ -91,7 +91,15 @@ export async function createCollectionAction(
       })
       .returning();
 
-    return inserted;
+    return inserted ? {
+      id: inserted.id,
+      name: inserted.name,
+      emoji: inserted.emoji ?? '📁',
+      color: inserted.color ?? '#9CA3AF',
+      isSmart: inserted.isSmart,
+      rules: inserted.rules,
+      itemCount: 0,
+    } : null;
   } catch (err) {
     console.error('createCollection error:', err);
     return null;

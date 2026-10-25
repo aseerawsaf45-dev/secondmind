@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User } from 'lucide-react';
+import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User, WifiOff, RefreshCw, Cloud, CloudOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +23,7 @@ const MagicBento = dynamic(() => import('@/components/MagicBento'));
 const OnboardingModal = dynamic(() => import('@/components/OnboardingModal'));
 import type { MemoryItem } from '@/lib/data';
 import { localDb } from '@/lib/local-db';
+import { offlineSync } from '@/lib/offline-sync';
 
 import {
   fetchItemsAction,
@@ -90,6 +91,9 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const [onboardingDismissed, setOnboardingDismissed] = useState(true);
   const [proTipsDismissed, setProTipsDismissed] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isOffline, setIsOffline] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const searchParams = useSearchParams();
 
   // Mobile Web Share Target API handler
@@ -160,31 +164,111 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     }
   }, []);
 
-  // Load items and collections from Database
+  // Sync pending offline actions when internet is restored
+  const handleSyncPending = useCallback(async () => {
+    if (isSyncing || !offlineSync.isOnline() || !userId || userId === 'guest') return;
+    setIsSyncing(true);
+    try {
+      const result = await offlineSync.syncPendingActions(userId, {
+        saveItem: (uId, data) => saveItemAction(uId, data),
+        toggleFavorite: (uId, iId, isFav) => toggleFavoriteAction(uId, iId, isFav),
+        deleteItem: (uId, iId) => deleteItemAction(uId, iId),
+        updateItem: (uId, iId, data) => updateItemAction(uId, iId, data),
+        createCollection: (uId, data) => createCollectionAction(uId, data),
+        deleteCollection: (cId, uId) => deleteCollectionAction(cId, uId),
+        addItemToCollection: (iId, cId, uId) => addItemToCollectionAction(iId, cId, uId),
+        removeItemFromCollection: (iId, cId, uId) => removeItemFromCollectionAction(iId, cId, uId),
+      });
+
+      setPendingSyncCount(offlineSync.getPendingCount());
+
+      if (result.syncedCount > 0) {
+        showToast(`✨ Synced ${result.syncedCount} offline change${result.syncedCount > 1 ? 's' : ''} to cloud!`, 'success');
+      }
+    } catch (err) {
+      console.warn('[Dashboard] Sync pending failed:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing, userId, showToast]);
+
+  // Network connection monitor
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      setPendingSyncCount(offlineSync.getPendingCount());
+    }
+
+    const unsubscribe = offlineSync.listenToNetworkStatus((online) => {
+      setIsOffline(!online);
+      setPendingSyncCount(offlineSync.getPendingCount());
+      if (online) {
+        showToast('🌐 Back online! Synchronizing your memories...', 'info');
+        handleSyncPending();
+      } else {
+        showToast('📡 You are offline. Memories are saved locally on this device.', 'info');
+      }
+    });
+
+    return unsubscribe;
+  }, [handleSyncPending, showToast]);
+
+  // Load items and collections from Database or Local Offline Cache
   const loadData = useCallback(async () => {
     if (!userId) return;
     const activeUserId = userId;
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     // Seed default smart category collections and assign categories
     if (userId === 'guest') {
       await localDb.seedDefaultCollections();
       await localDb.autoAssignItemToCollections();
-    } else {
+    } else if (online && userId !== 'offline-user') {
       seedDefaultCollectionsAction(activeUserId)
         .then(() => backfillAllItemsToCategoryCollectionsAction(activeUserId))
         .catch(() => {});
     }
 
-    const [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
-      userId === 'guest' ? localDb.fetchItems() : fetchItemsAction(activeUserId),
-      userId === 'guest' ? localDb.fetchCollections() : fetchCollectionsAction(activeUserId),
-      userId === 'guest' ? localDb.fetchCollectionItemMap() : fetchCollectionItemMapAction(activeUserId),
-    ]);
+    let fetchedItems: MemoryItem[] = [];
+    let fetchedCollections: Collection[] = [];
+    let itemMap: Record<string, string[]> = {};
+
+    if (userId === 'guest') {
+      [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
+        localDb.fetchItems(),
+        localDb.fetchCollections(),
+        localDb.fetchCollectionItemMap(),
+      ]);
+    } else if (!online || userId === 'offline-user') {
+      // Offline mode: load from device cache
+      const cached = offlineSync.getCachedUserData(activeUserId);
+      fetchedItems = cached.items;
+      fetchedCollections = cached.collections;
+      itemMap = cached.itemMap;
+    } else {
+      // Online cloud user: load from cloud, gracefully fall back to cache on any error
+      try {
+        [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
+          fetchItemsAction(activeUserId),
+          fetchCollectionsAction(activeUserId),
+          fetchCollectionItemMapAction(activeUserId),
+        ]);
+        // Persist to user offline cache for seamless offline resilience
+        offlineSync.cacheUserData(activeUserId, fetchedItems, fetchedCollections, itemMap);
+      } catch (err) {
+        console.warn('[Dashboard] Cloud load error, falling back to local cache:', err);
+        const cached = offlineSync.getCachedUserData(activeUserId);
+        fetchedItems = cached.items;
+        fetchedCollections = cached.collections;
+        itemMap = cached.itemMap;
+      }
+    }
 
     setItems(fetchedItems);
     setCollections(fetchedCollections);
     setItemCollectionMap(itemMap);
     setLoading(false);
+    setPendingSyncCount(offlineSync.getPendingCount());
 
     // Only show onboarding modal for true first-time users (0 items and never dismissed)
     const isDismissed = typeof window !== 'undefined' && localStorage.getItem('secondmind_onboarding_dismissed') === '1';
@@ -389,7 +473,33 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       const next = !item.isFavorite;
       setItems(prev => prev.map(i => (i.id === id ? { ...i, isFavorite: next } : i)));
       showToast(next ? '⭐ Starred item' : 'Removed from favorites', 'info');
-      await (userId === 'guest' ? localDb.toggleFavorite(id, next) : toggleFavoriteAction(userId, id, next));
+
+      if (userId === 'guest') {
+        await localDb.toggleFavorite(id, next);
+      } else {
+        offlineSync.toggleCachedFavorite(userId, id, next);
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'toggleFavorite',
+            userId,
+            payload: { itemId: id, isFavorite: next },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await toggleFavoriteAction(userId, id, next);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'toggleFavorite',
+              userId,
+              payload: { itemId: id, isFavorite: next },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
+        }
+      }
     },
     [items, userId, showToast]
   );
@@ -397,22 +507,73 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const handleCreateCollection = async (data: any) => {
     if (!userId) return;
     const { itemIds, ...collectionData } = data;
-    const saved = await (userId === 'guest' ? localDb.createCollection(collectionData) : createCollectionAction(userId, collectionData));
-    if (saved) {
-      if (Array.isArray(itemIds) && itemIds.length > 0) {
-        await (userId === 'guest' ? localDb.addItemsToCollection(itemIds, saved.id) : addItemsToCollectionAction(itemIds, saved.id, userId));
-        // Auto-tag each selected item with the collection name
+    let saved: Collection | null = null;
+
+    if (userId === 'guest') {
+      saved = await localDb.createCollection(collectionData);
+      if (saved && Array.isArray(itemIds) && itemIds.length > 0) {
+        await localDb.addItemsToCollection(itemIds, saved.id);
         const collectionTag = saved.name.trim();
         await Promise.all(
           itemIds.map(async (itemId: string) => {
             const item = items.find(i => i.id === itemId);
             if (item && collectionTag && !item.tags.includes(collectionTag)) {
-              await (userId === 'guest' ? localDb.updateItem(itemId, { tags: [...item.tags, collectionTag] }) : updateItemAction(userId, itemId, { tags: [...item.tags, collectionTag] }));
+              await localDb.updateItem(itemId, { tags: [...item.tags, collectionTag] });
             }
           })
         );
       }
       await loadData();
+    } else if (!offlineSync.isOnline() || userId === 'offline-user') {
+      const localColl: Collection = {
+        id: `offline-coll-${Date.now()}`,
+        name: collectionData.name,
+        emoji: collectionData.emoji || '📁',
+        color: collectionData.color || '#9CA3AF',
+        isSmart: collectionData.isSmart || false,
+        rules: collectionData.rules || {},
+        itemCount: Array.isArray(itemIds) ? itemIds.length : 0,
+      };
+      saved = localColl;
+      const cached = offlineSync.getCachedUserData(userId);
+      const updatedColls = [...cached.collections, localColl];
+      const updatedMap = { ...cached.itemMap };
+      if (Array.isArray(itemIds)) {
+        itemIds.forEach(id => {
+          if (!updatedMap[id]) updatedMap[id] = [];
+          if (!updatedMap[id].includes(localColl.id)) updatedMap[id].push(localColl.id);
+        });
+      }
+      offlineSync.cacheUserData(userId, cached.items, updatedColls, updatedMap);
+      offlineSync.enqueueAction({
+        type: 'createCollection',
+        userId,
+        payload: collectionData,
+        tempId: localColl.id,
+        createdAt: Date.now(),
+      });
+      setPendingSyncCount(offlineSync.getPendingCount());
+      await loadData();
+      showToast('📁 Collection created locally offline!', 'info');
+    } else {
+      try {
+        saved = await createCollectionAction(userId, collectionData);
+        if (saved && Array.isArray(itemIds) && itemIds.length > 0) {
+          await addItemsToCollectionAction(itemIds, saved.id, userId);
+          const collectionTag = saved.name.trim();
+          await Promise.all(
+            itemIds.map(async (itemId: string) => {
+              const item = items.find(i => i.id === itemId);
+              if (item && collectionTag && !item.tags.includes(collectionTag)) {
+                await updateItemAction(userId, itemId, { tags: [...item.tags, collectionTag] });
+              }
+            })
+          );
+        }
+        await loadData();
+      } catch (err) {
+        console.warn('[Dashboard] Cloud create collection error, using local fallback:', err);
+      }
     }
   };
 
@@ -420,11 +581,50 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     async (collectionId: string) => {
       if (!userId) return;
       if (!confirm('Delete this collection? Saved links will not be deleted.')) return;
-      const success = await (userId === 'guest' ? localDb.deleteCollection(collectionId) : deleteCollectionAction(collectionId, userId));
-      if (success) {
+
+      if (userId === 'guest') {
+        const success = await localDb.deleteCollection(collectionId);
+        if (success) {
+          setCollections(prev => prev.filter(c => c.id !== collectionId));
+          if (activeFilter === `collection:${collectionId}`) {
+            setActiveFilter('all');
+          }
+          await loadData();
+        }
+      } else {
         setCollections(prev => prev.filter(c => c.id !== collectionId));
         if (activeFilter === `collection:${collectionId}`) {
           setActiveFilter('all');
+        }
+
+        const cached = offlineSync.getCachedUserData(userId);
+        const updatedColls = cached.collections.filter(c => c.id !== collectionId);
+        const updatedMap = { ...cached.itemMap };
+        for (const itemId in updatedMap) {
+          updatedMap[itemId] = updatedMap[itemId].filter(cId => cId !== collectionId);
+        }
+        offlineSync.cacheUserData(userId, cached.items, updatedColls, updatedMap);
+
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'deleteCollection',
+            userId,
+            payload: { collectionId },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await deleteCollectionAction(collectionId, userId);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'deleteCollection',
+              userId,
+              payload: { collectionId },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
         }
         await loadData();
       }
@@ -443,21 +643,54 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         [itemId]: Array.from(new Set([...(prev[itemId] || []), collectionId])),
       }));
 
-      // Always auto-tag the item with the collection name
+      // Auto-tag the item with the collection name
       if (coll) {
         const item = items.find(i => i.id === itemId);
         const collectionTag = coll.name.trim();
         if (item && collectionTag && !item.tags.includes(collectionTag)) {
           const nextTags = [...item.tags, collectionTag];
           setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
-          await (userId === 'guest' ? localDb.updateItem(itemId, { tags: nextTags }) : updateItemAction(userId, itemId, { tags: nextTags }));
+          if (userId === 'guest') {
+            await localDb.updateItem(itemId, { tags: nextTags });
+          } else {
+            offlineSync.updateCachedItem(userId, { id: itemId, tags: nextTags });
+          }
         }
       }
 
-      const success = await (userId === 'guest' ? localDb.addItemToCollection(itemId, collectionId) : addItemToCollectionAction(itemId, collectionId, userId));
-      if (success) {
-        loadData();
+      if (userId === 'guest') {
+        await localDb.addItemToCollection(itemId, collectionId);
+      } else {
+        const cached = offlineSync.getCachedUserData(userId);
+        const currentColls = cached.itemMap[itemId] || [];
+        if (!currentColls.includes(collectionId)) {
+          cached.itemMap[itemId] = [...currentColls, collectionId];
+          offlineSync.cacheUserData(userId, cached.items, cached.collections, cached.itemMap);
+        }
+
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'addItemToCollection',
+            userId,
+            payload: { itemId, collectionId },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await addItemToCollectionAction(itemId, collectionId, userId);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'addItemToCollection',
+              userId,
+              payload: { itemId, collectionId },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
+        }
       }
+      loadData();
     },
     [collections, items, loadData, userId]
   );
@@ -473,21 +706,52 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         [itemId]: (prev[itemId] || []).filter(id => id !== collectionId),
       }));
 
-      // Always remove the collection name tag from the item
       if (coll) {
         const item = items.find(i => i.id === itemId);
         const collectionTag = coll.name.trim();
         if (item && collectionTag && item.tags.includes(collectionTag)) {
           const nextTags = item.tags.filter(t => t !== collectionTag);
           setItems(prev => prev.map(i => (i.id === itemId ? { ...i, tags: nextTags } : i)));
-          await (userId === 'guest' ? localDb.updateItem(itemId, { tags: nextTags }) : updateItemAction(userId, itemId, { tags: nextTags }));
+          if (userId === 'guest') {
+            await localDb.updateItem(itemId, { tags: nextTags });
+          } else {
+            offlineSync.updateCachedItem(userId, { id: itemId, tags: nextTags });
+          }
         }
       }
 
-      const success = await (userId === 'guest' ? localDb.removeItemFromCollection(itemId, collectionId) : removeItemFromCollectionAction(itemId, collectionId, userId));
-      if (success) {
-        loadData();
+      if (userId === 'guest') {
+        await localDb.removeItemFromCollection(itemId, collectionId);
+      } else {
+        const cached = offlineSync.getCachedUserData(userId);
+        if (cached.itemMap[itemId]) {
+          cached.itemMap[itemId] = cached.itemMap[itemId].filter(id => id !== collectionId);
+          offlineSync.cacheUserData(userId, cached.items, cached.collections, cached.itemMap);
+        }
+
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'removeItemFromCollection',
+            userId,
+            payload: { itemId, collectionId },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await removeItemFromCollectionAction(itemId, collectionId, userId);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'removeItemFromCollection',
+              userId,
+              payload: { itemId, collectionId },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
+        }
       }
+      loadData();
     },
     [collections, items, loadData, userId]
   );
@@ -499,8 +763,34 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       if (!confirm('Are you sure you want to delete this memory?')) return;
       setItems(prev => prev.filter(i => i.id !== id));
       if (selectedItem?.id === id) setSelectedItem(null);
-      await (userId === 'guest' ? localDb.deleteItem(id) : deleteItemAction(activeUserId, id));
       showToast('🗑️ Memory deleted', 'info');
+
+      if (userId === 'guest') {
+        await localDb.deleteItem(id);
+      } else {
+        offlineSync.deleteCachedItem(activeUserId, id);
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'delete',
+            userId: activeUserId,
+            payload: { itemId: id },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await deleteItemAction(activeUserId, id);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'delete',
+              userId: activeUserId,
+              payload: { itemId: id },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
+        }
+      }
     },
     [userId, selectedItem, showToast]
   );
@@ -508,11 +798,35 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const handleUpdate = useCallback(
     async (id: string, data: any) => {
       if (!userId) return;
-      const success = await (userId === 'guest' ? localDb.updateItem(id, data) : updateItemAction(userId, id, data));
-      if (success) {
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, ...data } : i)));
-        setSelectedItem(prev => (prev?.id === id ? { ...prev, ...data } : prev));
-        showToast('✓ Memory updated', 'success');
+      setItems(prev => prev.map(i => (i.id === id ? { ...i, ...data } : i)));
+      setSelectedItem(prev => (prev?.id === id ? { ...prev, ...data } : prev));
+      showToast('✓ Memory updated', 'success');
+
+      if (userId === 'guest') {
+        await localDb.updateItem(id, data);
+      } else {
+        offlineSync.updateCachedItem(userId, { id, ...data });
+        if (!offlineSync.isOnline() || userId === 'offline-user') {
+          offlineSync.enqueueAction({
+            type: 'update',
+            userId,
+            payload: { itemId: id, data },
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+        } else {
+          try {
+            await updateItemAction(userId, id, data);
+          } catch (_) {
+            offlineSync.enqueueAction({
+              type: 'update',
+              userId,
+              payload: { itemId: id, data },
+              createdAt: Date.now(),
+            });
+            setPendingSyncCount(offlineSync.getPendingCount());
+          }
+        }
       }
     },
     [userId, showToast]
@@ -557,25 +871,88 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       };
       setItems(prev => [placeholder, ...prev]);
 
-      const saved = await (userId === 'guest' ? localDb.saveItem(data) : saveItemAction(activeUserId, data));
-      if (saved) {
-        setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
-        showToast('✨ Memory saved & processed with AI!', 'success');
+      if (userId === 'guest') {
+        const saved = await localDb.saveItem(data);
+        if (saved) {
+          setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
+          showToast('✨ Memory saved & processed with AI!', 'success');
 
-        // Auto-assign to matching category collections based on AI tags
-        if (saved.tags?.length) {
-          userId === 'guest' ? localDb.autoAssignItemToCollections() : autoAssignItemToCollectionsAction(activeUserId, saved.id, saved.tags)
-            .then(() => loadData())
-            .catch(() => {});
+          if (saved.tags?.length) {
+            await localDb.autoAssignItemToCollections();
+            await loadData();
+          }
+
+          if (activeFilter.startsWith('collection:')) {
+            const collId = activeFilter.slice(11);
+            handleAddToCollection(saved.id, collId);
+          }
         }
+      } else if (!offlineSync.isOnline() || userId === 'offline-user') {
+        // Direct local save for offline operation
+        const offlineSaved: MemoryItem = {
+          ...placeholder,
+          id: `offline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          summary: data.summary || placeholder.summary || 'Saved locally offline',
+          tags: data.tags || ['Offline'],
+        };
+        offlineSync.addOfflineItem(activeUserId, offlineSaved);
+        offlineSync.enqueueAction({
+          type: 'save',
+          userId: activeUserId,
+          payload: data,
+          tempId: offlineSaved.id,
+          createdAt: Date.now(),
+        });
+        setPendingSyncCount(offlineSync.getPendingCount());
+        setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
+        showToast('💾 Memory saved to local device! Will sync when reconnected.', 'info');
 
         if (activeFilter.startsWith('collection:')) {
           const collId = activeFilter.slice(11);
-          handleAddToCollection(saved.id, collId);
+          handleAddToCollection(offlineSaved.id, collId);
+        }
+      } else {
+        try {
+          const saved = await saveItemAction(activeUserId, data);
+          if (saved) {
+            setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
+            offlineSync.addOfflineItem(activeUserId, saved);
+            showToast('✨ Memory saved & processed with AI!', 'success');
+
+            if (saved.tags?.length) {
+              autoAssignItemToCollectionsAction(activeUserId, saved.id, saved.tags)
+                .then(() => loadData())
+                .catch(() => {});
+            }
+
+            if (activeFilter.startsWith('collection:')) {
+              const collId = activeFilter.slice(11);
+              handleAddToCollection(saved.id, collId);
+            }
+          }
+        } catch (err) {
+          console.warn('[Dashboard] Cloud save failed, falling back to local offline storage:', err);
+          const offlineSaved: MemoryItem = {
+            ...placeholder,
+            id: `offline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            summary: data.summary || placeholder.summary || 'Saved locally offline',
+            tags: data.tags || ['Offline'],
+          };
+          offlineSync.addOfflineItem(activeUserId, offlineSaved);
+          offlineSync.enqueueAction({
+            type: 'save',
+            userId: activeUserId,
+            payload: data,
+            tempId: offlineSaved.id,
+            createdAt: Date.now(),
+          });
+          setPendingSyncCount(offlineSync.getPendingCount());
+          setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
+          showToast('💾 Network error: Saved to local device. Will sync to cloud later.', 'info');
         }
       }
     },
-    [userId, activeFilter, handleAddToCollection, showToast]
+    [userId, activeFilter, handleAddToCollection, showToast, loadData]
   );
 
   const handleSeedDemoMemory = useCallback(async () => {
@@ -905,6 +1282,28 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               )}
             </div>
 
+            {/* Live Connection & Offline Badge */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                background: isOffline || userId === 'offline-user' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.1)',
+                border: `1px solid ${isOffline || userId === 'offline-user' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.25)'}`,
+                color: isOffline || userId === 'offline-user' ? '#FBBF24' : '#34D399',
+              }}
+              title={isOffline || userId === 'offline-user' ? 'Working in local offline mode' : 'Connected to cloud'}
+            >
+              {isOffline || userId === 'offline-user' ? <WifiOff size={12} /> : <Cloud size={12} />}
+              <span className="hide-xs">
+                {isOffline || userId === 'offline-user' ? (pendingSyncCount > 0 ? `Offline (${pendingSyncCount})` : 'Offline') : 'Cloud Synced'}
+              </span>
+            </div>
+
             {/* Account & Session Mode Controls (Sign In, Guest Login, Sign Out) */}
             <div style={{ position: 'relative' }}>
               <button
@@ -1064,6 +1463,79 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             </div>
           </div>
         </header>
+
+        {/* Offline Status & Local Mode Banner */}
+        {(isOffline || userId === 'offline-user') && (
+          <div
+            style={{
+              margin: '12px 14px 0',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(6, 182, 212, 0.12) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              fontSize: '13px',
+              color: '#FFFFFF',
+              flexWrap: 'wrap',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FBBF24',
+                  flexShrink: 0,
+                }}
+              >
+                <WifiOff size={16} />
+              </div>
+              <div>
+                <strong style={{ color: '#FDE68A' }}>Offline Mode Active</strong> — Operating locally on this device.
+                {pendingSyncCount > 0 ? (
+                  <span style={{ color: '#38BDF8', marginLeft: '6px', fontWeight: 600 }}>
+                    ({pendingSyncCount} pending change{pendingSyncCount > 1 ? 's' : ''} queued for sync)
+                  </span>
+                ) : (
+                  <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
+                    All memories are saved locally. You can read, organize, and capture without internet.
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              <button
+                disabled={isSyncing}
+                onClick={handleSyncPending}
+                className="btn btn-ghost"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#FFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  cursor: 'pointer',
+                }}
+              >
+                <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+                <span>{isSyncing ? 'Syncing...' : 'Retry Connection / Sync'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Authenticated Migration Banner (for users who have local guest data) */}
         {migrationPrompt && userId !== 'guest' && (

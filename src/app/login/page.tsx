@@ -3,7 +3,7 @@
 import { SignIn, useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LogIn, LogOut, UserCheck, Sparkles, Shield, ArrowRight, ExternalLink } from 'lucide-react';
+import { LogIn, LogOut, UserCheck, Sparkles, Shield, ArrowRight, ExternalLink, WifiOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +11,31 @@ export default function LoginPage() {
   const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState<'signin' | 'guest'>('signin');
   const [isGuestActive, setIsGuestActive] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const offline = !navigator.onLine;
+      setIsOffline(offline);
+      if (offline) {
+        setActiveTab('guest');
+      }
+    }
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => {
+      setIsOffline(true);
+      setActiveTab('guest');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     // Check if guest cookie is currently active
@@ -134,8 +159,48 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* Offline Banner */}
+        {isOffline && (
+          <div
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              fontSize: '13px',
+              color: '#FDE68A',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <WifiOff size={16} color="#FBBF24" />
+              <span>You are offline. Local sandbox & offline memories are active.</span>
+            </div>
+            <button
+              onClick={handleGuestLogin}
+              style={{
+                background: '#F59E0B',
+                color: '#000',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '12px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Launch Offline
+            </button>
+          </div>
+        )}
+
         {/* Guest Session Notification Banner (if user came from guest sandbox) */}
-        {isGuestActive && !isSignedIn && (
+        {isGuestActive && !isSignedIn && !isOffline && (
           <div
             style={{
               width: '100%',
@@ -209,7 +274,7 @@ export default function LoginPage() {
               }}
             >
               <LogIn size={15} />
-              <span>Sign In</span>
+              <span>{isOffline ? 'Sign In (Offline)' : 'Sign In'}</span>
             </button>
 
             {/* Option 2: Guest Mode */}
@@ -232,7 +297,7 @@ export default function LoginPage() {
               }}
             >
               <UserCheck size={15} />
-              <span>Instant Guest</span>
+              <span>Instant Offline Guest</span>
             </button>
           </div>
         )}
@@ -322,14 +387,76 @@ export default function LoginPage() {
             </div>
           </div>
         ) : activeTab === 'signin' ? (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <SignIn
-              routing="hash"
-              signUpUrl="/signup"
-              fallbackRedirectUrl="/app"
-              forceRedirectUrl="/app"
-            />
-          </div>
+          isOffline ? (
+            <div
+              style={{
+                width: '100%',
+                padding: '28px 20px',
+                borderRadius: '16px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                alignItems: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FBBF24',
+                }}
+              >
+                <WifiOff size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#FFF', fontWeight: 700 }}>
+                  Cloud Sign In Requires Internet
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>
+                  You are offline. You can launch SecondMind directly into Local Offline Mode with access to all locally cached memories.
+                </p>
+              </div>
+              <button
+                onClick={handleGuestLogin}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #06B6D4 0%, #059669 100%)',
+                  color: '#FFF',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
+                }}
+              >
+                <span>Launch Offline / Local Mode</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <SignIn
+                routing="hash"
+                signUpUrl="/signup"
+                fallbackRedirectUrl="/app"
+                forceRedirectUrl="/app"
+              />
+            </div>
+          )
         ) : (
           <div
             style={{

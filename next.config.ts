@@ -5,7 +5,9 @@ import "./src/lib/init-dns";
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV !== "production",
+  disable: process.env.NODE_ENV !== "production" && process.env.ENABLE_SW !== "true",
+  cacheOnNavigation: true,
+  reloadOnOnline: false,
 });
 
 const securityHeaders = [
