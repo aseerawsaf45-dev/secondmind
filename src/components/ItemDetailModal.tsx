@@ -23,6 +23,7 @@ import { TAG_COLORS } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '@/lib/youtube';
+import { isFacebookUrl, getFacebookThumbnailUrl } from '@/lib/facebook';
 import { motion } from 'framer-motion';
 import { semanticSearchAction } from '@/lib/db-items';
 import ContentRenderer from '@/components/ContentRenderer';
@@ -429,7 +430,7 @@ export default function ItemDetailModal({
               {/* YouTube Embed / Media Preview */}
               {(() => {
                 const ytVideoId = item.url ? extractYouTubeVideoId(item.url) : null;
-                const displayThumbnail = item.thumbnailUrl || (item.url ? (getYouTubeThumbnailUrl(item.url) || `https://image.thum.io/get/width/600/crop/800/${item.url}`) : null);
+                const displayThumbnail = item.thumbnailUrl || (item.url ? (getYouTubeThumbnailUrl(item.url) || (isFacebookUrl(item.url) ? getFacebookThumbnailUrl(item.url, item.title) : `https://image.thum.io/get/width/600/crop/800/${item.url}`)) : null);
 
                 if (ytVideoId) {
                   return (

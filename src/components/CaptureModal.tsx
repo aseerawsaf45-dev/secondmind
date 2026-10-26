@@ -2,7 +2,7 @@ import { X, Link2, FileText, Sparkles, Check, Loader, Upload, Tag, Plus, Externa
 import LinkableTextarea from '@/components/LinkableTextarea';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
-import { isFacebookUrl } from '@/lib/facebook';
+import { isFacebookUrl, getFacebookThumbnailUrl } from '@/lib/facebook';
 import { isTwitterUrl } from '@/lib/twitter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { popoverVariant } from '@/lib/motion';
@@ -354,13 +354,6 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
           });
         } catch {}
       }
-      if (!finalThumbnail && isYouTubeUrl(item.url)) {
-        finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
-      }
-      if (!finalThumbnail && item.tabType === 'url' && item.url) {
-        finalThumbnail = `https://image.thum.io/get/width/600/crop/800/${item.url}`;
-      }
-
       let fallbackTitleFromUrl = '';
       if (item.url) {
         try {
@@ -370,6 +363,16 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
         } catch (_) {
           fallbackTitleFromUrl = item.url;
         }
+      }
+
+      if (!finalThumbnail && isYouTubeUrl(item.url)) {
+        finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
+      }
+      if (!finalThumbnail && isFacebookUrl(item.url)) {
+        finalThumbnail = getFacebookThumbnailUrl(item.url, fallbackTitleFromUrl);
+      }
+      if (!finalThumbnail && item.tabType === 'url' && item.url) {
+        finalThumbnail = `https://image.thum.io/get/width/600/crop/800/${item.url}`;
       }
 
       const isDeviceCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;

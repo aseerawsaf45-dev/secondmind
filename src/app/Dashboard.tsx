@@ -1124,8 +1124,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
           const matchTags: string[] = Array.isArray(coll.rules?.matchTags) ? coll.rules.matchTags : [];
           const hasTagMatch = matchTags.some(t => i.tags.includes(t)) || i.tags.includes(coll.name);
           const hasCategoryMatch = isItemInCategory(i, coll.name);
-          const isInCollectionMap = itemCollectionMap[i.id]?.includes(collId);
-          return hasTagMatch || hasCategoryMatch || isInCollectionMap;
+          return hasTagMatch || hasCategoryMatch;
         });
       } else {
         filtered = filtered.filter(i => itemCollectionMap[i.id]?.includes(collId));
@@ -1238,13 +1237,12 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
             const count = items.filter(i => {
               const hasTag = matchTags.some(t => i.tags.includes(t)) || i.tags.includes(c.name);
               const hasCat = isItemInCategory(i, c.name);
-              const inMap = itemCollectionMap[i.id]?.includes(c.id);
-              return hasTag || hasCat || inMap;
+              return hasTag || hasCat;
             }).length;
-            return { ...c, itemCount: Math.max(c.itemCount || 0, count) };
+            return { ...c, itemCount: count };
           }
           const manualCount = items.filter(i => itemCollectionMap[i.id]?.includes(c.id)).length;
-          return { ...c, itemCount: Math.max(c.itemCount || 0, manualCount) };
+          return { ...c, itemCount: manualCount };
         })}
         itemCounts={itemCounts}
         items={items}

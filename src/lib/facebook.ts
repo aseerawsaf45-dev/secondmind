@@ -117,6 +117,119 @@ export function parseFacebookUrl(url: string): {
   }
 }
 
+function escapeXml(unsafe: string): string {
+  return (unsafe || '').replace(/[<>&'"]/g, c => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+}
+
+/**
+ * Generates a modern, high-definition Facebook preview card as an SVG data URL.
+ * Guaranteed to never fail, get blocked, or show broken image placeholders.
+ */
+export function generateFacebookThumbnailSvg(
+  title: string = 'Facebook Post',
+  type: string = 'link',
+  author?: string
+): string {
+  const isVideo = type === 'video' || type === 'reel';
+  const typeLabel = type === 'reel' ? 'REEL' : type === 'video' ? 'VIDEO' : type === 'group' ? 'GROUP' : 'POST';
+  const cleanTitle = escapeXml((title || 'Facebook Content').slice(0, 68));
+  const authorText = author ? `by ${escapeXml(author.slice(0, 32))}` : 'Facebook Media';
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081026"/>
+      <stop offset="45%" stop-color="#0d234a"/>
+      <stop offset="100%" stop-color="#050a18"/>
+    </linearGradient>
+    <linearGradient id="fbBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2b7eff"/>
+      <stop offset="100%" stop-color="#0866ff"/>
+    </linearGradient>
+    <radialGradient id="radialOrb" cx="80%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="#1877F2" stop-opacity="0.38"/>
+      <stop offset="65%" stop-color="#081026" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#grid)"/>
+  <circle cx="960" cy="180" r="460" fill="url(#radialOrb)"/>
+  <circle cx="180" cy="540" r="320" fill="rgba(8, 102, 255, 0.14)"/>
+
+  <!-- Top Ambient Glow -->
+  <rect x="0" y="0" width="1200" height="4" fill="url(#fbBlue)"/>
+
+  <!-- Left Content Container -->
+  <g transform="translate(90, 110)">
+    <!-- Facebook Brand Badge & Type Pill -->
+    <g>
+      <!-- FB App Icon -->
+      <rect width="64" height="64" rx="16" fill="url(#fbBlue)"/>
+      <path d="M42 34 h -7 v 24 h -9 v -24 h -5 v -8 h 5 v -5 c 0 -7 4 -11 11 -11 h 6 v 8 h -4 c -3 0 -4 1 -4 4 v 4 h 8 z" fill="#ffffff"/>
+
+      <!-- Type Pill -->
+      <rect x="80" y="14" width="${typeLabel.length * 14 + 34}" height="36" rx="8" fill="rgba(8, 102, 255, 0.25)" stroke="rgba(43, 126, 255, 0.55)" stroke-width="1.5"/>
+      <text x="97" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#67E8F9" letter-spacing="1.5">${typeLabel}</text>
+
+      <!-- Domain -->
+      <text x="${80 + typeLabel.length * 14 + 50}" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="rgba(255, 255, 255, 0.5)">facebook.com</text>
+    </g>
+
+    <!-- Title -->
+    <text x="0" y="190" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="700" fill="#ffffff" letter-spacing="-0.5">
+      ${cleanTitle}
+    </text>
+
+    <!-- Author & Meta -->
+    <text x="0" y="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="500" fill="rgba(255, 255, 255, 0.7)">
+      ${authorText}
+    </text>
+  </g>
+
+  <!-- Video / Reel Center Play Overlay -->
+  ${isVideo ? `
+  <g transform="translate(600, 360)">
+    <circle r="52" fill="rgba(7, 8, 15, 0.75)" stroke="rgba(255, 255, 255, 0.35)" stroke-width="2"/>
+    <polygon points="-12,-20 22,0 -12,20" fill="#ffffff"/>
+  </g>` : ''}
+
+  <!-- Bottom Brand Watermark -->
+  <g transform="translate(90, 595)">
+    <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600" fill="rgba(255, 255, 255, 0.35)" letter-spacing="0.5">
+      SecondMind • Social Media Memory
+    </text>
+  </g>
+</svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Returns a guaranteed valid thumbnail URL for any Facebook link.
+ */
+export function getFacebookThumbnailUrl(url: string, title?: string, author?: string): string {
+  if (!url) return generateFacebookThumbnailSvg(title, 'link', author);
+  const cleanUrl = cleanFacebookUrl(url);
+  const parsedMeta = parseFacebookUrl(cleanUrl);
+  const resolvedAuthor = author || parsedMeta.authorOrGroup;
+
+  return generateFacebookThumbnailSvg(title || 'Facebook Post', parsedMeta.type, resolvedAuthor);
+}
+
 /**
  * Extracts and analyzes Facebook link content, generates tags, and synthesizes a brief.
  */
@@ -130,11 +243,11 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
   let ogImage = '';
   let author = parsedMeta.authorOrGroup || '';
 
-  // Attempt to fetch Open Graph metadata with crawler User-Agent only for vetted Facebook domains
+  // 1. Attempt to fetch Open Graph metadata with crawler User-Agent
   if (isFacebookUrl(cleanUrl)) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
       const res = await fetch(cleanUrl, {
         signal: controller.signal,
@@ -151,29 +264,45 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
         const html = rawHtml.slice(0, 2 * 1024 * 1024);
         const $ = cheerio.load(html);
 
-      const rawTitle = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content') || $('title').text() || '';
-      const rawDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('meta[name="twitter:description"]').attr('content') || '';
-      const rawImg = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || '';
+        const rawTitle = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content') || $('title').text() || '';
+        const rawDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('meta[name="twitter:description"]').attr('content') || '';
+        const rawImg = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || '';
 
-      // Check if response is a generic login block
-      const isLoginWall = /\b(log in|sign up|log into facebook|welcome to facebook|facebook - log in|log in or sign up)\b/i.test(rawTitle);
+        const isLoginWall = /\b(log in|sign up|log into facebook|welcome to facebook|facebook - log in|log in or sign up)\b/i.test(rawTitle);
 
-      if (!isLoginWall && rawTitle.trim()) {
-        ogTitle = rawTitle.trim();
+        if (!isLoginWall && rawTitle.trim()) {
+          ogTitle = rawTitle.trim();
+        }
+        if (!isLoginWall && rawDesc.trim() && !/\b(log in|sign up)\b/i.test(rawDesc)) {
+          ogDescription = rawDesc.trim();
+        }
+        if (rawImg && !rawImg.includes('facebook.com/images/fb_icon') && !rawImg.includes('data:image/svg')) {
+          ogImage = rawImg;
+        }
       }
-      if (!isLoginWall && rawDesc.trim() && !/\b(log in|sign up)\b/i.test(rawDesc)) {
-        ogDescription = rawDesc.trim();
-      }
-      if (rawImg && !rawImg.includes('facebook.com/images/fb_icon')) {
-        ogImage = rawImg;
-      }
+    } catch {
+      // Network or abort fallback
     }
-  } catch {
-    // Network or abort fallback
   }
-}
 
-  // If author wasn't extracted from URL, try extracting from OG title (e.g. "Author Name - Video Title | Facebook")
+  // 2. If author/page exists and no image, try Facebook Graph picture endpoint
+  if (!ogImage && author && /^[a-zA-Z0-9._-]+$/.test(author) && !/^\d+$/.test(author)) {
+    try {
+      const graphRes = await fetch(`https://graph.facebook.com/${encodeURIComponent(author)}/picture?type=large&redirect=false`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (graphRes.ok) {
+        const graphData = await graphRes.json();
+        if (graphData?.data?.url && !graphData.data.is_silhouette) {
+          ogImage = graphData.data.url;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  // If author wasn't extracted from URL, try extracting from OG title
   if (!author && ogTitle) {
     const authorMatch = ogTitle.match(/^([^|\-•]+)(?:[|\-•]|\s+on\s+Facebook)/i);
     if (authorMatch && authorMatch[1].length < 40) {
@@ -239,10 +368,13 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
     maxTags: 4,
   });
 
+  // Guaranteed fallback thumbnail if no external image was provided by Facebook
+  const finalImage = ogImage || generateFacebookThumbnailSvg(finalTitle, parsedMeta.type, author);
+
   return {
     title: finalTitle,
     description: finalSummary,
-    image: ogImage || undefined,
+    image: finalImage,
     tags: classifiedTags,
     type: isVideo ? 'video' : 'link',
     author: author || undefined,

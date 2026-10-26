@@ -424,11 +424,30 @@ export function isItemInCategory(
   if (!def) return false;
 
   const itemTags = (item.tags || []).map(t => t.trim().toLowerCase());
-  if (def.matchTags.some(mt => itemTags.includes(mt.toLowerCase()))) {
+  // 1. Direct tag match
+  if (
+    def.matchTags.some(mt => itemTags.includes(mt.toLowerCase())) ||
+    itemTags.includes(def.name.toLowerCase()) ||
+    itemTags.includes(def.id.toLowerCase())
+  ) {
     return true;
   }
 
-  const searchText = `${item.title || ''} ${item.content || ''} ${item.url || ''}`.toLowerCase();
-  const kwMatches = def.keywords.filter(kw => new RegExp(`\\b${kw}\\b`, 'i').test(searchText));
-  return kwMatches.length >= 2;
+  // 2. Primary AI category match
+  const primary = getPrimaryCategory(item.tags, `${item.title || ''} ${item.content || ''}`, item.url || '');
+  if (primary && (primary.id.toLowerCase() === def.id.toLowerCase() || primary.name.toLowerCase() === def.name.toLowerCase())) {
+    return true;
+  }
+
+  // 3. Distinct keyword match in Title or URL (strong signal)
+  const titleAndUrl = `${item.title || ''} ${item.url || ''}`.toLowerCase();
+  const titleKwMatches = def.keywords.filter(kw => kw.length >= 3 && new RegExp(`\\b${kw}\\b`, 'i').test(titleAndUrl));
+  if (titleKwMatches.length >= 1) {
+    return true;
+  }
+
+  // 4. In full content, require at least 3 distinct keywords to prevent accidental false positives
+  const fullText = `${item.title || ''} ${item.content || ''} ${item.url || ''}`.toLowerCase();
+  const contentKwMatches = def.keywords.filter(kw => kw.length >= 3 && new RegExp(`\\b${kw}\\b`, 'i').test(fullText));
+  return contentKwMatches.length >= 3;
 }

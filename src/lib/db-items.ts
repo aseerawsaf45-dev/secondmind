@@ -8,7 +8,7 @@ import type { MemoryItem } from '@/lib/data';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { classifyContent, generateAISummary, generateEmbedding } from '@/lib/ai-engine';
 // Trigger recompile
-import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
+import { isFacebookUrl, extractFacebookMetadata, getFacebookThumbnailUrl } from '@/lib/facebook';
 import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
 import { autoAssignItemToCollectionsAction } from '@/lib/db-collections';
 
@@ -117,7 +117,7 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
             title: item.title && !item.title.includes('http') && item.title !== 'facebook.com' && item.title !== 'Untitled Memory' ? item.title : fbData.title,
             summary: fbData.description,
             tags: mergedTags,
-            thumbnailUrl: item.thumbnailUrl || fbData.image || null,
+            thumbnailUrl: fbData.image || item.thumbnailUrl || getFacebookThumbnailUrl(item.url, fbData.title),
             type: fbData.type,
             aiProcessed: true,
           })
@@ -175,6 +175,9 @@ export async function saveItemAction(
   let finalThumbnail = data.thumbnailUrl;
   if (!finalThumbnail && cleanUrl && isYouTubeUrl(cleanUrl)) {
     finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
+  }
+  if (!finalThumbnail && cleanUrl && isFacebookUrl(cleanUrl)) {
+    finalThumbnail = getFacebookThumbnailUrl(cleanUrl, cleanTitle) || undefined;
   }
 
   const textForAnalysis = `${cleanTitle} ${cleanContent} ${cleanUrl || ''}`;

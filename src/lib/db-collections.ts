@@ -416,11 +416,16 @@ export async function backfillAllItemsToCategoryCollectionsAction(userId: string
 
     if (!items.length) return 0;
 
-    // 3. Query all user collections
+    // 3. Query all user smart collections
     const userColls = await db
       .select({ id: collections.id, name: collections.name })
       .from(collections)
-      .where(eq(collections.userId, verifiedUserId));
+      .where(and(eq(collections.userId, verifiedUserId), eq(collections.isSmart, true)));
+
+    const smartCollIds = userColls.map(c => c.id);
+    if (smartCollIds.length > 0) {
+      await db.delete(collectionItems).where(inArray(collectionItems.collectionId, smartCollIds));
+    }
 
     const collMap = new Map<string, string>();
     userColls.forEach(c => collMap.set(c.name, c.id));
@@ -435,7 +440,7 @@ export async function backfillAllItemsToCategoryCollectionsAction(userId: string
         const collId = collMap.get(def.name);
         if (!collId) continue;
 
-        const hasTagMatch = def.matchTags.some(t => itemTags.includes(t));
+        const hasTagMatch = def.matchTags.some(t => itemTags.includes(t)) || itemTags.includes(def.name);
         const hasCategoryMatch = isItemInCategory(itemData, def.name);
 
         if (hasTagMatch || hasCategoryMatch) {

@@ -1,6 +1,7 @@
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
 import { CATEGORY_DEFINITIONS, isItemInCategory } from '@/lib/categories';
+import { isFacebookUrl, getFacebookThumbnailUrl } from '@/lib/facebook';
 import { idbGet, idbSet, idbDelete } from '@/lib/idb';
 
 const PREFIX = 'secondmind_guest_';
@@ -40,13 +41,18 @@ export const localDb = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveItem: async (data: any): Promise<MemoryItem> => {
     const items = await localDb.fetchItems();
+    let finalThumbnail = data.thumbnailUrl;
+    if (!finalThumbnail && data.url && isFacebookUrl(data.url)) {
+      finalThumbnail = getFacebookThumbnailUrl(data.url, data.title);
+    }
+
     const newItem: MemoryItem = {
       id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       type: data.type,
       title: data.title || 'Untitled Memory',
       content: data.content || '',
       url: data.url,
-      thumbnailUrl: data.thumbnailUrl,
+      thumbnailUrl: finalThumbnail,
       sourceDomain: data.url
         ? (() => {
             try {
@@ -206,15 +212,21 @@ export const localDb = {
     try {
       const items = await localDb.fetchItems();
       const colls = await localDb.fetchCollections();
-      const map = await localDb.fetchCollectionItemMap();
+      const existingMap = await localDb.fetchCollectionItemMap();
+      const map: Record<string, string[]> = {};
+
+      const smartCollIds = new Set(colls.filter(c => c.isSmart).map(c => c.id));
 
       for (const item of items) {
-        if (!map[item.id]) map[item.id] = [];
+        // Retain manual collection assignments
+        const manualIds = (existingMap[item.id] || []).filter(id => !smartCollIds.has(id));
+        map[item.id] = [...manualIds];
         const itemTags = item.tags || [];
 
         for (const coll of colls) {
+          if (!coll.isSmart) continue;
           const matchTags: string[] = Array.isArray(coll.rules?.matchTags) ? coll.rules.matchTags : [];
-          const hasTagMatch = matchTags.some(t => itemTags.includes(t));
+          const hasTagMatch = matchTags.some(t => itemTags.includes(t)) || itemTags.includes(coll.name);
           const hasCategoryMatch = isItemInCategory(item, coll.name);
 
           if ((hasTagMatch || hasCategoryMatch) && !map[item.id].includes(coll.id)) {

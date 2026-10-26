@@ -25,6 +25,7 @@ import { TAG_COLORS } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
 import { formatDistanceToNow } from 'date-fns';
 import { getYouTubeThumbnailUrl, extractYouTubeVideoId } from '@/lib/youtube';
+import { isFacebookUrl, getFacebookThumbnailUrl } from '@/lib/facebook';
 import { getPrimaryCategory } from '@/lib/categories';
 import { CollectionIcon, ContentTypeIcon } from '@/components/icons/PremiumIcons';
 
@@ -110,12 +111,15 @@ export default function MemoryCard({
     if (item.url) {
       const ytThumb = getYouTubeThumbnailUrl(item.url);
       if (ytThumb) return ytThumb;
+      if (isFacebookUrl(item.url)) {
+        return getFacebookThumbnailUrl(item.url, item.title);
+      }
       if (!imgFailed) {
         return `https://image.thum.io/get/width/600/crop/800/${item.url}`;
       }
     }
     return null;
-  }, [item.thumbnailUrl, item.url, imgFailed]);
+  }, [item.thumbnailUrl, item.url, item.title, imgFailed]);
 
   // Primary AI Category resolution
   const primaryCategory = useMemo(() => {
