@@ -134,6 +134,40 @@ export default function ItemDetailModal({
       .filter(s => s.length > 10);
   }, [item]);
 
+  const isFb = Boolean(item?.url && isFacebookUrl(item.url));
+
+  // Resolved high-definition thumbnail preview with guaranteed Facebook card fallback
+  const displayThumbnail = useMemo(() => {
+    if (!item) return null;
+
+    if (isFb && item.url) {
+      // 1. If stored thumbnail is already the guaranteed high-def SVG data URI, use it directly
+      if (item.thumbnailUrl && item.thumbnailUrl.startsWith('data:image/')) {
+        return item.thumbnailUrl;
+      }
+      // 2. If stored thumbnail is a valid external image (not an ephemeral/blocked Facebook CDN link) and hasn't failed
+      if (item.thumbnailUrl && !thumbnailFailed && !item.thumbnailUrl.includes('fbcdn.net') && !item.thumbnailUrl.includes('facebook.com')) {
+        return item.thumbnailUrl;
+      }
+      // 3. Guaranteed high-definition Facebook preview card matching the card outlook user approved
+      return getFacebookThumbnailUrl(item.url, item.title);
+    }
+
+    if (item.thumbnailUrl && !thumbnailFailed) {
+      return item.thumbnailUrl;
+    }
+
+    if (item.url) {
+      const ytThumb = getYouTubeThumbnailUrl(item.url);
+      if (ytThumb) return ytThumb;
+      if (!thumbnailFailed) {
+        return `https://image.thum.io/get/width/600/crop/800/${item.url}`;
+      }
+    }
+
+    return null;
+  }, [item, isFb, thumbnailFailed]);
+
   if (!item) return null;
 
   const handleSave = async () => {
@@ -430,7 +464,6 @@ export default function ItemDetailModal({
               {/* YouTube Embed / Media Preview */}
               {(() => {
                 const ytVideoId = item.url ? extractYouTubeVideoId(item.url) : null;
-                const displayThumbnail = item.thumbnailUrl || (item.url ? (getYouTubeThumbnailUrl(item.url) || (isFacebookUrl(item.url) ? getFacebookThumbnailUrl(item.url, item.title) : `https://image.thum.io/get/width/600/crop/800/${item.url}`)) : null);
 
                 if (ytVideoId) {
                   return (
@@ -456,12 +489,11 @@ export default function ItemDetailModal({
                   );
                 }
 
-                if (displayThumbnail && !thumbnailFailed) {
+                if (displayThumbnail && (!thumbnailFailed || isFb)) {
                   return (
                     <div
                       style={{
                         width: '100%',
-                        maxHeight: '320px',
                         aspectRatio: '16/9',
                         borderRadius: '14px',
                         overflow: 'hidden',
@@ -475,7 +507,16 @@ export default function ItemDetailModal({
                         src={displayThumbnail}
                         alt={item.title || 'Thumbnail preview'}
                         referrerPolicy="no-referrer"
-                        onError={() => setThumbnailFailed(true)}
+                        onError={(e) => {
+                          if (isFb && item.url) {
+                            const fallbackFb = getFacebookThumbnailUrl(item.url, item.title);
+                            if (e.currentTarget.src !== fallbackFb) {
+                              e.currentTarget.src = fallbackFb;
+                              return;
+                            }
+                          }
+                          setThumbnailFailed(true);
+                        }}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>

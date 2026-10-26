@@ -368,8 +368,10 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
     maxTags: 4,
   });
 
-  // Guaranteed fallback thumbnail if no external image was provided by Facebook
-  const finalImage = ogImage || generateFacebookThumbnailSvg(finalTitle, parsedMeta.type, author);
+  // Guaranteed fallback thumbnail if no external non-Facebook-CDN image was provided
+  const finalImage = (ogImage && !ogImage.includes('fbcdn.net') && !ogImage.includes('facebook.com'))
+    ? ogImage
+    : generateFacebookThumbnailSvg(finalTitle, parsedMeta.type, author);
 
   return {
     title: finalTitle,

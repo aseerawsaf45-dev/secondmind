@@ -368,8 +368,10 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
       if (!finalThumbnail && isYouTubeUrl(item.url)) {
         finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
       }
-      if (!finalThumbnail && isFacebookUrl(item.url)) {
-        finalThumbnail = getFacebookThumbnailUrl(item.url, fallbackTitleFromUrl);
+      if (item.url && isFacebookUrl(item.url)) {
+        if (!finalThumbnail || finalThumbnail.includes('fbcdn.net') || finalThumbnail.includes('facebook.com')) {
+          finalThumbnail = getFacebookThumbnailUrl(item.url, title || fallbackTitleFromUrl);
+        }
       }
       if (!finalThumbnail && item.tabType === 'url' && item.url) {
         finalThumbnail = `https://image.thum.io/get/width/600/crop/800/${item.url}`;

@@ -117,7 +117,9 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
             title: item.title && !item.title.includes('http') && item.title !== 'facebook.com' && item.title !== 'Untitled Memory' ? item.title : fbData.title,
             summary: fbData.description,
             tags: mergedTags,
-            thumbnailUrl: fbData.image || item.thumbnailUrl || getFacebookThumbnailUrl(item.url, fbData.title),
+            thumbnailUrl: (fbData.image && !fbData.image.includes('fbcdn.net') && !fbData.image.includes('facebook.com'))
+              ? fbData.image
+              : getFacebookThumbnailUrl(item.url, fbData.title),
             type: fbData.type,
             aiProcessed: true,
           })
@@ -176,8 +178,10 @@ export async function saveItemAction(
   if (!finalThumbnail && cleanUrl && isYouTubeUrl(cleanUrl)) {
     finalThumbnail = getYouTubeThumbnailUrl(cleanUrl) || undefined;
   }
-  if (!finalThumbnail && cleanUrl && isFacebookUrl(cleanUrl)) {
-    finalThumbnail = getFacebookThumbnailUrl(cleanUrl, cleanTitle) || undefined;
+  if (cleanUrl && isFacebookUrl(cleanUrl)) {
+    if (!finalThumbnail || finalThumbnail.includes('fbcdn.net') || finalThumbnail.includes('facebook.com')) {
+      finalThumbnail = getFacebookThumbnailUrl(cleanUrl, cleanTitle) || undefined;
+    }
   }
 
   const textForAnalysis = `${cleanTitle} ${cleanContent} ${cleanUrl || ''}`;

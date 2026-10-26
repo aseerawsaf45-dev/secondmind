@@ -106,20 +106,27 @@ export default function MemoryCard({
   }, [item.sourceDomain, item.url]);
 
   // Primary thumbnail calculation
+  const isFb = Boolean(item.url && isFacebookUrl(item.url));
   const primaryThumbnail = useMemo(() => {
+    if (isFb && item.url) {
+      if (item.thumbnailUrl && item.thumbnailUrl.startsWith('data:image/')) {
+        return item.thumbnailUrl;
+      }
+      if (item.thumbnailUrl && !imgFailed && !item.thumbnailUrl.includes('fbcdn.net') && !item.thumbnailUrl.includes('facebook.com')) {
+        return item.thumbnailUrl;
+      }
+      return getFacebookThumbnailUrl(item.url, item.title);
+    }
     if (item.thumbnailUrl && !imgFailed) return item.thumbnailUrl;
     if (item.url) {
       const ytThumb = getYouTubeThumbnailUrl(item.url);
       if (ytThumb) return ytThumb;
-      if (isFacebookUrl(item.url)) {
-        return getFacebookThumbnailUrl(item.url, item.title);
-      }
       if (!imgFailed) {
         return `https://image.thum.io/get/width/600/crop/800/${item.url}`;
       }
     }
     return null;
-  }, [item.thumbnailUrl, item.url, item.title, imgFailed]);
+  }, [item.thumbnailUrl, item.url, item.title, imgFailed, isFb]);
 
   // Primary AI Category resolution
   const primaryCategory = useMemo(() => {
@@ -243,7 +250,16 @@ export default function MemoryCard({
               decoding="async"
               referrerPolicy="no-referrer"
               onLoad={() => setImgLoaded(true)}
-              onError={() => setImgFailed(true)}
+              onError={(e) => {
+                if (isFb && item.url) {
+                  const fallbackFb = getFacebookThumbnailUrl(item.url, item.title);
+                  if (e.currentTarget.src !== fallbackFb) {
+                    e.currentTarget.src = fallbackFb;
+                    return;
+                  }
+                }
+                setImgFailed(true);
+              }}
               style={{
                 width: '100%',
                 height: '100%',

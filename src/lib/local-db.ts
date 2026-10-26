@@ -42,8 +42,10 @@ export const localDb = {
   saveItem: async (data: any): Promise<MemoryItem> => {
     const items = await localDb.fetchItems();
     let finalThumbnail = data.thumbnailUrl;
-    if (!finalThumbnail && data.url && isFacebookUrl(data.url)) {
-      finalThumbnail = getFacebookThumbnailUrl(data.url, data.title);
+    if (data.url && isFacebookUrl(data.url)) {
+      if (!finalThumbnail || finalThumbnail.includes('fbcdn.net') || finalThumbnail.includes('facebook.com')) {
+        finalThumbnail = getFacebookThumbnailUrl(data.url, data.title);
+      }
     }
 
     const newItem: MemoryItem = {
