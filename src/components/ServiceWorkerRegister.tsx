@@ -8,6 +8,16 @@ export default function ServiceWorkerRegister() {
       return;
     }
 
+    // Do not register SW in development mode to prevent stale dev caching & offline hijacking
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const reg of registrations) {
+          reg.unregister();
+        }
+      });
+      return;
+    }
+
     const registerSW = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {

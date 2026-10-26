@@ -1,5 +1,4 @@
-import { pgTable, text, timestamp, boolean, jsonb, uuid, vector } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { pgTable, text, timestamp, boolean, jsonb, uuid, vector, index } from 'drizzle-orm/pg-core';
 
 // ─── User Branch Registry (lives on the ROOT branch only) ───────────────────
 // Maps each Clerk userId to their own isolated Neon branch connection URL.
@@ -11,37 +10,59 @@ export const userBranches = pgTable('user_branches', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const memoryItems = pgTable('memory_items', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id').notNull(),
-  type: text('type').notNull(), // 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video'
-  title: text('title').notNull(),
-  content: text('content').notNull(),
-  url: text('url'),
-  sourceDomain: text('source_domain'),
-  thumbnailUrl: text('thumbnail_url'),
-  summary: text('summary').default(''),
-  tags: jsonb('tags').$type<string[]>().default([]),
-  isFavorite: boolean('is_favorite').default(false).notNull(),
-  aiProcessed: boolean('ai_processed').default(false).notNull(),
-  embedding: vector('embedding', { dimensions: 1536 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const memoryItems = pgTable(
+  'memory_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull(),
+    type: text('type').notNull(), // 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video'
+    title: text('title').notNull(),
+    content: text('content').notNull(),
+    url: text('url'),
+    sourceDomain: text('source_domain'),
+    thumbnailUrl: text('thumbnail_url'),
+    summary: text('summary').default(''),
+    tags: jsonb('tags').$type<string[]>().default([]),
+    isFavorite: boolean('is_favorite').default(false).notNull(),
+    aiProcessed: boolean('ai_processed').default(false).notNull(),
+    embedding: vector('embedding', { dimensions: 1536 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_memory_items_user_id').on(table.userId),
+    index('idx_memory_items_user_created').on(table.userId, table.createdAt),
+    index('idx_memory_items_embedding').using('hnsw', table.embedding.op('vector_cosine_ops')),
+  ]
+);
 
-export const collections = pgTable('collections', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id').notNull(),
-  name: text('name').notNull(),
-  emoji: text('emoji').default('📁'),
-  color: text('color').default('#9CA3AF'),
-  isSmart: boolean('is_smart').default(false).notNull(),
-  rules: jsonb('rules').default({}),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const collections = pgTable(
+  'collections',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull(),
+    name: text('name').notNull(),
+    emoji: text('emoji').default('📁'),
+    color: text('color').default('#9CA3AF'),
+    isSmart: boolean('is_smart').default(false).notNull(),
+    rules: jsonb('rules').default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_collections_user_id').on(table.userId),
+  ]
+);
 
-export const collectionItems = pgTable('collection_items', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  itemId: uuid('item_id').notNull().references(() => memoryItems.id, { onDelete: 'cascade' }),
-  collectionId: uuid('collection_id').notNull().references(() => collections.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const collectionItems = pgTable(
+  'collection_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    itemId: uuid('item_id').notNull().references(() => memoryItems.id, { onDelete: 'cascade' }),
+    collectionId: uuid('collection_id').notNull().references(() => collections.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_collection_items_collection_id').on(table.collectionId),
+    index('idx_collection_items_item_id').on(table.itemId),
+    index('idx_collection_items_comp').on(table.collectionId, table.itemId),
+  ]
+);

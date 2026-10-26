@@ -6,6 +6,7 @@ import { JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import "./globals.css";
+import "@flaticon/flaticon-uicons/css/all/all.css";
 
 
 
@@ -94,8 +95,19 @@ export default function RootLayout({
       }}
     >
       <html lang="en" className={`${outfit.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}>
+        <head>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@flaticon/flaticon-uicons@3.3.1/css/all/all.min.css" />
+        </head>
         <body className="min-h-full flex flex-col bg-[#040408] text-white relative">
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[#06B6D4] focus:text-black focus:font-semibold focus:rounded-md focus:shadow-lg focus:outline-none"
+          >
+            Skip to content
+          </a>
           <ServiceWorkerRegister />
+          <div className="ambient-grid-lines" />
+          <div className="ambient-noise-layer" />
           <div className="gradient-mesh-container">
             <div className="gradient-mesh-orb gradient-mesh-orb-1" />
             <div className="gradient-mesh-orb gradient-mesh-orb-2" />

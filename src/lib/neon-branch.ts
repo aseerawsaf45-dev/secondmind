@@ -8,7 +8,7 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 function getNeonCredentials() {
   const apiKey = process.env.NEON_API_KEY;
@@ -206,6 +206,31 @@ export async function deleteUserBranchAndData(userId: string): Promise<boolean> 
       await rootDb
         .delete(schema.userBranches)
         .where(eq(schema.userBranches.userId, userId));
+    }
+
+    // 4. Wipe all user data from the root/shared database (GDPR Right to Erasure)
+    try {
+      const userColls = await rootDb
+        .select({ id: schema.collections.id })
+        .from(schema.collections)
+        .where(eq(schema.collections.userId, userId));
+
+      const collIds = userColls.map(c => c.id);
+      if (collIds.length > 0) {
+        await rootDb
+          .delete(schema.collectionItems)
+          .where(inArray(schema.collectionItems.collectionId, collIds));
+      }
+
+      await rootDb
+        .delete(schema.collections)
+        .where(eq(schema.collections.userId, userId));
+
+      await rootDb
+        .delete(schema.memoryItems)
+        .where(eq(schema.memoryItems.userId, userId));
+    } catch (sharedErr) {
+      console.error('[neon-branch] Error wiping user rows from shared database:', sharedErr);
     }
 
     return true;

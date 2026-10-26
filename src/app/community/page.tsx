@@ -61,69 +61,114 @@ export default function CommunityPage() {
           Discover curated memory packs, templates, and workflows shared by the SecondMind community.
         </p>
 
-        <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
           {[
             {
               id: 'startup-stack',
               title: 'Startup Founder Pack',
-              author: '@johndoe',
-              description: 'A collection of essential resources, YC videos, and templates for early-stage founders.',
-              downloads: 1205
+              author: '@marcus_dev',
+              authorName: 'Marcus Chen',
+              description: 'Curated references, YC startup insights, and architecture decision logs for early-stage builders.',
+              saves: 1240,
             },
             {
-              id: 'frontend-dev',
-              title: 'Frontend Mastery',
-              author: '@jane_smith',
-              description: 'CSS tricks, React patterns, and accessibility guidelines to level up your UI skills.',
-              downloads: 840
+              id: 'frontend-architecture',
+              title: 'Modern Web Architecture',
+              author: '@elena_ai',
+              authorName: 'Elena Rostova',
+              description: 'Next.js 16 patterns, CSS Grid systems, and accessibility guidelines for high-performance apps.',
+              saves: 895,
             },
             {
-              id: 'neuroscience',
-              title: 'Neuroscience 101',
-              author: '@dr_brain',
-              description: 'Key papers and summaries on neuroplasticity and cognitive behavioral therapy.',
-              downloads: 432
+              id: 'cognitive-science',
+              title: 'Cognitive Science & Memory',
+              author: '@dr_sarah',
+              authorName: 'Dr. Sarah Lindqvist',
+              description: 'Peer-reviewed papers and notes on spaced repetition, active recall, and neuroplasticity.',
+              saves: 530,
             },
           ].map(pack => (
-            <div key={pack.id} style={{
-              padding: '24px',
-              borderRadius: '12px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <h3 style={{
-                  fontSize: '18px',
+            <div
+              key={pack.id}
+              className="hover-scale-physics"
+              style={{
+                padding: '24px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <h3
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      margin: 0,
+                      fontFamily: 'var(--font-heading)',
+                      textWrap: 'balance',
+                    }}
+                  >
+                    {pack.title}
+                  </h3>
+                  <span
+                    className="tabular-nums"
+                    style={{
+                      fontSize: '11px',
+                      color: '#38BDF8',
+                      fontFamily: 'var(--font-mono)',
+                      background: 'rgba(6, 182, 212, 0.12)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(6, 182, 212, 0.25)',
+                    }}
+                  >
+                    {pack.saves} saves
+                  </span>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                  by {pack.authorName} <span style={{ fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.4)' }}>({pack.author})</span>
+                </div>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    color: 'var(--text-secondary)',
+                    marginBottom: '20px',
+                    lineHeight: 1.6,
+                    textWrap: 'pretty',
+                  }}
+                >
+                  {pack.description}
+                </p>
+              </div>
+
+              <Link
+                href={`/try?pack=${pack.id}`}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.12)',
+                  color: '#67E8F9',
+                  border: '1px solid rgba(6, 182, 212, 0.35)',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
                   fontWeight: 600,
-                  color: '#FFFFFF',
-                  margin: 0
-                }}>
-                  {pack.title}
-                </h3>
-                <span style={{ fontSize: '12px', color: '#66A4AC' }}>{pack.downloads} DLs</span>
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                by {pack.author}
-              </div>
-              <p style={{
-                fontSize: '14px',
-                color: 'var(--text-muted)',
-                marginBottom: '20px'
-              }}>
-                {pack.description}
-              </p>
-              <button style={{
-                background: 'rgba(102, 164, 172, 0.1)',
-                color: '#66A4AC',
-                border: '1px solid rgba(102, 164, 172, 0.3)',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}>
-                Import Pack
-              </button>
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+                className="button-press-physics"
+              >
+                <span>Import pack</span>
+                <span>→</span>
+              </Link>
             </div>
           ))}
         </div>

@@ -681,5 +681,146 @@ kbd, code, .font-mono {
 .gradient-mesh-orb-2 { background: radial-gradient(circle, rgba(139, 92, 246, 0.35) 0%, transparent 70%); width: 1000px; height: 1000px; bottom: -300px; right: -200px; animation-delay: -5s; }
 .gradient-mesh-orb-3 { background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%); width: 750px; height: 750px; top: 30%; left: 50%; animation-delay: -10s; animation-duration: 25s; }
 .gradient-mesh-orb-4 { background: radial-gradient(circle, rgba(236, 72, 153, 0.18) 0%, transparent 70%); width: 650px; height: 650px; top: -100px; right: 10%; animation-delay: -7s; }
+
+
 @keyframes meshFloat { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(60px, -60px) scale(1.1); } 66% { transform: translate(-40px, 50px) scale(0.9); } 100% { transform: translate(-70px, -30px) scale(1.05); } }
 
+/* ── Flaticon Premium Animated Icons System ───────────────────────────── */
+@keyframes flaticonPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(6, 182, 212, 0));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.45));
+  }
+}
+
+@keyframes flaticonFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3.5px);
+  }
+}
+
+@keyframes flaticonSpinSlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flaticonSparkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.1) rotate(-6deg);
+    filter: brightness(1.25);
+  }
+  75% {
+    transform: scale(1.06) rotate(6deg);
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes flaticonGlowBreath {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(6, 182, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+}
+
+.flaticon-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: middle;
+  font-style: normal;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+
+.flaticon-pulse {
+  animation: flaticonPulse 3s ease-in-out infinite;
+}
+
+.flaticon-float {
+  animation: flaticonFloat 3.4s ease-in-out infinite;
+}
+
+.flaticon-spin-slow {
+  animation: flaticonSpinSlow 14s linear infinite;
+}
+
+.flaticon-sparkle {
+  animation: flaticonSparkle 3.2s ease-in-out infinite;
+}
+
+.flaticon-glow {
+  animation: flaticonGlowBreath 3.5s ease-in-out infinite;
+}
+
+.flaticon-hover-scale {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+
+.flaticon-hover-scale:hover {
+  transform: translateY(-2px) scale(1.15);
+  filter: brightness(1.2);
+}
+
+.flaticon-capsule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.flaticon-capsule:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* ── Premium Import Data Button ────────────────────────────────────────── */
+.btn-premium-import {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px 10px 12px;
+  font-size: 13.5px;
+  font-weight: 650;
+  font-family: var(--font-heading), sans-serif;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(6, 182, 212, 0.04) 100%);
+  color: #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-premium-import:hover {
+  transform: translateY(-2px);
+  border-color: rgba(6, 182, 212, 0.5);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(6, 182, 212, 0.1) 100%);
+  box-shadow: 0 12px 32px rgba(6, 182, 212, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.btn-premium-import:active {
+  transform: translateY(0) scale(0.98);
+}

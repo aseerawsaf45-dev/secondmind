@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User, WifiOff, RefreshCw, Cloud, CloudOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useClerk, useUser } from '@clerk/nextjs';
@@ -46,11 +46,13 @@ import {
   backfillAllItemsToCategoryCollectionsAction,
   Collection,
 } from '@/lib/db-collections';
-import { CATEGORY_DEFINITIONS, isItemInCategory } from '@/lib/categories';
+import { CATEGORY_DEFINITIONS, DEFAULT_CATEGORY_COLLECTIONS, isItemInCategory } from '@/lib/categories';
+import { CollectionIcon, ContentTypeIcon, getFilterIconElement, FlaticonIcon } from '@/components/icons/PremiumIcons';
+import { Brain, FileCheck, FileText, Globe, Video, Zap } from 'lucide-react';
 
 type SortOption = 'newest' | 'oldest' | 'favorites';
 
-export default function Dashboard({ user: serverUser }: { user: any }) {
+export default function Dashboard({ user: serverUser }: { user: { id: string; email?: string; fullName?: string; avatarUrl?: string } | null }) {
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
 
@@ -88,10 +90,73 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'info' | 'error' } | null>(null);
   const [migrationPrompt, setMigrationPrompt] = useState<{ count: number } | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(true);
-  const [proTipsDismissed, setProTipsDismissed] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isOffline, setIsOffline] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('secondmind_onboarding_dismissed') === '1';
+    }
+    return true;
+  });
+
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const importedList = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed.items)
+        ? parsed.items
+        : [];
+      if (!importedList.length) {
+        showToast('No valid memories found in JSON file', 'error');
+        return;
+      }
+      if (userId === 'guest') {
+        for (const item of importedList) {
+          await localDb.saveItem(item);
+        }
+      } else if (userId) {
+        for (const item of importedList) {
+          await saveItemAction(userId, {
+            type: (item.type as 'link' | 'note' | 'image' | 'pdf' | 'tweet' | 'video') || 'link',
+            title: item.title || 'Imported Memory',
+            content: item.content || '',
+            url: item.url || '',
+            tags: Array.isArray(item.tags) ? item.tags : [],
+            summary: item.summary || '',
+          });
+        }
+      }
+      await loadData();
+      showToast(`Successfully imported ${importedList.length} memories!`, 'success');
+    } catch {
+      showToast('Failed to parse JSON file', 'error');
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+  const [proTipsDismissed, setProTipsDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('secondmind_protips_dismissed') === '1';
+    }
+    return false;
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('secondmind_view_mode');
+      if (saved === 'list' || saved === 'grid') return saved;
+    }
+    return 'grid';
+  });
+  const [isOffline, setIsOffline] = useState(() => {
+    if (typeof navigator !== 'undefined') {
+      return !navigator.onLine;
+    }
+    return false;
+  });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const searchParams = useSearchParams();
@@ -105,37 +170,34 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     const sharedUrl = searchParams.get('url');
 
     if (sharedTitle || sharedText || sharedUrl) {
-      // Build a combined note or prioritize URL
-      const combined = [sharedTitle, sharedText, sharedUrl].filter(Boolean).join('\n');
-      
-      // If it looks like a URL, pre-fill the URL tab. Otherwise, the note tab.
-      if (sharedUrl || (sharedText && (sharedText.startsWith('http') || sharedText.includes('://')))) {
-        setInitialCaptureUrl(sharedUrl || sharedText || '');
-        setInitialCaptureNote(sharedTitle || '');
-      } else {
-        setInitialCaptureNote(combined);
-        setInitialCaptureUrl('');
-      }
-      
-      setCaptureOpen(true);
-      
-      // Clean up the URL so refreshing doesn't re-trigger capture
-      window.history.replaceState({}, '', '/app');
+      const timer = setTimeout(() => {
+        // Build a combined note or prioritize URL
+        const combined = [sharedTitle, sharedText, sharedUrl].filter(Boolean).join('\n');
+        
+        // If it looks like a URL, pre-fill the URL tab. Otherwise, the note tab.
+        if (sharedUrl || (sharedText && (sharedText.startsWith('http') || sharedText.includes('://')))) {
+          setInitialCaptureUrl(sharedUrl || sharedText || '');
+          setInitialCaptureNote(sharedTitle || '');
+        } else {
+          setInitialCaptureNote(combined);
+          setInitialCaptureUrl('');
+        }
+        
+        setCaptureOpen(true);
+        
+        // Clean up the URL so refreshing doesn't re-trigger capture
+        window.history.replaceState({}, '', '/app');
+      }, 0);
+
+      return () => clearTimeout(timer);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('secondmind_view_mode');
-      if (saved === 'list' || saved === 'grid') setViewMode(saved);
-    }
-  }, []);
 
   const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode);
     try {
       localStorage.setItem('secondmind_view_mode', mode);
-    } catch (_) {}
+    } catch {}
   };
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
@@ -150,19 +212,105 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('secondmind_onboarding_dismissed', '1');
-      } catch (_) {}
+      } catch {}
     }
   }, []);
 
-  // Initialize tips and onboarding dismissed state
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const tipsDismissed = localStorage.getItem('secondmind_protips_dismissed') === '1';
-      if (tipsDismissed) setProTipsDismissed(true);
-      const dismissed = localStorage.getItem('secondmind_onboarding_dismissed');
-      if (dismissed === '1') setOnboardingDismissed(true);
+  // Load items and collections from Database or Local Offline Cache
+  const loadData = useCallback(async () => {
+    if (!userId) return;
+    const activeUserId = userId;
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+    // Seed default smart category collections and assign categories
+    if (userId === 'guest') {
+      await localDb.seedDefaultCollections();
+      await localDb.autoAssignItemToCollections();
+    } else if (online && userId !== 'offline-user') {
+      await seedDefaultCollectionsAction(activeUserId).catch(() => {});
+      backfillAllItemsToCategoryCollectionsAction(activeUserId).catch(() => {});
     }
-  }, []);
+
+    let fetchedItems: MemoryItem[] = [];
+    let fetchedCollections: Collection[] = [];
+    let itemMap: Record<string, string[]> = {};
+
+    if (userId === 'guest') {
+      [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
+        localDb.fetchItems(),
+        localDb.fetchCollections(),
+        localDb.fetchCollectionItemMap(),
+      ]);
+    } else if (!online || userId === 'offline-user') {
+      // Offline mode: load from device cache
+      const cached = await offlineSync.getCachedUserDataAsync(activeUserId);
+      fetchedItems = cached.items || [];
+      fetchedCollections = cached.collections || [];
+      itemMap = cached.itemMap || {};
+    } else {
+      // Online cloud user: load from cloud, gracefully fall back to cache on any error
+      try {
+        [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
+          fetchItemsAction(activeUserId),
+          fetchCollectionsAction(activeUserId),
+          fetchCollectionItemMapAction(activeUserId),
+        ]);
+        // Persist to user offline cache for seamless offline resilience
+        offlineSync.cacheUserData(activeUserId, fetchedItems, fetchedCollections, itemMap);
+      } catch (err) {
+        console.warn('[Dashboard] Cloud load error, falling back to local cache:', err);
+        const cached = await offlineSync.getCachedUserDataAsync(activeUserId);
+        fetchedItems = cached.items || [];
+        fetchedCollections = cached.collections || [];
+        itemMap = cached.itemMap || {};
+      }
+    }
+
+    // Comprehensive Fallback: Ensure user ALWAYS has collections visible
+    if (!fetchedCollections || fetchedCollections.length === 0) {
+      fetchedCollections = DEFAULT_CATEGORY_COLLECTIONS.map(def => ({
+        id: `default-${def.id || def.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name: def.name,
+        emoji: def.emoji,
+        color: def.color,
+        isSmart: true,
+        rules: { matchTags: def.matchTags },
+        itemCount: 0,
+      }));
+    }
+
+    setItems(fetchedItems);
+    setCollections(fetchedCollections);
+    setItemCollectionMap(itemMap);
+    setLoading(false);
+    setPendingSyncCount(offlineSync.getPendingCount());
+
+    // Only show onboarding modal for true first-time users (0 items and never dismissed)
+    const isDismissed = typeof window !== 'undefined' && localStorage.getItem('secondmind_onboarding_dismissed') === '1';
+    if (isDismissed || fetchedItems.length > 0) {
+      setOnboardingDismissed(true);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('secondmind_onboarding_dismissed', '1');
+        } catch {}
+      }
+    } else {
+      // First-time user with 0 items
+      setOnboardingDismissed(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      if (isMounted) {
+        await loadData();
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [loadData]);
 
   // Sync pending offline actions when internet is restored
   const handleSyncPending = useCallback(async () => {
@@ -183,21 +331,29 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       setPendingSyncCount(offlineSync.getPendingCount());
 
       if (result.syncedCount > 0) {
-        showToast(`✨ Synced ${result.syncedCount} offline change${result.syncedCount > 1 ? 's' : ''} to cloud!`, 'success');
+        showToast(`✨ Synced ${result.syncedCount} offline change${result.syncedCount > 1 ? 's' : ''} to database!`, 'success');
+        await loadData();
       }
     } catch (err) {
       console.warn('[Dashboard] Sync pending failed:', err);
     } finally {
       setIsSyncing(false);
     }
-  }, [isSyncing, userId, showToast]);
+  }, [isSyncing, userId, showToast, loadData]);
 
   // Network connection monitor
   useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-      setIsOffline(!navigator.onLine);
-      setPendingSyncCount(offlineSync.getPendingCount());
-    }
+    const timer = setTimeout(() => {
+      if (typeof navigator !== 'undefined') {
+        const online = navigator.onLine;
+        setIsOffline(!online);
+        const pending = offlineSync.getPendingCount();
+        setPendingSyncCount(pending);
+        if (online && pending > 0 && !isSyncing) {
+          handleSyncPending();
+        }
+      }
+    }, 0);
 
     const unsubscribe = offlineSync.listenToNetworkStatus((online) => {
       setIsOffline(!online);
@@ -210,84 +366,21 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       }
     });
 
-    return unsubscribe;
-  }, [handleSyncPending, showToast]);
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [handleSyncPending, showToast, isSyncing]);
 
-  // Load items and collections from Database or Local Offline Cache
-  const loadData = useCallback(async () => {
-    if (!userId) return;
-    const activeUserId = userId;
-    const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
-
-    // Seed default smart category collections and assign categories
-    if (userId === 'guest') {
-      await localDb.seedDefaultCollections();
-      await localDb.autoAssignItemToCollections();
-    } else if (online && userId !== 'offline-user') {
-      seedDefaultCollectionsAction(activeUserId)
-        .then(() => backfillAllItemsToCategoryCollectionsAction(activeUserId))
-        .catch(() => {});
-    }
-
-    let fetchedItems: MemoryItem[] = [];
-    let fetchedCollections: Collection[] = [];
-    let itemMap: Record<string, string[]> = {};
-
-    if (userId === 'guest') {
-      [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
-        localDb.fetchItems(),
-        localDb.fetchCollections(),
-        localDb.fetchCollectionItemMap(),
-      ]);
-    } else if (!online || userId === 'offline-user') {
-      // Offline mode: load from device cache
-      const cached = offlineSync.getCachedUserData(activeUserId);
-      fetchedItems = cached.items;
-      fetchedCollections = cached.collections;
-      itemMap = cached.itemMap;
-    } else {
-      // Online cloud user: load from cloud, gracefully fall back to cache on any error
-      try {
-        [fetchedItems, fetchedCollections, itemMap] = await Promise.all([
-          fetchItemsAction(activeUserId),
-          fetchCollectionsAction(activeUserId),
-          fetchCollectionItemMapAction(activeUserId),
-        ]);
-        // Persist to user offline cache for seamless offline resilience
-        offlineSync.cacheUserData(activeUserId, fetchedItems, fetchedCollections, itemMap);
-      } catch (err) {
-        console.warn('[Dashboard] Cloud load error, falling back to local cache:', err);
-        const cached = offlineSync.getCachedUserData(activeUserId);
-        fetchedItems = cached.items;
-        fetchedCollections = cached.collections;
-        itemMap = cached.itemMap;
-      }
-    }
-
-    setItems(fetchedItems);
-    setCollections(fetchedCollections);
-    setItemCollectionMap(itemMap);
-    setLoading(false);
-    setPendingSyncCount(offlineSync.getPendingCount());
-
-    // Only show onboarding modal for true first-time users (0 items and never dismissed)
-    const isDismissed = typeof window !== 'undefined' && localStorage.getItem('secondmind_onboarding_dismissed') === '1';
-    if (isDismissed || fetchedItems.length > 0) {
-      setOnboardingDismissed(true);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('secondmind_onboarding_dismissed', '1');
-        } catch (_) {}
-      }
-    } else {
-      // First-time user with 0 items
-      setOnboardingDismissed(false);
-    }
-  }, [userId]);
-
+  // Automatically trigger sync when Clerk authentication is re-established
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (clerkUser && offlineSync.getPendingCount() > 0 && !isSyncing && offlineSync.isOnline()) {
+      const timer = setTimeout(() => {
+        handleSyncPending();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [clerkUser, handleSyncPending, isSyncing]);
 
   // Purge any legacy template data or demo cookies from guest mode
   useEffect(() => {
@@ -299,9 +392,9 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       if (raw && raw.includes('demo-')) {
         try {
           const parsed = JSON.parse(raw);
-          const clean = parsed.filter((i: any) => !i.id?.startsWith('demo-'));
+          const clean = parsed.filter((i: { id?: string }) => !i.id?.startsWith('demo-'));
           localStorage.setItem('secondmind_guest_items', JSON.stringify(clean));
-        } catch (_) {}
+        } catch {}
       }
     }
   }, []);
@@ -504,7 +597,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     [items, userId, showToast]
   );
 
-  const handleCreateCollection = async (data: any) => {
+  const handleCreateCollection = async (data: Partial<Collection> & { name: string; itemIds?: string[] }) => {
     if (!userId) return;
     const { itemIds, ...collectionData } = data;
     let saved: Collection | null = null;
@@ -796,7 +889,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
   );
 
   const handleUpdate = useCallback(
-    async (id: string, data: any) => {
+    async (id: string, data: Partial<MemoryItem>) => {
       if (!userId) return;
       setItems(prev => prev.map(i => (i.id === id ? { ...i, ...data } : i)));
       setSelectedItem(prev => (prev?.id === id ? { ...prev, ...data } : prev));
@@ -889,23 +982,40 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         }
       } else if (!offlineSync.isOnline() || userId === 'offline-user') {
         // Direct local save for offline operation
+        let fallbackTitle = data.title;
+        if (!fallbackTitle && data.url) {
+          try {
+            const h = new URL(data.url).hostname.replace('www.', '');
+            fallbackTitle = h ? `${h.charAt(0).toUpperCase() + h.slice(1)} Link` : data.url;
+          } catch (_) {
+            fallbackTitle = data.url;
+          }
+        }
+
         const offlineSaved: MemoryItem = {
           ...placeholder,
           id: `offline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          summary: data.summary || placeholder.summary || 'Saved locally offline',
-          tags: data.tags || ['Offline'],
+          title: fallbackTitle || 'Offline Link',
+          summary: data.summary && data.summary !== 'Saving...' ? data.summary : 'Saved locally offline. Will sync to database when reconnected.',
+          tags: data.tags && data.tags.length > 0 ? (data.tags.includes('Offline') ? data.tags : [...data.tags, 'Offline']) : ['Offline', 'Link'],
+          aiProcessed: false,
         };
         offlineSync.addOfflineItem(activeUserId, offlineSaved);
         offlineSync.enqueueAction({
           type: 'save',
           userId: activeUserId,
-          payload: data,
+          payload: {
+            ...data,
+            title: offlineSaved.title,
+            summary: offlineSaved.summary,
+            tags: offlineSaved.tags,
+          },
           tempId: offlineSaved.id,
           createdAt: Date.now(),
         });
         setPendingSyncCount(offlineSync.getPendingCount());
         setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
-        showToast('💾 Memory saved to local device! Will sync when reconnected.', 'info');
+        showToast('💾 Link cached locally! Will sync to database when reconnected.', 'info');
 
         if (activeFilter.startsWith('collection:')) {
           const collId = activeFilter.slice(11);
@@ -932,23 +1042,40 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           }
         } catch (err) {
           console.warn('[Dashboard] Cloud save failed, falling back to local offline storage:', err);
+          let fallbackTitle = data.title;
+          if (!fallbackTitle && data.url) {
+            try {
+              const h = new URL(data.url).hostname.replace('www.', '');
+              fallbackTitle = h ? `${h.charAt(0).toUpperCase() + h.slice(1)} Link` : data.url;
+            } catch (_) {
+              fallbackTitle = data.url;
+            }
+          }
+
           const offlineSaved: MemoryItem = {
             ...placeholder,
             id: `offline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            summary: data.summary || placeholder.summary || 'Saved locally offline',
-            tags: data.tags || ['Offline'],
+            title: fallbackTitle || 'Offline Link',
+            summary: data.summary && data.summary !== 'Saving...' ? data.summary : 'Saved locally offline. Will sync to database when reconnected.',
+            tags: data.tags && data.tags.length > 0 ? (data.tags.includes('Offline') ? data.tags : [...data.tags, 'Offline']) : ['Offline', 'Link'],
+            aiProcessed: false,
           };
           offlineSync.addOfflineItem(activeUserId, offlineSaved);
           offlineSync.enqueueAction({
             type: 'save',
             userId: activeUserId,
-            payload: data,
+            payload: {
+              ...data,
+              title: offlineSaved.title,
+              summary: offlineSaved.summary,
+              tags: offlineSaved.tags,
+            },
             tempId: offlineSaved.id,
             createdAt: Date.now(),
           });
           setPendingSyncCount(offlineSync.getPendingCount());
           setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
-          showToast('💾 Network error: Saved to local device. Will sync to cloud later.', 'info');
+          showToast('💾 Connection unavailable: Link cached locally. Will sync to database automatically.', 'info');
         }
       }
     },
@@ -994,7 +1121,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
       const coll = collections.find(c => c.id === collId);
       if (coll && coll.isSmart) {
         filtered = filtered.filter(i => {
-          const matchTags: string[] = coll.rules?.matchTags || [];
+          const matchTags: string[] = Array.isArray(coll.rules?.matchTags) ? coll.rules.matchTags : [];
           const hasTagMatch = matchTags.some(t => i.tags.includes(t)) || i.tags.includes(coll.name);
           const hasCategoryMatch = isItemInCategory(i, coll.name);
           const isInCollectionMap = itemCollectionMap[i.id]?.includes(collId);
@@ -1040,12 +1167,12 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
     if (activeFilter.startsWith('tag:')) return `#${activeFilter.slice(4)}`;
     if (activeFilter.startsWith('collection:')) {
       const coll = collections.find(c => c.id === activeFilter.slice(11));
-      return coll ? `${coll.emoji} ${coll.name}` : 'Collection';
+      return coll ? coll.name : 'Collection';
     }
     if (activeFilter.startsWith('category:')) {
       const key = activeFilter.slice(9);
       const cat = CATEGORY_DEFINITIONS.find(c => c.id === key || c.name.toLowerCase() === key.toLowerCase());
-      return cat ? `${cat.emoji} ${cat.name}` : 'Category';
+      return cat ? cat.name : 'Category';
     }
     return activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1) + 's';
   };
@@ -1105,8 +1232,21 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           setSidebarOpen(false);
         }}
         onDeleteCollection={handleDeleteCollection}
+        collections={collections.map(c => {
+          if (c.isSmart) {
+            const matchTags: string[] = Array.isArray(c.rules?.matchTags) ? c.rules.matchTags : [];
+            const count = items.filter(i => {
+              const hasTag = matchTags.some(t => i.tags.includes(t)) || i.tags.includes(c.name);
+              const hasCat = isItemInCategory(i, c.name);
+              const inMap = itemCollectionMap[i.id]?.includes(c.id);
+              return hasTag || hasCat || inMap;
+            }).length;
+            return { ...c, itemCount: Math.max(c.itemCount || 0, count) };
+          }
+          const manualCount = items.filter(i => itemCollectionMap[i.id]?.includes(c.id)).length;
+          return { ...c, itemCount: Math.max(c.itemCount || 0, manualCount) };
+        })}
         itemCounts={itemCounts}
-        collections={collections}
         items={items}
         user={activeUser}
         isOpen={sidebarOpen}
@@ -1126,9 +1266,15 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               <Menu size={18} />
             </button>
 
-            <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {getTitle()}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {activeFilter.startsWith('collection:') && (() => {
+                const coll = collections.find(c => c.id === activeFilter.slice(11));
+                return coll ? <CollectionIcon name={coll.name} color={coll.color} size={15} badgeSize={26} /> : null;
+              })()}
+              <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                {getTitle()}
+              </h1>
+            </div>
             {filteredItems !== null && (
               <span
                 style={{
@@ -1608,7 +1754,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px', minWidth: 0 }}>
-              <span style={{ fontSize: '14px', flexShrink: 0 }}>⚡</span>
+              <Zap size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
               <div style={{ minWidth: 0 }}>
                 <strong>Guest Mode</strong> — Local preview mode.
                 <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '6px' }} className="hide-xs">
@@ -1669,8 +1815,8 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{ color: '#66A4AC', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '10px' }}>
-                ⚡ POWER TIPS:
+              <span style={{ color: '#66A4AC', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={11} style={{ color: '#06B6D4' }} /> POWER TIPS:
               </span>
               <span style={{ color: 'var(--text-secondary)' }}>
                 Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>⌘K</kbd> to ask anything
@@ -1704,25 +1850,33 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         {/* Horizontal Quick-Filter Strip */}
         <div className="horizontal-filter-strip">
           {[
-            { id: 'all', label: 'All', icon: '🧠' },
-            { id: 'favorites', label: 'Favorites', icon: '⭐' },
-            { id: 'ai-insights', label: 'AI Insights', icon: '✨' },
-            { id: 'graph', label: 'Graph', icon: '🕸️' },
-            { id: 'link', label: 'Links', icon: '🔗' },
-            { id: 'video', label: 'Videos', icon: '🎬' },
-            { id: 'tweet', label: 'X / Tweets', icon: '𝕏' },
-            { id: 'note', label: 'Notes', icon: '📝' },
-            { id: 'pdf', label: 'PDFs', icon: '📄' },
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setActiveFilter(f.id)}
-              className={`horizontal-filter-pill ${activeFilter === f.id ? 'active' : ''}`}
-            >
-              <span>{f.icon}</span>
-              <span>{f.label}</span>
-            </button>
-          ))}
+            { id: 'all', label: 'All' },
+            { id: 'favorites', label: 'Favorites' },
+            { id: 'ai-insights', label: 'AI Insights' },
+            { id: 'graph', label: 'Graph' },
+            { id: 'link', label: 'Links' },
+            { id: 'video', label: 'Videos' },
+            { id: 'tweet', label: 'X / Tweets' },
+            { id: 'note', label: 'Notes' },
+            { id: 'pdf', label: 'PDFs' },
+          ].map(f => {
+            const isActive = activeFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setActiveFilter(f.id)}
+                className={`horizontal-filter-pill ${isActive ? 'active' : ''}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {getFilterIconElement(f.id, isActive ? '#67E8F9' : 'rgba(255,255,255,0.6)', 13)}
+                <span>{f.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Body */}
@@ -1740,7 +1894,7 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
           ) : activeFilter === 'graph' ? (
             <GraphView items={items} onSelectItem={item => setSelectedItem(item)} />
           ) : filteredItems !== null && filteredItems.length === 0 ? (
-            <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} />
+            <EmptyState filter={activeFilter} onCapture={() => setCaptureOpen(true)} onImport={() => importFileInputRef.current?.click()} />
           ) : filteredItems !== null ? (
             viewMode === 'grid' ? (
               <motion.div 
@@ -1888,6 +2042,15 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
         onSave={handleCreateCollection}
         items={items}
       />
+      {/* Hidden File Input for JSON Memory Import */}
+      <input
+        type="file"
+        ref={importFileInputRef}
+        accept=".json"
+        onChange={handleImportJsonFile}
+        style={{ display: 'none' }}
+      />
+
       <CaptureModal
         isOpen={captureOpen}
         onClose={() => {
@@ -2035,6 +2198,79 @@ export default function Dashboard({ user: serverUser }: { user: any }) {
               >
                 Download My Data (JSON)
               </a>
+            </div>
+
+            {/* Import Data Section */}
+            <div
+              style={{
+                padding: '16px',
+                background: 'rgba(6,182,212,0.04)',
+                border: '1px solid rgba(6,182,212,0.18)',
+                borderRadius: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#67E8F9',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '6px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <FlaticonIcon name="cloud-download" variant="bold" animation="float" size={13} color="#67E8F9" />
+                Data Import
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+                Restore or import a JSON backup file to populate your memories and knowledge graph.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  importFileInputRef.current?.click();
+                }}
+                className="btn-premium-import"
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    background: 'rgba(6, 182, 212, 0.25)',
+                  }}
+                >
+                  <FlaticonIcon name="cloud-download" variant="bold" animation="float" size={12} color="#38BDF8" />
+                </span>
+                <span>Select JSON File to Import</span>
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono), monospace',
+                    color: '#67E8F9',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  .JSON
+                </span>
+              </button>
             </div>
 
             <div
@@ -2637,18 +2873,47 @@ function LoadingState() {
   );
 }
 
-function EmptyState({ filter, onCapture }: { filter: string; onCapture: () => void }) {
-  const messages: Record<string, { emoji: string; title: string; sub: string }> = {
-    favorites: { emoji: '⭐', title: 'No favorites yet', sub: 'Star items you want to revisit quickly' },
-    link: { emoji: '🔗', title: 'No links saved', sub: 'Save URLs to articles, tools, and resources' },
-    note: { emoji: '📝', title: 'No notes yet', sub: 'Capture thoughts, ideas, and insights' },
-    pdf: { emoji: '📄', title: 'No PDFs saved', sub: 'Upload research papers and documents' },
-    tweet: { emoji: '𝕏', title: 'No tweets saved', sub: 'Capture interesting tweets you want to remember' },
-    video: { emoji: '🎬', title: 'No videos saved', sub: 'Save YouTube links and video content' },
+function EmptyState({ filter, onCapture, onImport }: { filter: string; onCapture: () => void; onImport?: () => void }) {
+  const messages: Record<string, { icon: React.ReactNode; title: string; sub: string }> = {
+    favorites: {
+      icon: <FlaticonIcon name="star" variant="solid" animation="sparkle" size={38} color="#F59E0B" />,
+      title: 'No favorites yet',
+      sub: 'Star items you want to revisit quickly',
+    },
+    link: {
+      icon: <FlaticonIcon name="link" variant="bold" animation="float" size={38} color="#38BDF8" />,
+      title: 'No links saved',
+      sub: 'Save URLs to articles, tools, and resources',
+    },
+    note: {
+      icon: <FlaticonIcon name="document" variant="bold" animation="float" size={38} color="#06B6D4" />,
+      title: 'No notes yet',
+      sub: 'Capture thoughts, ideas, and insights',
+    },
+    pdf: {
+      icon: <FlaticonIcon name="document" variant="bold" animation="pulse" size={38} color="#F59E0B" />,
+      title: 'No PDFs saved',
+      sub: 'Upload research papers and documents',
+    },
+    tweet: {
+      icon: (
+        <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#38BDF8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flaticon-icon flaticon-float">
+          <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
+          <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+        </svg>
+      ),
+      title: 'No tweets saved',
+      sub: 'Capture interesting tweets you want to remember',
+    },
+    video: {
+      icon: <FlaticonIcon name="video" variant="bold" animation="pulse" size={38} color="#F43F5E" />,
+      title: 'No videos saved',
+      sub: 'Save YouTube links and video content',
+    },
   };
 
   const msg = messages[filter] || {
-    emoji: '🧠',
+    icon: <FlaticonIcon name="brain" variant="solid" animation="pulse" size={40} color="#06B6D4" />,
     title: 'Your SecondMind is Ready',
     sub: 'Transform scattered notes, links, and documents into an answerable knowledge base.',
   };
@@ -2669,17 +2934,16 @@ function EmptyState({ filter, onCapture }: { filter: string; onCapture: () => vo
         width: '80px',
         height: '80px',
         borderRadius: '24px',
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0.15) 100%)',
-        border: '1px solid rgba(6, 182, 212, 0.3)',
+        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.22) 0%, rgba(6, 182, 212, 0.08) 100%)',
+        border: '1px solid rgba(6, 182, 212, 0.35)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '40px',
         marginBottom: '20px',
         boxShadow: '0 20px 40px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
         backdropFilter: 'blur(20px)',
       }}>
-        {msg.emoji}
+        {msg.icon}
       </div>
       <h2
         style={{
@@ -2740,28 +3004,86 @@ function EmptyState({ filter, onCapture }: { filter: string; onCapture: () => vo
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button onClick={onCapture} className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '14px', borderRadius: '12px' }}>
-          <Sparkles size={16} />
-          Save Content
+      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+        <button
+          onClick={onCapture}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px 22px 10px 14px',
+            fontSize: '13.5px',
+            fontWeight: 700,
+            fontFamily: 'var(--font-heading), sans-serif',
+            borderRadius: '13px',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            background: 'linear-gradient(135deg, #06B6D4 0%, #0369A1 100%)',
+            color: '#FFFFFF',
+            cursor: 'pointer',
+            boxShadow: '0 8px 28px rgba(6, 182, 212, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+          className="landing-cta-primary"
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: '7px',
+              background: 'rgba(255, 255, 255, 0.2)',
+            }}
+          >
+            <FlaticonIcon name="bolt" variant="bold" animation="pulse" size={13} color="#FFFFFF" />
+          </span>
+          <span>Save Content</span>
         </button>
+
         {filter === 'all' && (
-          <>
-            <button
-              onClick={() => alert('Import from Notion/Evernote coming soon!')}
-              className="btn btn-ghost"
+          <button
+            onClick={onImport || (() => alert('Import from Notion, Evernote, or JSON coming soon!'))}
+            className="btn-premium-import"
+            title="Import memories from JSON backup or external export"
+          >
+            {/* Premium Embossed Logo Capsule */}
+            <span
               style={{
-                padding: '12px 20px',
-                fontSize: '14px',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.15)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#FFFFFF',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.28) 0%, rgba(56, 189, 248, 0.12) 100%)',
+                border: '1px solid rgba(6, 182, 212, 0.45)',
+                boxShadow: '0 0 14px rgba(6, 182, 212, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+                flexShrink: 0,
               }}
             >
-              📥 Import Data
-            </button>
-          </>
+              <FlaticonIcon name="cloud-download" variant="bold" animation="float" size={14} color="#38BDF8" />
+            </span>
+
+            <span>Import Data</span>
+
+            {/* Micro pill badge */}
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                fontFamily: 'var(--font-mono), monospace',
+                color: '#67E8F9',
+                background: 'rgba(6, 182, 212, 0.14)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '5px',
+                letterSpacing: '0.04em',
+              }}
+            >
+              JSON
+            </span>
+          </button>
         )}
       </div>
     </div>

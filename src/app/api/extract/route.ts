@@ -3,7 +3,115 @@ import * as cheerio from 'cheerio';
 import { extractYouTubeVideoId, fetchYouTubeOEmbed, isYouTubeUrl, getYouTubeThumbnailUrl } from '@/lib/youtube';
 import { isFacebookUrl, extractFacebookMetadata } from '@/lib/facebook';
 import { isTwitterUrl, extractTwitterMetadata } from '@/lib/twitter';
-import { classifyContent, generateAISummary, synthesizeContentWithAI } from '@/lib/ai-engine';
+import { classifyContent, synthesizeContentWithAI } from '@/lib/ai-engine';
+
+function isSafePublicUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const rawHostname = parsed.hostname.toLowerCase();
+    const cleanHost = rawHostname.replace(/^\[|\]$/g, '');
+
+    // Block localhost, loopback, and unassigned
+    if (
+      cleanHost === 'localhost' ||
+      cleanHost === '127.0.0.1' ||
+      cleanHost === '0.0.0.0' ||
+      cleanHost === '::1' ||
+      cleanHost === '::' ||
+      cleanHost.endsWith('.localhost')
+    ) {
+      return false;
+    }
+
+    // Block single-integer IP notation (e.g. 2130706433)
+    if (/^\d+$/.test(cleanHost)) {
+      return false;
+    }
+
+    // Block Cloud metadata link-local addresses
+    if (cleanHost.startsWith('169.254.') || cleanHost === 'metadata.google.internal' || cleanHost.endsWith('.metadata.google.internal')) {
+      return false;
+    }
+
+    // Block RFC 1918 private IPv4 ranges
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return false;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return false;
+    if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return false;
+    // Block Carrier-Grade NAT (RFC 6598)
+    if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(cleanHost)) return false;
+
+    // Block IPv6 link-local and unique-local / mapped IPv4
+    if (
+      cleanHost.startsWith('fe80:') ||
+      cleanHost.startsWith('fc') ||
+      cleanHost.startsWith('fd') ||
+      cleanHost.includes('::ffff:')
+    ) {
+      return false;
+    }
+
+    // Block internal network domain extensions
+    if (
+      cleanHost.endsWith('.internal') ||
+      cleanHost.endsWith('.local') ||
+      cleanHost.endsWith('.lan') ||
+      cleanHost.endsWith('.corp') ||
+      cleanHost.endsWith('.home') ||
+      cleanHost.endsWith('.arpa')
+    ) {
+      return false;
+    }
+
+    // Only allow standard web ports
+    if (parsed.port && !['80', '443', '8080', '8443'].includes(parsed.port)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates each hop in redirect chains to prevent Open-Redirect SSRF bypasses.
+ */
+async function safeFetch(url: string, signal: AbortSignal, maxRedirects = 3): Promise<Response | null> {
+  let currentUrl = url;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (!isSafePublicUrl(currentUrl)) {
+      return null;
+    }
+
+    const res = await fetch(currentUrl, {
+      signal,
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const location = res.headers.get('location');
+      if (!location) return null;
+      try {
+        const nextUrl = new URL(location, currentUrl).toString();
+        currentUrl = nextUrl;
+        continue;
+      } catch {
+        return null;
+      }
+    }
+
+    return res;
+  }
+  return null;
+}
 
 export async function POST(request: Request) {
   let targetUrl = '';
@@ -44,6 +152,13 @@ export async function POST(request: Request) {
 
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl;
+    }
+
+    if (!isSafePublicUrl(targetUrl)) {
+      return NextResponse.json(
+        { error: 'Invalid or restricted URL provided.' },
+        { status: 400 }
+      );
     }
 
     const domain = new URL(targetUrl).hostname.replace('www.', '');
@@ -102,14 +217,9 @@ export async function POST(request: Request) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    let res;
+    let res: Response | null = null;
     try {
-      res = await fetch(targetUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-        }
-      });
+      res = await safeFetch(targetUrl, controller.signal, 3);
     } catch {
       res = null;
     } finally {
@@ -132,7 +242,19 @@ export async function POST(request: Request) {
       });
     }
 
-    const html = await res.text();
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType && !/text\/html|text\/plain|application\/xhtml\+xml|application\/xml/i.test(contentType)) {
+      return NextResponse.json({
+        title: domain,
+        description: `Saved bookmark from ${domain}.`,
+        image: '',
+        tags: classifyContent(`${domain} ${targetUrl}`, [], { title: domain, url: targetUrl }),
+      });
+    }
+
+    const rawTextResponse = await res.text();
+    // Cap memory buffer to 2MB to prevent memory exhaustion
+    const html = rawTextResponse.slice(0, 2 * 1024 * 1024);
     const $ = cheerio.load(html);
 
     const title = $('meta[property="og:title"]').attr('content') || $('title').text() || domain;

@@ -1,17 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import type { MemoryItem } from '@/lib/data';
 
-interface LinkableTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface LinkableTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   items: MemoryItem[];
   value: string;
-  onChange: (e: any) => void;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement> | { target: { value: string } }) => void;
 }
 
 export default function LinkableTextarea({ items, value, onChange, ...props }: LinkableTextareaProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
-  const [suggestionPos, setSuggestionPos] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
   const [selectedIndex, setSelectedIndex] = useState(0);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -20,11 +19,9 @@ export default function LinkableTextarea({ items, value, onChange, ...props }: L
     i.title.toLowerCase().includes(suggestionQuery.toLowerCase())
   ).slice(0, 8);
 
-  const handleInput = (e: any) => {
-    onChange(e);
-    
-    const text = e.target.value;
-    const pos = e.target.selectionStart;
+  const updateCursorAndSuggestions = (target: HTMLTextAreaElement) => {
+    const text = target.value;
+    const pos = target.selectionStart;
     setCursorPos(pos);
     
     // Look backwards from cursor to see if we are inside [[
@@ -38,13 +35,18 @@ export default function LinkableTextarea({ items, value, onChange, ...props }: L
       setSuggestionQuery(query);
       setShowSuggestions(true);
       setSelectedIndex(0);
-      
-      // Calculate rough position for dropdown
-      // (A robust solution uses getCaretCoordinates, but this is a simple approximation)
-      // We can just place it relative to the textarea using getBoundingClientRect
     } else {
       setShowSuggestions(false);
     }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e);
+    updateCursorAndSuggestions(e.currentTarget);
+  };
+
+  const handleCursorMove = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    updateCursorAndSuggestions(e.currentTarget);
   };
 
   const insertLink = (title: string) => {
@@ -61,7 +63,7 @@ export default function LinkableTextarea({ items, value, onChange, ...props }: L
       const mockEvent = {
         target: { value: newText }
       };
-      onChange(mockEvent as any);
+      onChange(mockEvent);
       setShowSuggestions(false);
       
       // Return focus to textarea and place cursor after ]]
@@ -104,8 +106,8 @@ export default function LinkableTextarea({ items, value, onChange, ...props }: L
         value={value}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
-        onClick={handleInput}
-        onKeyUp={handleInput}
+        onClick={handleCursorMove}
+        onKeyUp={handleCursorMove}
       />
       
       {showSuggestions && filteredItems.length > 0 && (

@@ -21,11 +21,9 @@ import {
   X,
   Trash2,
   PanelLeftClose,
-  PanelLeftOpen,
   HardDrive,
   CheckCircle2,
   Tag as TagIcon,
-  ArrowUpDown,
   LogIn,
   LogOut,
   UserCheck,
@@ -34,6 +32,7 @@ import { Collection } from '@/lib/db-collections';
 import type { MemoryItem } from '@/lib/data';
 import { UserButton, useClerk } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CollectionIcon, ContentTypeIcon, FlaticonIcon } from '@/components/icons/PremiumIcons';
 
 const DEFAULT_PRESET_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
 
@@ -48,7 +47,7 @@ interface SidebarProps {
   itemCounts: Record<string, number>;
   collections: Collection[];
   items?: MemoryItem[];
-  user?: any;
+  user?: { id?: string; email?: string | null; fullName?: string | null; primaryEmailAddress?: { emailAddress?: string } | null; imageUrl?: string } | null;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -136,7 +135,7 @@ export default function Sidebar({
         // eslint-disable-next-line
         setIsCollapsed(true);
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, []);
@@ -146,7 +145,7 @@ export default function Sidebar({
       const next = !prev;
       try {
         localStorage.setItem('secondmind_sidebar_collapsed', String(next));
-      } catch (_) {}
+      } catch {}
       return next;
     });
   };
@@ -174,18 +173,18 @@ export default function Sidebar({
   const usedPercent = Math.min(100, Math.round((totalItems / maxGuestItems) * 100));
 
   const navItems = [
-    { id: 'all', label: 'All Memory', icon: <LayoutGrid size={18} />, count: itemCounts.all, shortcut: '1' },
-    { id: 'favorites', label: 'Favorites', icon: <Star size={18} />, count: itemCounts.favorites, shortcut: '2' },
-    { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={18} />, count: null, isAi: true, shortcut: '3' },
-    { id: 'recent', label: 'Recently Added', icon: <Zap size={18} />, count: null, shortcut: '4' },
+    { id: 'all', label: 'All Memory', icon: <FlaticonIcon name="grid" variant="solid" animation="pulse" size={17} />, count: itemCounts.all, shortcut: '1' },
+    { id: 'favorites', label: 'Favorites', icon: <FlaticonIcon name="star" variant="solid" animation="sparkle" size={17} color="#F59E0B" />, count: itemCounts.favorites, shortcut: '2' },
+    { id: 'ai-insights', label: 'AI Insights', icon: <FlaticonIcon name="brain" variant="solid" animation="pulse" size={17} color="#06B6D4" />, count: null, isAi: true, shortcut: '3' },
+    { id: 'recent', label: 'Recently Added', icon: <FlaticonIcon name="bolt" variant="bold" animation="pulse" size={17} color="#38BDF8" />, count: null, shortcut: '4' },
   ];
 
   const typeItems = [
-    { id: 'link', label: 'Links', icon: <LinkIcon size={16} />, count: itemCounts.link },
-    { id: 'note', label: 'Notes', icon: <FileText size={16} />, count: itemCounts.note },
-    { id: 'pdf', label: 'PDFs', icon: <File size={16} />, count: itemCounts.pdf },
-    { id: 'tweet', label: 'Tweets', icon: <MessageSquare size={16} />, count: itemCounts.tweet },
-    { id: 'video', label: 'Videos', icon: <Video size={16} />, count: itemCounts.video },
+    { id: 'link', label: 'Links', icon: <ContentTypeIcon type="link" size={16} />, count: itemCounts.link },
+    { id: 'note', label: 'Notes', icon: <ContentTypeIcon type="note" size={16} />, count: itemCounts.note },
+    { id: 'pdf', label: 'PDFs', icon: <ContentTypeIcon type="pdf" size={16} />, count: itemCounts.pdf },
+    { id: 'tweet', label: 'Tweets', icon: <ContentTypeIcon type="tweet" size={16} />, count: itemCounts.tweet },
+    { id: 'video', label: 'Videos', icon: <ContentTypeIcon type="video" size={16} />, count: itemCounts.video },
   ];
 
   return (
@@ -426,7 +425,7 @@ export default function Sidebar({
                 transition: 'all 180ms ease',
               }}
             >
-              <Search size={18} />
+              <FlaticonIcon name="search" variant="bold" animation="sparkle" size={18} />
             </motion.button>
             <AnimatePresence>
               {hoveredTooltip === 'Search (⌘K)' && (
@@ -480,7 +479,7 @@ export default function Sidebar({
               transition: 'all 200ms ease-out',
             }}
           >
-            <Search size={16} style={{ color: 'rgba(255, 255, 255, 0.45)' }} />
+            <FlaticonIcon name="search" variant="bold" animation="sparkle" size={16} color="rgba(255, 255, 255, 0.45)" />
             <span style={{ fontSize: '13.5px', color: 'rgba(255, 255, 255, 0.4)', flex: 1 }}>Search memory...</span>
             <kbd
               style={{
@@ -523,7 +522,7 @@ export default function Sidebar({
                 transition: 'all 180ms ease',
               }}
             >
-              <Plus size={20} strokeWidth={2.5} />
+              <FlaticonIcon name="plus" variant="bold" animation="pulse" size={18} color="#FFFFFF" />
             </motion.button>
             <AnimatePresence>
               {hoveredTooltip === 'Save to Memory (C)' && (
@@ -586,7 +585,7 @@ export default function Sidebar({
               overflow: 'hidden',
             }}
           >
-            <Plus size={18} strokeWidth={2.4} />
+            <FlaticonIcon name="plus" variant="bold" animation="pulse" size={16} color="#FFFFFF" />
             <span>Save to Memory</span>
             <span
               style={{
@@ -609,7 +608,7 @@ export default function Sidebar({
 
       {/* PRIMARY NAVIGATION ITEMS */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {navItems.map(({ id, label, icon, count, isAi, shortcut }) => {
+        {navItems.map(({ id, label, icon, count, isAi }) => {
           const isActive = activeFilter === id;
           return (
             <div key={id} style={{ position: 'relative', display: 'flex', justifyContent: isCollapsed ? 'center' : 'stretch' }}>
@@ -779,7 +778,7 @@ export default function Sidebar({
                   transform: expandCollections ? 'rotate(90deg)' : 'rotate(0deg)',
                 }}
               />
-              <FolderKanban size={13} style={{ color: '#38BDF8', flexShrink: 0 }} />
+              <FlaticonIcon name="folder" variant="bold" animation="float" size={13} color="#38BDF8" />
               COLLECTIONS
             </motion.button>
             <motion.button
@@ -804,174 +803,197 @@ export default function Sidebar({
             </motion.button>
           </div>
 
-          <AnimatePresence initial={false}>
-            {expandCollections && (
-              <motion.nav
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}
-              >
-                {collections.map(collection => {
-                  const isActive = activeFilter === `collection:${collection.id}`;
-                  const isHovered = hoveredCollectionId === collection.id;
-                  return (
-                    <div
-                      key={collection.id}
-                      style={{ position: 'relative' }}
-                      onMouseEnter={() => setHoveredCollectionId(collection.id)}
-                      onMouseLeave={() => setHoveredCollectionId(null)}
+          {expandCollections && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {collections.map(collection => {
+                const isActive = activeFilter === `collection:${collection.id}`;
+                const isHovered = hoveredCollectionId === collection.id;
+                return (
+                  <div
+                    key={collection.id}
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setHoveredCollectionId(collection.id)}
+                    onMouseLeave={() => setHoveredCollectionId(null)}
+                  >
+                    <motion.button
+                      whileHover={{ x: 2, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onFilterChange(`collection:${collection.id}`)}
+                      style={{
+                        height: '36px',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '0 10px',
+                        paddingRight: isHovered ? '36px' : '10px',
+                        borderRadius: '8px',
+                        border: isActive ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid transparent',
+                        background: isActive ? 'linear-gradient(90deg, rgba(6, 182, 212, 0.16) 0%, rgba(56, 189, 248, 0.06) 100%)' : 'transparent',
+                        color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: isActive ? 600 : 450,
+                        textAlign: 'left',
+                        transition: 'all 150ms ease-out',
+                      }}
                     >
-                      <motion.button
-                        whileHover={{ x: 2, backgroundColor: 'rgba(255, 255, 255, 0.045)' }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => onFilterChange(`collection:${collection.id}`)}
-                        style={{
-                          height: '36px',
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '0 12px',
-                          paddingRight: isHovered ? '36px' : '12px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: isActive ? 'rgba(6, 182, 212, 0.18)' : 'transparent',
-                          color: isActive ? '#C7D2FE' : 'rgba(255, 255, 255, 0.65)',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: isActive ? 600 : 450,
-                          textAlign: 'left',
-                          transition: 'all 150ms ease-out',
-                        }}
-                      >
-                        <span style={{ fontSize: '14px', lineHeight: 1 }}>{collection.emoji}</span>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {collection.name}
+                      <CollectionIcon name={collection.name} color={collection.color} size={13} badgeSize={24} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {collection.name}
+                      </span>
+                      {collection.itemCount > 0 && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: isActive ? '#67E8F9' : 'rgba(255, 255, 255, 0.45)',
+                            fontFamily: 'var(--font-mono), monospace',
+                            marginRight: isHovered ? '24px' : '4px',
+                            background: isActive ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                          }}
+                        >
+                          {collection.itemCount}
                         </span>
-                        {collection.itemCount > 0 && (
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              color: isActive ? '#A5B4FC' : 'rgba(255, 255, 255, 0.4)',
-                              fontFamily: 'var(--font-mono), monospace',
-                              marginRight: isHovered ? '24px' : '4px',
-                            }}
-                          >
-                            {collection.itemCount}
-                          </span>
-                        )}
-                        {collection.isSmart && <Sparkles size={11} style={{ color: '#06B6D4', flexShrink: 0 }} />}
-                      </motion.button>
+                      )}
+                      {collection.isSmart && <Sparkles size={11} style={{ color: '#06B6D4', flexShrink: 0 }} />}
+                    </motion.button>
 
-                      {/* Delete button */}
-                      <AnimatePresence>
-                        {isHovered && (
-                          <motion.button
-                            initial={{ opacity: 0, scale: 0.7 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.7 }}
-                            transition={{ duration: 0.12 }}
-                            onClick={e => {
-                              e.stopPropagation();
-                              onDeleteCollection(collection.id);
-                            }}
-                            title="Delete collection"
-                            style={{
-                              position: 'absolute',
-                              right: '8px',
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              border: 'none',
-                              background: 'rgba(239, 68, 68, 0.15)',
-                              color: 'rgba(239, 68, 68, 0.8)',
-                              borderRadius: '5px',
-                              width: '22px',
-                              height: '22px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              padding: 0,
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
-                              e.currentTarget.style.color = '#EF4444';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-                              e.currentTarget.style.color = 'rgba(239, 68, 68, 0.8)';
-                            }}
-                          >
-                            <Trash2 size={11} />
-                          </motion.button>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-                {collections.length === 0 && (
-                  <div style={{ padding: '6px 12px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.3)', fontStyle: 'italic' }}>
+                    {/* Delete button */}
+                    <AnimatePresence>
+                      {isHovered && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.7 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.7 }}
+                          transition={{ duration: 0.12 }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            onDeleteCollection(collection.id);
+                          }}
+                          title="Delete collection"
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            border: 'none',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: 'rgba(239, 68, 68, 0.8)',
+                            borderRadius: '5px',
+                            width: '22px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                            e.currentTarget.style.color = '#EF4444';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                            e.currentTarget.style.color = 'rgba(239, 68, 68, 0.8)';
+                          }}
+                        >
+                          <Trash2 size={11} />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+              {collections.length === 0 && (
+                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic' }}>
                     No collections yet
                   </div>
-                )}
-              </motion.nav>
-            )}
-          </AnimatePresence>
+                  <button
+                    onClick={onCreateCollectionOpen}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(6, 182, 212, 0.12)',
+                      border: '1px solid rgba(6, 182, 212, 0.25)',
+                      color: '#67E8F9',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span>Create Collection</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         /* Collapsed Collections Quick Access */
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-          <motion.button
-            whileHover={{ scale: 1.08, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
-            whileTap={{ scale: 0.94 }}
-            onClick={toggleCollapsed}
-            onMouseEnter={() => setHoveredTooltip('Collections')}
-            onMouseLeave={() => setHoveredTooltip(null)}
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              background: 'transparent',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              color: 'rgba(255, 255, 255, 0.55)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <FolderKanban size={18} />
-          </motion.button>
-          <AnimatePresence>
-            {hoveredTooltip === 'Collections' && (
-              <motion.div
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 8 }}
-                style={{
-                  position: 'absolute',
-                  left: '56px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: '#0F111E',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#FFFFFF',
-                  whiteSpace: 'nowrap',
-                  zIndex: 100,
-                  pointerEvents: 'none',
-                }}
-              >
-                Collections ({collections.length})
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '32px', height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+          {collections.slice(0, 6).map(col => {
+            const isActive = activeFilter === `collection:${col.id}`;
+            return (
+              <div key={col.id} style={{ position: 'relative' }}>
+                <motion.button
+                  whileHover={{ scale: 1.1, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onFilterChange(`collection:${col.id}`)}
+                  onMouseEnter={() => setHoveredTooltip(`collection_${col.id}`)}
+                  onMouseLeave={() => setHoveredTooltip(null)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: isActive ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                    border: isActive ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <CollectionIcon name={col.name} color={col.color} size={14} badgeSize={28} />
+                </motion.button>
+                <AnimatePresence>
+                  {hoveredTooltip === `collection_${col.id}` && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 8 }}
+                      style={{
+                        position: 'absolute',
+                        left: '46px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: '#0F111E',
+                        border: '1px solid rgba(255, 255, 255, 0.14)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#FFFFFF',
+                        whiteSpace: 'nowrap',
+                        zIndex: 100,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {col.name} {col.itemCount > 0 ? `(${col.itemCount})` : ''}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1005,6 +1027,7 @@ export default function Sidebar({
                   transform: expandByType ? 'rotate(90deg)' : 'rotate(0deg)',
                 }}
               />
+              <FlaticonIcon name="layers" variant="bold" animation="pulse" size={13} color="#38BDF8" />
               BY TYPE
             </motion.button>
           </div>

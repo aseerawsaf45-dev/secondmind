@@ -13,6 +13,7 @@ export interface Collection {
   emoji: string;
   color: string;
   isSmart: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rules: any;
   itemCount: number;
 }
@@ -36,7 +37,7 @@ export async function fetchCollectionsAction(userId: string): Promise<Collection
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
-    const rows = await db
+    let rows = await db
       .select({
         id: collections.id,
         name: collections.name,
@@ -51,6 +52,25 @@ export async function fetchCollectionsAction(userId: string): Promise<Collection
       .where(eq(collections.userId, verifiedUserId))
       .groupBy(collections.id)
       .orderBy(collections.createdAt);
+
+    if (rows.length === 0) {
+      await seedDefaultCollectionsAction(verifiedUserId);
+      rows = await db
+        .select({
+          id: collections.id,
+          name: collections.name,
+          emoji: collections.emoji,
+          color: collections.color,
+          isSmart: collections.isSmart,
+          rules: collections.rules,
+          itemCount: sql<number>`count(${collectionItems.id})::int`,
+        })
+        .from(collections)
+        .leftJoin(collectionItems, eq(collections.id, collectionItems.collectionId))
+        .where(eq(collections.userId, verifiedUserId))
+        .groupBy(collections.id)
+        .orderBy(collections.createdAt);
+    }
 
     return rows.map(r => ({
       id: r.id,
@@ -69,6 +89,7 @@ export async function fetchCollectionsAction(userId: string): Promise<Collection
 
 export async function createCollectionAction(
   userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: { name: string; emoji?: string; color?: string; isSmart?: boolean; rules?: any }
 ) {
   try {
@@ -110,12 +131,30 @@ export async function addItemToCollectionAction(itemId: string, collectionId: st
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
+
+    // Verify collection ownership
+    const [coll] = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(and(eq(collections.id, collectionId), eq(collections.userId, verifiedUserId)))
+      .limit(1);
+    if (!coll) return false;
+
+    // Verify item ownership
+    const [item] = await db
+      .select({ id: memoryItems.id })
+      .from(memoryItems)
+      .where(and(eq(memoryItems.id, itemId), eq(memoryItems.userId, verifiedUserId)))
+      .limit(1);
+    if (!item) return false;
+
     await db
       .insert(collectionItems)
       .values({
         itemId,
         collectionId,
-      });
+      })
+      .onConflictDoNothing();
 
     return true;
   } catch (err) {
@@ -129,9 +168,26 @@ export async function addItemsToCollectionAction(itemIds: string[], collectionId
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
+
+    // Verify collection ownership
+    const [coll] = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(and(eq(collections.id, collectionId), eq(collections.userId, verifiedUserId)))
+      .limit(1);
+    if (!coll) return false;
+
+    // Only allow items that belong to the user
+    const validItems = await db
+      .select({ id: memoryItems.id })
+      .from(memoryItems)
+      .where(and(inArray(memoryItems.id, itemIds), eq(memoryItems.userId, verifiedUserId)));
+
+    if (!validItems.length) return true;
+
     await db
       .insert(collectionItems)
-      .values(itemIds.map(itemId => ({ itemId, collectionId })))
+      .values(validItems.map(item => ({ itemId: item.id, collectionId })))
       .onConflictDoNothing();
 
     return true;
@@ -145,6 +201,15 @@ export async function removeItemFromCollectionAction(itemId: string, collectionI
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
+
+    // Verify collection ownership
+    const [coll] = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(and(eq(collections.id, collectionId), eq(collections.userId, verifiedUserId)))
+      .limit(1);
+    if (!coll) return false;
+
     await db
       .delete(collectionItems)
       .where(and(eq(collectionItems.itemId, itemId), eq(collectionItems.collectionId, collectionId)));
@@ -160,6 +225,14 @@ export async function deleteCollectionAction(collectionId: string, userId: strin
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
+
+    // Verify collection ownership before deleting child rows
+    const [coll] = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(and(eq(collections.id, collectionId), eq(collections.userId, verifiedUserId)))
+      .limit(1);
+    if (!coll) return false;
 
     // Delete child rows first, then the collection itself
     await db

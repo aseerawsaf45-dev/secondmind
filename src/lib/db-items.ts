@@ -3,7 +3,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { getUserDb } from '@/lib/user-db';
 import { memoryItems } from '@/db/schema';
-import { eq, desc, inArray, sql, and } from 'drizzle-orm';
+import { eq, desc, sql, and } from 'drizzle-orm';
 import type { MemoryItem } from '@/lib/data';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
 import { classifyContent, generateAISummary, generateEmbedding } from '@/lib/ai-engine';
@@ -68,84 +68,7 @@ export async function fetchItemsAction(userId: string): Promise<MemoryItem[]> {
       .where(eq(memoryItems.userId, verifiedUserId))
       .orderBy(desc(memoryItems.createdAt));
 
-    const items = rows.map(recordToItem);
-
-    // Background auto-enrichment for stale, un-analyzed social items, or tour/travel items needing destination & travel tags
-    (async () => {
-      try {
-        for (const item of items) {
-          const itemText = `${item.title || ''} ${item.content || ''} ${item.url || ''} ${item.summary || ''}`.toLowerCase();
-          const mentionsTourTravel = /\b(tour|travel|tourism|tourist)\b/i.test(itemText);
-          const needsTourTags = mentionsTourTravel && (!item.tags.includes('Travel') || !item.tags.includes('Destination'));
-
-          if (needsTourTags) {
-            const updatedTags = Array.from(new Set([...item.tags, 'Travel', 'Destination']));
-            await db
-              .update(memoryItems)
-              .set({
-                tags: updatedTags,
-                aiProcessed: true,
-              })
-              .where(eq(memoryItems.id, item.id));
-            item.tags = updatedTags;
-          }
-
-          if (!item.url) continue;
-          const isFb = isFacebookUrl(item.url);
-          const isTw = isTwitterUrl(item.url);
-
-          const needsAnalysis =
-            (isFb && (!item.tags.includes('Facebook') || !item.summary || item.title.includes('http') || item.title === 'facebook.com')) ||
-            (isTw && (!item.tags.includes('X') || !item.summary || item.title.includes('http') || item.title === 'x.com' || item.title === 'twitter.com'));
-
-          if (needsAnalysis) {
-            if (isFb) {
-              const fbData = await extractFacebookMetadata(item.url);
-              let mergedTags = Array.from(new Set([...item.tags, ...fbData.tags]));
-              const combinedText = `${fbData.title || ''} ${fbData.description || ''} ${item.url}`.toLowerCase();
-              if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
-                mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
-              }
-              await db
-                .update(memoryItems)
-                .set({
-                  title: item.title && !item.title.includes('http') && item.title !== 'facebook.com' && item.title !== 'Untitled Memory' ? item.title : fbData.title,
-                  summary: fbData.description,
-                  tags: mergedTags,
-                  thumbnailUrl: item.thumbnailUrl || fbData.image || null,
-                  type: fbData.type,
-                  aiProcessed: true,
-                })
-                .where(eq(memoryItems.id, item.id));
-              item.tags = mergedTags;
-            } else if (isTw) {
-              const twData = await extractTwitterMetadata(item.url);
-              let mergedTags = Array.from(new Set([...item.tags, ...twData.tags]));
-              const combinedText = `${twData.title || ''} ${twData.description || ''} ${item.url}`.toLowerCase();
-              if (/\b(tour|travel|tourism|tourist)\b/i.test(combinedText)) {
-                mergedTags = Array.from(new Set([...mergedTags, 'Travel', 'Destination']));
-              }
-              await db
-                .update(memoryItems)
-                .set({
-                  title: item.title && !item.title.includes('http') && item.title !== 'x.com' && item.title !== 'twitter.com' && item.title !== 'Untitled Memory' ? item.title : twData.title,
-                  summary: twData.description,
-                  tags: mergedTags,
-                  thumbnailUrl: item.thumbnailUrl || twData.image || null,
-                  type: 'tweet',
-                  aiProcessed: true,
-                })
-                .where(eq(memoryItems.id, item.id));
-              item.tags = mergedTags;
-            }
-          }
-        }
-      } catch {
-        // Silently handle background auto-enrichment
-      }
-    })();
-
-    return items;
+    return rows.map(recordToItem);
   } catch (err) {
     console.error('fetchItems error:', err);
     return [];
@@ -174,7 +97,7 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
             tags: enrichedTags,
             aiProcessed: true,
           })
-          .where(eq(memoryItems.id, item.id));
+          .where(and(eq(memoryItems.id, item.id), eq(memoryItems.userId, verifiedUserId)));
         item.tags = enrichedTags;
       }
 
@@ -198,7 +121,7 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
             type: fbData.type,
             aiProcessed: true,
           })
-          .where(eq(memoryItems.id, item.id));
+          .where(and(eq(memoryItems.id, item.id), eq(memoryItems.userId, verifiedUserId)));
       } else if (isTwitterUrl(item.url)) {
         const twData = await extractTwitterMetadata(item.url);
         const latestTags = (item.tags as string[]) || [];
@@ -217,7 +140,7 @@ export async function reanalyzeSocialItemsAction(userId: string): Promise<boolea
             type: 'tweet',
             aiProcessed: true,
           })
-          .where(eq(memoryItems.id, item.id));
+          .where(and(eq(memoryItems.id, item.id), eq(memoryItems.userId, verifiedUserId)));
       }
     }
     return true;
@@ -321,8 +244,9 @@ export async function saveItemAction(
     ).catch(err => console.warn('Auto-assign non-critical notice:', err?.message || err));
 
     return recordToItem(inserted);
-  } catch (err: any) {
-    console.error('saveItem DB insert error:', err?.message || 'Database operation failed');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Database operation failed';
+    console.error('saveItem DB insert error:', message);
     return fallbackItem;
   }
 }
@@ -330,10 +254,9 @@ export async function saveItemAction(
 export async function deleteUserAccountAndDataAction(userId: string): Promise<boolean> {
   try {
     const verifiedUserId = await getVerifiedUserId(userId);
-    const { deleteUserBranchAndData } = await import('@/lib/neon-branch');
-    const { evictUserDbCache } = await import('@/lib/user-db');
+    const { deleteUserData, evictUserDbCache } = await import('@/lib/user-db');
 
-    await deleteUserBranchAndData(verifiedUserId);
+    await deleteUserData(verifiedUserId);
     evictUserDbCache(verifiedUserId);
     return true;
   } catch (err) {
@@ -349,7 +272,7 @@ export async function toggleFavoriteAction(userId: string, id: string, isFavorit
     await db
       .update(memoryItems)
       .set({ isFavorite })
-      .where(eq(memoryItems.id, id));
+      .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, verifiedUserId)));
   } catch (err) {
     console.error('toggleFavorite error:', err);
   }
@@ -361,7 +284,7 @@ export async function deleteItemAction(userId: string, id: string): Promise<void
     const db = await getUserDb(verifiedUserId);
     await db
       .delete(memoryItems)
-      .where(eq(memoryItems.id, id));
+      .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, verifiedUserId)));
   } catch (err) {
     console.error('deleteItem error:', err);
   }
@@ -384,7 +307,7 @@ export async function updateItemAction(
         ...(data.tags !== undefined && { tags: data.tags.slice(0, 20).map(t => String(t).slice(0, 50)) }),
         aiProcessed: true,
       })
-      .where(eq(memoryItems.id, id));
+      .where(and(eq(memoryItems.id, id), eq(memoryItems.userId, verifiedUserId)));
 
     return true;
   } catch (err) {
@@ -425,7 +348,12 @@ export async function semanticSearchAction(userId: string, query: string, limit 
     const results = await db
       .select({ item: memoryItems, similarity })
       .from(memoryItems)
-      .where(sql`${memoryItems.userId} = ${verifiedUserId} AND ${memoryItems.embedding} IS NOT NULL`)
+      .where(
+        and(
+          eq(memoryItems.userId, verifiedUserId),
+          sql`${memoryItems.embedding} IS NOT NULL`
+        )
+      )
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
       

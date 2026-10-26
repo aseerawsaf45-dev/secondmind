@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Brain, ArrowRight, UploadCloud, CheckCircle2, X } from 'lucide-react';
+import { Brain, ArrowRight, UploadCloud, CheckCircle2, X } from 'lucide-react';
 
 export default function OnboardingModal({
   isOpen,
@@ -51,7 +51,7 @@ export default function OnboardingModal({
             onClick={() => {
               try {
                 localStorage.setItem('secondmind_onboarding_dismissed', '1');
-              } catch (_) {}
+              } catch {}
               onClose();
             }}
             style={{

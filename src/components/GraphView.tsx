@@ -2,7 +2,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { MemoryItem, TAG_COLORS } from '@/lib/data';
+import { MemoryItem } from '@/lib/data';
 
 // Dynamically import to prevent SSR issues with canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
@@ -89,8 +89,11 @@ export default function GraphView({ items, onSelectItem }: GraphViewProps) {
     return { nodes, links };
   }, [items]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleNodeClick = useCallback((node: any) => {
-    onSelectItem(node.item);
+    if (node?.item) {
+      onSelectItem(node.item);
+    }
   }, [onSelectItem]);
 
   return (

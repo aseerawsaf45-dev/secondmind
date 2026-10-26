@@ -16,7 +16,13 @@ export interface TwitterExtractedData {
  */
 export function isTwitterUrl(url: string): boolean {
   if (!url) return false;
-  return /(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\b/i.test(url);
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const host = parsed.hostname.toLowerCase();
+    return host === 'twitter.com' || host.endsWith('.twitter.com') || host === 'x.com' || host.endsWith('.x.com');
+  } catch {
+    return false;
+  }
 }
 
 /**

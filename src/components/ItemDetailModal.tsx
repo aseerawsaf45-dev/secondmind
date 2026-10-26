@@ -15,9 +15,6 @@ import {
   Plus,
   Loader,
   Copy,
-  Clock,
-  Globe,
-  Share2,
   Trash2,
   BookOpen,
 } from 'lucide-react';
@@ -26,7 +23,7 @@ import { TAG_COLORS } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '@/lib/youtube';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { semanticSearchAction } from '@/lib/db-items';
 import ContentRenderer from '@/components/ContentRenderer';
 import LinkableTextarea from '@/components/LinkableTextarea';
@@ -37,7 +34,7 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onSelectItem: (item: MemoryItem) => void;
   onFavorite: (id: string) => void;
-  onUpdate: (id: string, data: any) => Promise<void>;
+  onUpdate: (id: string, data: Partial<MemoryItem>) => Promise<void>;
   onDelete: (id: string) => void;
   initialEditMode?: boolean;
   allItems: MemoryItem[];
@@ -76,27 +73,31 @@ export default function ItemDetailModal({
 
   useEffect(() => {
     if (item) {
-      setEditTitle(item.title);
-      setEditContent(item.content);
-      setEditSummary(item.summary);
-      setEditTags([...item.tags]);
-      setIsEditing(!!initialEditMode);
-      
-      // Fetch Proactive AI Suggestions
-      if (userId && item.aiProcessed) {
-        setIsLoadingRelated(true);
-        // Query string derived from title and summary to get semantic proximity
-        const queryText = `${item.title} ${item.summary}`;
-        semanticSearchAction(userId, queryText, 5)
-          .then(results => {
-            // Filter out the item itself
-            setAiRelatedItems(results.filter(r => r.id !== item.id));
-            setIsLoadingRelated(false);
-          })
-          .catch(() => setIsLoadingRelated(false));
-      } else {
-        setAiRelatedItems([]);
-      }
+      const timer = setTimeout(() => {
+        setEditTitle(item.title);
+        setEditContent(item.content);
+        setEditSummary(item.summary);
+        setEditTags([...item.tags]);
+        setIsEditing(!!initialEditMode);
+
+        // Fetch Proactive AI Suggestions
+        if (userId && item.aiProcessed) {
+          setIsLoadingRelated(true);
+          // Query string derived from title and summary to get semantic proximity
+          const queryText = `${item.title} ${item.summary}`;
+          semanticSearchAction(userId, queryText, 5)
+            .then(results => {
+              // Filter out the item itself
+              setAiRelatedItems(results.filter(r => r.id !== item.id));
+              setIsLoadingRelated(false);
+            })
+            .catch(() => setIsLoadingRelated(false));
+        } else {
+          setAiRelatedItems([]);
+        }
+      }, 0);
+
+      return () => clearTimeout(timer);
     }
   }, [item, initialEditMode, userId]);
 
@@ -107,7 +108,7 @@ export default function ItemDetailModal({
     if (item.url) {
       try {
         return new URL(item.url).hostname.replace(/^www\./, '');
-      } catch (_) {}
+      } catch {}
     }
     return null;
   }, [item]);
@@ -128,7 +129,7 @@ export default function ItemDetailModal({
       .split(/(?<=[.?!])\s+/)
       .map(s => s.trim())
       .filter(s => s.length > 10);
-  }, [item?.summary]);
+  }, [item]);
 
   if (!item) return null;
 

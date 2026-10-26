@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { WifiOff, ArrowRight, RefreshCw, HardDrive, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export default function OfflinePage() {
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => {
+    if (typeof navigator !== 'undefined') {
+      return navigator.onLine;
+    }
+    return false;
+  });
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
-    setIsOnline(navigator.onLine);
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -29,7 +32,7 @@ export default function OfflinePage() {
       await fetch('/favicon.ico', { cache: 'no-store', method: 'HEAD' });
       setIsOnline(true);
       window.location.href = '/app';
-    } catch (_) {
+    } catch {
       setIsOnline(false);
     } finally {
       setTimeout(() => setIsChecking(false), 500);

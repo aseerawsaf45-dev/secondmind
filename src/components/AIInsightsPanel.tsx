@@ -5,6 +5,7 @@ import { Sparkles, Network, Brain, Layers, ArrowUpRight, Zap, FileText, Link as 
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
 import { CATEGORY_DEFINITIONS, getPrimaryCategory, type CategoryDefinition } from '@/lib/categories';
+import { CollectionIcon, ContentTypeIcon } from '@/components/icons/PremiumIcons';
 
 interface AIInsightsPanelProps {
   items: MemoryItem[];
@@ -229,7 +230,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '15px', lineHeight: 1 }}>{def.emoji}</span>
+                      <CollectionIcon name={def.name} color={def.color} size={14} badgeSize={26} />
                       <span style={{ fontSize: '12.5px', fontWeight: 650, color: '#FFFFFF' }}>{def.name}</span>
                     </div>
                     <span style={{ fontSize: '11px', fontWeight: 700, color: def.color, fontFamily: 'var(--font-mono), monospace' }}>
@@ -315,9 +316,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                        <span style={{ color: '#34D399', fontSize: '14px' }}>
-                          {item.type === 'link' ? <LinkIcon size={15} /> : item.type === 'note' ? <FileText size={15} /> : <File size={15} />}
-                        </span>
+                        <ContentTypeIcon type={item.type} size={15} />
                         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                           <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.title}
@@ -353,7 +352,7 @@ export default function AIInsightsPanel({ items, collections, onSelectItem }: AI
             <Lightbulb size={28} style={{ color: '#06B6D4' }} />
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#FFFFFF' }}>AI Memory Processing Ready</div>
             <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.5)', maxWidth: '340px', lineHeight: 1.6 }}>
-              Save links or quick notes using the "+ Save to Memory" button to automatically generate smart knowledge clusters!
+              Save links or quick notes using the &quot;+ Save to Memory&quot; button to automatically generate smart knowledge clusters!
             </p>
           </div>
         )}

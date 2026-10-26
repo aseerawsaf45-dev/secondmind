@@ -1,5 +1,6 @@
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
+import { idbGet, idbSet } from '@/lib/idb';
 
 export interface OfflineAction {
   id: string;
@@ -13,6 +14,7 @@ export interface OfflineAction {
     | 'addItemToCollection'
     | 'removeItemFromCollection';
   userId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
   tempId?: string;
   createdAt: number;
@@ -26,10 +28,13 @@ export interface CachedUserData {
 }
 
 export interface SyncHandlers {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveItem: (userId: string, data: any) => Promise<MemoryItem | null>;
   toggleFavorite: (userId: string, itemId: string, isFavorite: boolean) => Promise<void>;
   deleteItem: (userId: string, itemId: string) => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateItem: (userId: string, itemId: string, data: any) => Promise<boolean>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createCollection: (userId: string, data: any) => Promise<Collection | null>;
   deleteCollection: (collectionId: string, userId: string) => Promise<boolean>;
   addItemToCollection: (itemId: string, collectionId: string, userId: string) => Promise<boolean>;
@@ -39,6 +44,7 @@ export interface SyncHandlers {
 const STORAGE_PREFIX = 'secondmind_offline_';
 const QUEUE_KEY = `${STORAGE_PREFIX}queue`;
 const LAST_ACCOUNT_KEY = `${STORAGE_PREFIX}last_account_id`;
+const LATEST_CACHE_KEY = `${STORAGE_PREFIX}latest_cache`;
 
 function safeGet<T>(key: string, defaultValue: T): T {
   if (typeof window === 'undefined') return defaultValue;
@@ -60,6 +66,21 @@ function safeSet<T>(key: string, value: T): void {
   }
 }
 
+function resolveTargetUserId(userId?: string): string {
+  if (userId && userId !== 'offline-user' && userId !== 'guest') {
+    return userId;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const lastId = localStorage.getItem(LAST_ACCOUNT_KEY);
+      if (lastId && lastId !== 'offline-user' && lastId !== 'guest') {
+        return lastId;
+      }
+    } catch {}
+  }
+  return userId || 'offline-user';
+}
+
 export const offlineSync = {
   /**
    * Check if browser is currently online
@@ -76,14 +97,14 @@ export const offlineSync = {
     if (typeof window === 'undefined' || !userId || userId === 'guest' || userId === 'offline-user') return;
     try {
       localStorage.setItem(LAST_ACCOUNT_KEY, userId);
-    } catch (_) {}
+    } catch {}
   },
 
   getLastKnownAccountId: (): string | null => {
     if (typeof window === 'undefined') return null;
     try {
       return localStorage.getItem(LAST_ACCOUNT_KEY);
-    } catch (_) {
+    } catch {
       return null;
     }
   },
@@ -99,38 +120,81 @@ export const offlineSync = {
   ): void => {
     if (typeof window === 'undefined' || !userId) return;
     
-    // Save under the specific user ID
-    const userCacheKey = `${STORAGE_PREFIX}user_${userId}_data`;
-    safeSet<CachedUserData>(userCacheKey, {
+    const targetId = resolveTargetUserId(userId);
+    const data: CachedUserData = {
       items,
       collections,
       itemMap,
       cachedAt: Date.now(),
-    });
+    };
+    // Save under the specific user ID
+    const userCacheKey = `${STORAGE_PREFIX}user_${targetId}_data`;
+    safeSet<CachedUserData>(userCacheKey, data);
+    idbSet(userCacheKey, data).catch(() => {});
 
-    if (userId !== 'guest' && userId !== 'offline-user') {
-      offlineSync.setLastKnownAccountId(userId);
+    // Also persist to general latest cache for immediate offline retrieval
+    if (targetId !== 'guest') {
+      safeSet<CachedUserData>(LATEST_CACHE_KEY, data);
+      idbSet(LATEST_CACHE_KEY, data).catch(() => {});
+      offlineSync.setLastKnownAccountId(targetId);
     }
   },
 
   /**
-   * Retrieve cached data for user. Falls back to last known account if userId is 'offline-user'.
+   * Retrieve cached data asynchronously with IndexedDB fallthrough
+   */
+  getCachedUserDataAsync: async (userId: string): Promise<CachedUserData> => {
+    const syncResult = offlineSync.getCachedUserData(userId);
+    if (syncResult.items && syncResult.items.length > 0) return syncResult;
+
+    const targetId = resolveTargetUserId(userId);
+    const userCacheKey = `${STORAGE_PREFIX}user_${targetId}_data`;
+    const idbResult = await idbGet<CachedUserData>(userCacheKey, { items: [], collections: [], itemMap: {}, cachedAt: 0 });
+    if (idbResult.items && idbResult.items.length > 0) return idbResult;
+
+    return idbGet<CachedUserData>(LATEST_CACHE_KEY, syncResult);
+  },
+
+  /**
+   * Retrieve cached data for user. Seamlessly falls back through:
+   * 1. Exact user cache
+   * 2. Last known account cache
+   * 3. Latest general cache
+   * 4. Any available offline user cache in localStorage
+   * 5. Guest items
    */
   getCachedUserData: (userId: string): CachedUserData => {
     const defaultData: CachedUserData = { items: [], collections: [], itemMap: {}, cachedAt: 0 };
     if (typeof window === 'undefined') return defaultData;
 
-    let targetId = userId;
-    if (userId === 'offline-user') {
-      const lastId = offlineSync.getLastKnownAccountId();
-      if (lastId) targetId = lastId;
-    }
-
+    const targetId = resolveTargetUserId(userId);
     const userCacheKey = `${STORAGE_PREFIX}user_${targetId}_data`;
     const cached = safeGet<CachedUserData>(userCacheKey, defaultData);
+    if (cached.items && cached.items.length > 0) {
+      return cached;
+    }
+
+    // Fallback 1: latest general cache
+    const latest = safeGet<CachedUserData>(LATEST_CACHE_KEY, defaultData);
+    if (latest.items && latest.items.length > 0) {
+      return latest;
+    }
+
+    // Fallback 2: Any cached user data key in localStorage
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`${STORAGE_PREFIX}user_`) && key.endsWith('_data')) {
+          const fallback = safeGet<CachedUserData>(key, defaultData);
+          if (fallback.items && fallback.items.length > 0) {
+            return fallback;
+          }
+        }
+      }
+    } catch {}
     
-    // If empty and not guest, also check if guest items exist as fallback
-    if (cached.items.length === 0 && targetId !== 'guest') {
+    // Fallback 3: Guest items
+    if (targetId !== 'guest') {
       const guestItems = safeGet<MemoryItem[]>('secondmind_guest_items', []);
       const guestColls = safeGet<Collection[]>('secondmind_guest_collections', []);
       const guestMap = safeGet<Record<string, string[]>>('secondmind_guest_itemMap', {});
@@ -146,42 +210,46 @@ export const offlineSync = {
    * Add an item to local cache when created offline
    */
   addOfflineItem: (userId: string, item: MemoryItem): void => {
-    const cached = offlineSync.getCachedUserData(userId);
+    const targetId = resolveTargetUserId(userId);
+    const cached = offlineSync.getCachedUserData(targetId);
     const updatedItems = [item, ...cached.items.filter(i => i.id !== item.id)];
-    offlineSync.cacheUserData(userId, updatedItems, cached.collections, cached.itemMap);
+    offlineSync.cacheUserData(targetId, updatedItems, cached.collections, cached.itemMap);
   },
 
   /**
    * Update an item in local cache
    */
   updateCachedItem: (userId: string, updatedItem: Partial<MemoryItem> & { id: string }): void => {
-    const cached = offlineSync.getCachedUserData(userId);
+    const targetId = resolveTargetUserId(userId);
+    const cached = offlineSync.getCachedUserData(targetId);
     const updatedItems = cached.items.map(item =>
       item.id === updatedItem.id ? { ...item, ...updatedItem } : item
     );
-    offlineSync.cacheUserData(userId, updatedItems, cached.collections, cached.itemMap);
+    offlineSync.cacheUserData(targetId, updatedItems, cached.collections, cached.itemMap);
   },
 
   /**
    * Toggle favorite in local cache
    */
   toggleCachedFavorite: (userId: string, itemId: string, isFavorite: boolean): void => {
-    const cached = offlineSync.getCachedUserData(userId);
+    const targetId = resolveTargetUserId(userId);
+    const cached = offlineSync.getCachedUserData(targetId);
     const updatedItems = cached.items.map(item =>
       item.id === itemId ? { ...item, isFavorite } : item
     );
-    offlineSync.cacheUserData(userId, updatedItems, cached.collections, cached.itemMap);
+    offlineSync.cacheUserData(targetId, updatedItems, cached.collections, cached.itemMap);
   },
 
   /**
    * Delete item from local cache
    */
   deleteCachedItem: (userId: string, itemId: string): void => {
-    const cached = offlineSync.getCachedUserData(userId);
+    const targetId = resolveTargetUserId(userId);
+    const cached = offlineSync.getCachedUserData(targetId);
     const updatedItems = cached.items.filter(item => item.id !== itemId);
     const updatedMap = { ...cached.itemMap };
     delete updatedMap[itemId];
-    offlineSync.cacheUserData(userId, updatedItems, cached.collections, updatedMap);
+    offlineSync.cacheUserData(targetId, updatedItems, cached.collections, updatedMap);
   },
 
   /**
@@ -217,7 +285,7 @@ export const offlineSync = {
     if (typeof window === 'undefined') return;
     try {
       localStorage.removeItem(QUEUE_KEY);
-    } catch (_) {}
+    } catch {}
   },
 
   /**
@@ -243,23 +311,38 @@ export const offlineSync = {
 
     for (const action of queue) {
       try {
-        const effectiveUserId = action.userId || userId;
+        let effectiveUserId = action.userId;
+        if (!effectiveUserId || effectiveUserId === 'offline-user') {
+          effectiveUserId = (userId && userId !== 'offline-user' && userId !== 'guest')
+            ? userId
+            : (offlineSync.getLastKnownAccountId() || userId);
+        }
+
         if (!effectiveUserId || effectiveUserId === 'guest') {
           // Guest actions remain in local storage
+          remainingQueue.push(action);
           continue;
         }
 
         switch (action.type) {
           case 'save': {
             const saved = await handlers.saveItem(effectiveUserId, action.payload);
-            if (saved && action.tempId) {
-              idMapping[action.tempId] = saved.id;
+            if (saved) {
+              if (action.tempId) {
+                idMapping[action.tempId] = saved.id;
+              }
               // Update local cache to replace temp ID with server ID
               const cached = offlineSync.getCachedUserData(effectiveUserId);
-              const remappedItems = cached.items.map(i => (i.id === action.tempId ? saved : i));
+              let remappedItems = cached.items.map(i => (action.tempId && i.id === action.tempId ? saved : i));
+              if (!remappedItems.some(i => i.id === saved.id)) {
+                remappedItems = [saved, ...remappedItems];
+              }
               offlineSync.cacheUserData(effectiveUserId, remappedItems, cached.collections, cached.itemMap);
+              syncedCount++;
+            } else {
+              errors++;
+              remainingQueue.push(action);
             }
-            syncedCount++;
             break;
           }
 

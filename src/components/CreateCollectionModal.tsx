@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, Sparkles, FolderPlus, Loader, Check, Search, CheckSquare, Square, Link2, FileText, Film, MessageCircle } from 'lucide-react';
+import { X, Sparkles, FolderPlus, Loader, Check, Search, CheckSquare, Square } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
+import { ContentTypeIcon, CollectionIcon } from '@/components/icons/PremiumIcons';
 
 interface CreateCollectionModalProps {
   isOpen: boolean;
@@ -15,11 +16,11 @@ const EMOJIS = ['📁', '🎨', '💼', '🚀', '🧠', '📚', '⚡', '🌈', '
 const COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#06B6D4', '#003a44', '#3B82F6', '#06565b', '#66a4ac'];
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  link: <Link2 size={13} />,
-  note: <FileText size={13} />,
-  video: <Film size={13} />,
-  tweet: <MessageCircle size={13} />,
-  pdf: <FileText size={13} />,
+  link: <ContentTypeIcon type="link" size={13} />,
+  note: <ContentTypeIcon type="note" size={13} />,
+  video: <ContentTypeIcon type="video" size={13} />,
+  tweet: <ContentTypeIcon type="tweet" size={13} />,
+  pdf: <ContentTypeIcon type="pdf" size={13} />,
 };
 
 export default function CreateCollectionModal({ isOpen, onClose, onSave, items = [] }: CreateCollectionModalProps) {
@@ -137,15 +138,19 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
           {/* Name */}
           <div>
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Collection Name
+              Collection Name & Vector Preview
             </label>
-            <input
-              className="input"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Travel Itineraries, Design Inspiration, Reading List..."
-              autoFocus
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CollectionIcon name={name || 'Folder'} color={color} size={18} badgeSize={40} />
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Travel Itineraries, Design Inspiration, Reading List..."
+                autoFocus
+              />
+            </div>
           </div>
 
           {/* Emoji & Color */}
@@ -427,7 +432,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
 
                       {/* Icon */}
                       <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                        {TYPE_ICONS[item.type] || <Link2 size={13} />}
+                        <ContentTypeIcon type={item.type} size={13} />
                       </div>
 
                       {/* Title & Domain */}

@@ -15,7 +15,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   try {
     const session = await auth();
     sessionUserId = session?.userId ?? null;
-  } catch (_) {
+  } catch {
     // In offline environments or network interruptions, allow request to pass through
   }
 

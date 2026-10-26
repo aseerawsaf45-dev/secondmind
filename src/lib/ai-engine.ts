@@ -873,9 +873,24 @@ const MAX_EMBEDDING_CACHE = 500;
 const synthesisCache = new Map<string, { result: AISynthesisResult; timestamp: number }>();
 const SYNTHESIS_CACHE_TTL = 10 * 60 * 1000;
 
-let cachedAIClient: any = null;
+interface OpenAIEmbeddingClient {
+  embeddings: {
+    create: (params: { model: string; input: string; dimensions?: number }) => Promise<{
+      data?: Array<{ embedding?: number[] }>;
+    }>;
+  };
+  chat: {
+    completions: {
+      create: (params: Record<string, unknown>) => Promise<{
+        choices?: Array<{ message?: { content?: string } }>;
+      }>;
+    };
+  };
+}
 
-function getAIClient() {
+let cachedAIClient: OpenAIEmbeddingClient | null = null;
+
+function getAIClient(): OpenAIEmbeddingClient | null {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
   if (!cachedAIClient) {
@@ -885,9 +900,9 @@ function getAIClient() {
       cachedAIClient = new OpenAI({
         apiKey,
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-        timeout: 3500,
+        timeout: 7000,
         maxRetries: 1,
-      });
+      }) as OpenAIEmbeddingClient;
     } catch {
       return null;
     }
@@ -920,10 +935,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       dimensions: 1536,
     });
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Embedding generation timeout')), 2500)
+      setTimeout(() => reject(new Error('Embedding generation timeout')), 5000)
     );
 
-    const response = (await Promise.race([embedPromise, timeoutPromise])) as any;
+    const response = (await Promise.race([embedPromise, timeoutPromise])) as {
+      data?: Array<{ embedding?: number[] }>;
+    };
     const embedding = response?.data?.[0]?.embedding;
     if (Array.isArray(embedding) && embedding.length === 1536) {
       if (embeddingCache.size >= MAX_EMBEDDING_CACHE) {
@@ -933,9 +950,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       embeddingCache.set(clean, embedding);
       return embedding;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Fail gracefully with zero vector so database operations never fail
-    console.warn('Embedding notice (falling back gracefully):', error?.message || error);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Embedding notice (falling back gracefully):', msg);
+    }
   }
 
   return Array(1536).fill(0);
@@ -943,7 +963,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 /**
  * Intelligent AI Synthesis & Categorization Engine.
- * Combines fast Gemini 3.8 Flash model with our fine-grained local heuristic taxonomy.
+ * Combines fast Gemini Flash model with our fine-grained local heuristic taxonomy.
  */
 export async function synthesizeContentWithAI(input: {
   title?: string;
@@ -1000,22 +1020,39 @@ Analyze the provided link or text and respond with pure JSON:
 
     const userPrompt = `Title: ${title}\nURL: ${url}\nContent Snippet: ${text.slice(0, 2500)}`;
 
-    const completionPromise = client.chat.completions.create({
-      model: 'gemini-3.8-flash',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 280,
-    });
+    const callModel = async (modelName: string) => {
+      const completionPromise = client.chat.completions.create({
+        model: modelName,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 800,
+      });
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI synthesis timeout')), 3000)
-    );
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`AI synthesis timeout for ${modelName}`)), 6000)
+      );
 
-    const completion = (await Promise.race([completionPromise, timeoutPromise])) as any;
+      return (await Promise.race([completionPromise, timeoutPromise])) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+    };
+
+    let completion: { choices?: Array<{ message?: { content?: string } }> } | null = null;
+    try {
+      completion = await callModel('gemini-3.5-flash');
+    } catch {
+      // Fallback model if gemini-3.5-flash is temporarily unavailable
+      try {
+        completion = await callModel('gemini-3.8-flash');
+      } catch {
+        completion = null;
+      }
+    }
+
     const content = completion?.choices?.[0]?.message?.content;
 
     if (content) {
@@ -1042,7 +1079,7 @@ Analyze the provided link or text and respond with pure JSON:
       synthesisCache.set(cacheKey, { result, timestamp: Date.now() });
       return result;
     }
-  } catch (err: any) {
+  } catch {
     // Seamless fallback to heuristic baseline if AI times out or errors
   }
 

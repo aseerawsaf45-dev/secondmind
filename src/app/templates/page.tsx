@@ -61,66 +61,114 @@ export default function TemplatesPage() {
           Kickstart your personal knowledge base with these pre-built structures and workflows.
         </p>
 
-        <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
           {[
             {
               id: 'meeting-notes',
-              title: 'Meeting Notes',
-              description: 'A structured template for capturing attendees, agenda, action items, and key takeaways.',
-              action: 'Use Template'
+              title: 'Meeting Notes & Decisions',
+              category: 'Collaboration',
+              description: 'A structured layout for capturing participants, agenda topics, decision rationale, and follow-up items.',
+              action: 'Use template'
             },
             {
               id: 'research',
-              title: 'Research Hub',
-              description: 'Organize sources, quotes, hypotheses, and conclusions in one interconnected place.',
-              action: 'Use Template'
+              title: 'Research & Literature Synthesis',
+              category: 'Academic',
+              description: 'Organize sources, direct citations, hypotheses, and analytical takeaways in one interconnected workspace.',
+              action: 'Use template'
             },
             {
               id: 'journaling',
-              title: 'Daily Journaling',
-              description: 'Reflect on your day, track habits, and log fleeting thoughts with a low-friction template.',
-              action: 'Use Template'
+              title: 'Daily Reflection & Habit Log',
+              category: 'Personal',
+              description: 'Reflect on daily progress, monitor key cognitive habits, and capture fleeting thoughts with minimal friction.',
+              action: 'Use template'
             },
             {
               id: 'project-planning',
-              title: 'Project Planning',
-              description: 'Map out milestones, dependencies, and resources for your next big idea.',
-              action: 'Use Template'
+              title: 'Technical Project Spec',
+              category: 'Engineering',
+              description: 'Map out architecture milestones, technical dependencies, and system constraints for your next build.',
+              action: 'Use template'
             }
           ].map(template => (
-            <div key={template.id} style={{
-              padding: '24px',
-              borderRadius: '12px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)'
-            }}>
-              <h3 style={{
-                fontSize: '18px',
-                fontWeight: 600,
-                color: '#FFFFFF',
-                marginBottom: '8px'
-              }}>
-                {template.title}
-              </h3>
-              <p style={{
-                fontSize: '14px',
-                color: 'var(--text-muted)',
-                marginBottom: '20px'
-              }}>
-                {template.description}
-              </p>
-              <button style={{
-                background: '#66A4AC',
-                color: '#000',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}>
-                {template.action}
-              </button>
+            <div
+              key={template.id}
+              className="hover-scale-physics"
+              style={{
+                padding: '24px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: '#67E8F9',
+                      fontFamily: 'var(--font-mono)',
+                      background: 'rgba(6, 182, 212, 0.1)',
+                      border: '1px solid rgba(6, 182, 212, 0.25)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {template.category}
+                  </span>
+                </div>
+                <h3
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    marginBottom: '8px',
+                    fontFamily: 'var(--font-heading)',
+                    textWrap: 'balance',
+                  }}
+                >
+                  {template.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    color: 'var(--text-secondary)',
+                    marginBottom: '20px',
+                    lineHeight: 1.6,
+                    textWrap: 'pretty',
+                  }}
+                >
+                  {template.description}
+                </p>
+              </div>
+
+              <Link
+                href={`/try?template=${template.id}`}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.12)',
+                  color: '#67E8F9',
+                  border: '1px solid rgba(6, 182, 212, 0.35)',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+                className="button-press-physics"
+              >
+                <span>{template.action}</span>
+                <span>→</span>
+              </Link>
             </div>
           ))}
         </div>

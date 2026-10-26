@@ -87,7 +87,7 @@ export default function PrivacyPage() {
                   </li>
                   <li>
                     <strong>Guest data</strong> — in guest mode, all data is stored exclusively in your
-                    browser's local storage. Nothing is transmitted to our servers unless you create an
+                    browser&apos;s local storage. Nothing is transmitted to our servers unless you create an
                     account and migrate.
                   </li>
                 </ul>

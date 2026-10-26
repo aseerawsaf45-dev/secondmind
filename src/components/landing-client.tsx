@@ -11,7 +11,18 @@ import {
   ArrowRight,
   ChevronDown,
   Layers,
+  Clock,
+  ExternalLink,
+  Bot,
+  LayoutGrid,
+  Send,
+  Loader2,
+  FolderKanban,
+  CheckCircle2,
+  Globe,
+  Copy,
 } from 'lucide-react';
+import { CollectionIcon, ContentTypeIcon, TypeBadge, FlaticonIcon } from '@/components/icons/PremiumIcons';
 
 // ─── Direct auto-redirection for authenticated users ────────────────────────────
 export function AuthenticatedAutoRedirect() {
@@ -130,19 +141,18 @@ export function FAQSection() {
             alignItems: 'center',
             gap: '6px',
             fontSize: '11px',
-            fontWeight: 700,
+            fontWeight: 600,
             fontFamily: 'var(--font-mono)',
             color: '#67E8F9',
-            background: 'rgba(6, 182, 212, 0.12)',
-            border: '1px solid rgba(6, 182, 212, 0.3)',
+            background: 'rgba(6, 182, 212, 0.1)',
+            border: '1px solid rgba(6, 182, 212, 0.25)',
             padding: '4px 12px',
             borderRadius: '999px',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: '12px',
+            letterSpacing: '0.04em',
+            marginBottom: '14px',
           }}
         >
-          Frequently Asked Questions
+          <span>Frequently asked questions</span>
         </div>
         <h2
           style={{
@@ -151,6 +161,7 @@ export function FAQSection() {
             fontFamily: 'var(--font-heading)',
             letterSpacing: '-0.03em',
             color: '#FFFFFF',
+            textWrap: 'balance',
           }}
         >
           Everything you need to know
@@ -217,101 +228,254 @@ export function FAQSection() {
 
 export function InteractiveSimulator() {
   const [activeTab, setActiveTab] = useState<'capture' | 'qa' | 'graph'>('capture');
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>('all');
 
-  // Capture demo data
-  const capturePresets = [
+  const SIMULATOR_COLLECTIONS = [
+    { id: 'all', name: 'All Vault Items', color: '#38BDF8', count: 18 },
+    { id: 'c-ai', name: 'AI & Machine Learning', color: '#06B6D4', count: 5 },
+    { id: 'c-eng', name: 'Software Engineering', color: '#38BDF8', count: 4 },
+    { id: 'c-startup', name: 'Startups & Business', color: '#F59E0B', count: 3 },
+    { id: 'c-design', name: 'UI/UX & Design', color: '#EC4899', count: 2 },
+    { id: 'c-pkm', name: 'Productivity & PKM', color: '#34D399', count: 4 },
+  ];
+
+  const CAPTURE_PRESETS = [
     {
       label: 'arXiv Paper',
+      type: 'pdf',
       url: 'https://arxiv.org/abs/1706.03762',
       title: 'Attention Is All You Need',
-      summary: 'Introduces the Transformer architecture using multi-head self-attention mechanisms, eliminating recurrence and convolutions entirely.',
+      summary: 'Introduces Transformer self-attention architecture, eliminating recurrence and convolutions while establishing the foundation for modern LLMs.',
+      collection: 'AI & Machine Learning',
+      collectionId: 'c-ai',
+      collectionColor: '#06B6D4',
       tags: ['AI', 'Transformers', 'Deep Learning'],
       domain: 'arxiv.org',
       time: '1.2s',
-      emoji: '📄',
-      color: '#06B6D4',
+      readTime: '12m read',
     },
     {
-      label: 'YouTube Tutorial',
+      label: 'YouTube Lecture',
+      type: 'video',
       url: 'https://youtube.com/watch?v=kCc8FmEb1nY',
-      title: 'Andrej Karpathy: Let\'s build GPT from scratch',
-      summary: 'Builds a generative pre-trained transformer from scratch in PyTorch, explaining tokenization, multi-head attention, and autoregressive loss.',
-      tags: ['Python', 'LLM', 'Tutorial'],
+      title: "Andrej Karpathy: Let's build GPT from scratch",
+      summary: 'Step-by-step implementation of GPT architecture in PyTorch covering byte-pair encoding, multi-head causal self-attention, and training loops.',
+      collection: 'Software Engineering',
+      collectionId: 'c-eng',
+      collectionColor: '#38BDF8',
+      tags: ['Python', 'LLM', 'PyTorch'],
       domain: 'youtube.com',
-      time: '1.8s',
-      emoji: '🎬',
-      color: '#EF4444',
+      time: '1.6s',
+      readTime: '1h 56m video',
     },
     {
-      label: 'Knowledge System',
-      url: 'https://buildingasecondbrain.com',
-      title: 'Building a Second Brain (CODE Framework)',
-      summary: 'Capture, Organize, Distill, Express. A proven methodology to transform information overload into creative productivity.',
-      tags: ['Productivity', 'PKM', 'Mindset'],
+      label: 'X / Twitter Post',
+      type: 'tweet',
+      url: 'https://x.com/paulg/status/1748291038102',
+      title: 'Paul Graham: How to Do Great Work',
+      summary: 'If you want to do great work, look for things that seem like play to you but look like work to others. Consistency compounds into breakthroughs.',
+      collection: 'Startups & Business',
+      collectionId: 'c-startup',
+      collectionColor: '#F59E0B',
+      tags: ['Startups', 'Career', 'Philosophy'],
+      domain: 'x.com',
+      time: '0.9s',
+      readTime: '3m read',
+    },
+    {
+      label: 'Design System',
+      type: 'link',
+      url: 'https://linear.app/design',
+      title: 'Linear Design Principles: Craft and Kinetic Motion',
+      summary: 'Explores dark-mode depth, keyboard-first navigation, and micro-interactions that elevate software into an extension of the human hand.',
+      collection: 'UI/UX & Design',
+      collectionId: 'c-design',
+      collectionColor: '#EC4899',
+      tags: ['Design', 'UI/UX', 'Interaction'],
+      domain: 'linear.app',
+      time: '1.1s',
+      readTime: '5m read',
+    },
+    {
+      label: 'PKM Framework',
+      type: 'note',
+      url: 'https://buildingasecondbrain.com/code',
+      title: 'The CODE Framework: Capture, Organize, Distill, Express',
+      summary: 'Capture what resonates. Organize by actionability into Projects and Areas. Distill the essence into bold takeaways. Express through creation.',
+      collection: 'Productivity & PKM',
+      collectionId: 'c-pkm',
+      collectionColor: '#34D399',
+      tags: ['Productivity', 'PKM', 'NoteTaking'],
       domain: 'buildingasecondbrain.com',
       time: '1.4s',
-      emoji: '🧠',
-      color: '#66A4AC',
+      readTime: '8m read',
     },
   ];
-  const [selectedCaptureIdx, setSelectedCaptureIdx] = useState(0);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [stage, setStage] = useState<'fetching' | 'extracting' | 'ready'>('ready');
 
-  const handleSelectPreset = (idx: number) => {
-    if (idx === selectedCaptureIdx) return;
-    setSelectedCaptureIdx(idx);
-    setAnalyzing(true);
-    setStage('fetching');
-    setTimeout(() => setStage('extracting'), 500);
-    setTimeout(() => {
-      setStage('ready');
-      setAnalyzing(false);
-    }, 1100);
+  // Capture State
+  const [inputUrl, setInputUrl] = useState(CAPTURE_PRESETS[0].url);
+  const [currentResult, setCurrentResult] = useState(CAPTURE_PRESETS[0]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionStage, setExtractionStage] = useState(0);
+
+  const extractionStages = [
+    'Connecting to source & stripping ads...',
+    'Extracting clean text & document structure...',
+    'Synthesizing AI summary & generating topic tags...',
+    'Auto-routing into intelligent collection...',
+  ];
+
+  const handleRunExtract = (overrideUrl?: string) => {
+    const target = (overrideUrl || inputUrl).trim();
+    if (!target) return;
+    setIsExtracting(true);
+    setExtractionStage(0);
+
+    const t1 = setTimeout(() => setExtractionStage(1), 300);
+    const t2 = setTimeout(() => setExtractionStage(2), 650);
+    const t3 = setTimeout(() => setExtractionStage(3), 1000);
+    const t4 = setTimeout(() => {
+      // Find preset or dynamically synthesize
+      const preset = CAPTURE_PRESETS.find(p => p.url.toLowerCase() === target.toLowerCase());
+      if (preset) {
+        setCurrentResult(preset);
+      } else {
+        let type = 'link';
+        let collection = 'Software Engineering';
+        let collectionId = 'c-eng';
+        let collectionColor = '#38BDF8';
+        let domain = 'web.dev';
+        try {
+          const u = new URL(target.startsWith('http') ? target : `https://${target}`);
+          domain = u.hostname.replace(/^www\./, '');
+        } catch {}
+
+        if (target.includes('youtube.com') || target.includes('youtu.be')) {
+          type = 'video';
+          collection = 'Software Engineering';
+          collectionColor = '#38BDF8';
+        } else if (target.includes('twitter.com') || target.includes('x.com')) {
+          type = 'tweet';
+          collection = 'Startups & Business';
+          collectionColor = '#F59E0B';
+        } else if (target.includes('arxiv') || target.endsWith('.pdf')) {
+          type = 'pdf';
+          collection = 'AI & Machine Learning';
+          collectionColor = '#06B6D4';
+        } else if (target.includes('design') || target.includes('figma') || target.includes('dribbble')) {
+          type = 'link';
+          collection = 'UI/UX & Design';
+          collectionColor = '#EC4899';
+        } else if (target.includes('notion') || target.includes('substack')) {
+          type = 'note';
+          collection = 'Productivity & PKM';
+          collectionColor = '#34D399';
+        }
+
+        setCurrentResult({
+          label: 'Live Web Resource',
+          type,
+          url: target.startsWith('http') ? target : `https://${target}`,
+          title: `Synthesized Memory: ${domain.charAt(0).toUpperCase() + domain.slice(1)} Article`,
+          summary: `Extracted core takeaways and high-signal concepts from ${domain}. Noise removed and auto-linked into your semantic SecondMind graph.`,
+          collection,
+          collectionId,
+          collectionColor,
+          tags: [domain.split('.')[0] || 'Web', 'Reference', 'Synthesis'],
+          domain,
+          time: '1.3s',
+          readTime: '4m read',
+        });
+      }
+      setIsExtracting(false);
+    }, 1350);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
   };
 
-  // QA demo data
-  const qaPresets = [
+  // QA Demo State
+  const QA_PRESETS = [
     {
-      q: 'How do transformers eliminate recurrence?',
-      a: 'Transformers replace sequential RNN recurrence with multi-head self-attention. Instead of processing tokens one-by-one, attention calculates relationship weights across all positions in parallel, allowing massive scaling.',
+      q: 'How do transformers eliminate recurrence in neural networks?',
+      a: 'Transformers completely replace sequential RNN recurrence with multi-head self-attention mechanisms. Instead of processing tokens step-by-step, self-attention computes query-key matrix dot-products across all token positions simultaneously in O(1) sequential operations, allowing massive parallel GPU scaling.',
+      collection: 'AI & Machine Learning',
+      collectionColor: '#06B6D4',
+      type: 'pdf',
       citations: ['Attention Is All You Need (arXiv)', 'Karpathy: GPT from Scratch'],
     },
     {
-      q: 'What is the CODE framework for notes?',
-      a: 'CODE stands for Capture (keep what resonates), Organize (by actionability using PARA), Distill (find the essence with progressive summarization), and Express (share your work).',
+      q: 'What is the CODE framework and how does it prevent information overload?',
+      a: 'The CODE framework stands for Capture (keep only high-resonance ideas), Organize (by immediate actionability using PARA), Distill (progressive summarization to highlight the bold essence), and Express (turn gathered notes into tangible output).',
+      collection: 'Productivity & PKM',
+      collectionColor: '#34D399',
+      type: 'note',
       citations: ['Building a Second Brain', 'Tiago Forte Essays'],
     },
     {
-      q: 'What are the steps of the Feynman Technique?',
-      a: '1. Choose a concept you want to learn. 2. Teach it to a 12-year-old in plain language. 3. Identify gaps in your explanation and revisit source material. 4. Simplify, clarify, and create analogies.',
-      citations: ['Feynman Technique (fs.blog)', 'Spaced Repetition Synthesis'],
+      q: 'What does Paul Graham recommend for doing impactful work?',
+      a: 'Find projects that look like exhausting work to others, but feel like play to you. Maintain obsessive curiosity, work on personal projects without asking for permission, and cultivate taste by studying the greatest masters in your domain.',
+      collection: 'Startups & Business',
+      collectionColor: '#F59E0B',
+      type: 'tweet',
+      citations: ['How to Do Great Work (Paul Graham)', 'Founder Stories Archive'],
     },
   ];
-  const [selectedQaIdx, setSelectedQaIdx] = useState(0);
 
-  const activeCapture = capturePresets[selectedCaptureIdx];
-  const activeQa = qaPresets[selectedQaIdx];
+  const [qaInput, setQaInput] = useState(QA_PRESETS[0].q);
+  const [activeQa, setActiveQa] = useState(QA_PRESETS[0]);
+  const [isAsking, setIsAsking] = useState(false);
+
+  const handleAsk = (queryText?: string) => {
+    const q = (queryText || qaInput).trim();
+    if (!q) return;
+    setIsAsking(true);
+    setTimeout(() => {
+      const match = QA_PRESETS.find(item => item.q.toLowerCase() === q.toLowerCase());
+      if (match) {
+        setActiveQa(match);
+      } else {
+        setActiveQa({
+          q,
+          a: `Based on your indexed vault items, this concept cross-references memories in both Software Engineering and Cognitive Models. SecondMind identified 3 related links and synthesizes a direct answer citing your verified archive.`,
+          collection: 'AI & Machine Learning',
+          collectionColor: '#06B6D4',
+          type: 'link',
+          citations: ['Personal Knowledge Graph Node #18', 'Verified Web Archive'],
+        });
+      }
+      setIsAsking(false);
+    }, 700);
+  };
+
+  // Filtered Items for collection sidebar
+  const visibleItems = selectedCollectionId === 'all'
+    ? CAPTURE_PRESETS
+    : CAPTURE_PRESETS.filter(p => p.collectionId === selectedCollectionId);
 
   return (
-    <section id="simulator" style={{ padding: '20px 24px 80px', maxWidth: '1080px', margin: '0 auto' }}>
+    <section id="simulator" style={{ padding: '20px 20px 80px', maxWidth: '1120px', margin: '0 auto' }}>
       <div
         style={{
           position: 'relative',
           borderRadius: '24px',
           overflow: 'hidden',
-          border: '1px solid rgba(6, 182, 212, 0.28)',
-          boxShadow: '0 40px 100px -20px rgba(0,0,0,0.85), 0 0 80px -20px rgba(6, 182, 212, 0.28), inset 0 1px 0 rgba(255,255,255,0.14)',
-          background: 'rgba(10, 12, 26, 0.88)',
-          backdropFilter: 'blur(30px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 32px 90px -20px rgba(0,0,0,0.9), 0 0 70px -15px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
+          background: 'rgba(8, 9, 14, 0.94)',
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
         }}
       >
         {/* Top Window Bar */}
         <div
           style={{
-            padding: '16px 22px',
-            background: 'rgba(255,255,255,0.03)',
+            padding: '14px 22px',
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(6,182,212,0.03) 100%)',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             display: 'flex',
             alignItems: 'center',
@@ -320,21 +484,27 @@ export function InteractiveSimulator() {
             gap: '12px',
           }}
         >
-          {/* Window dots */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#EF4444', opacity: 0.85 }} />
-            <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#F59E0B', opacity: 0.85 }} />
-            <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#06B6D4', opacity: 0.85 }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '12px', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-              SecondMind Neural Engine v2.4
-            </span>
+          {/* Window dots & Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#EF4444', opacity: 0.8 }} />
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#F59E0B', opacity: 0.8 }} />
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981', opacity: 0.8 }} />
+            </div>
+            <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.1)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#06B6D4', boxShadow: '0 0 10px #06B6D4' }} />
+              <span style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.85)', fontWeight: 650, fontFamily: 'var(--font-mono)' }}>
+                SecondMind Live Workspace Simulator
+              </span>
+            </div>
           </div>
 
           {/* Mode Switcher */}
           <div
             style={{
               display: 'flex',
-              background: 'rgba(0,0,0,0.45)',
+              background: 'rgba(0,0,0,0.5)',
               padding: '4px',
               borderRadius: '12px',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -342,299 +512,685 @@ export function InteractiveSimulator() {
             }}
           >
             {[
-              { id: 'capture' as const, label: '⚡ 2s Capture', icon: <Zap size={13} /> },
-              { id: 'qa' as const, label: '🧠 Neural Q&A', icon: <Search size={13} /> },
-              { id: 'graph' as const, label: '🕸️ Knowledge Graph', icon: <Layers size={13} /> },
+              { id: 'capture' as const, label: 'Instant Ingestion', icon: <FlaticonIcon name="bolt" variant="bold" animation="pulse" size={13} color="#06B6D4" /> },
+              { id: 'qa' as const, label: '⌘K Semantic Search', icon: <FlaticonIcon name="search" variant="bold" animation="sparkle" size={13} color="#38BDF8" /> },
+              { id: 'graph' as const, label: 'Collections & Graph', icon: <FlaticonIcon name="network" variant="bold" animation="spin" size={13} color="#67E8F9" /> },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  padding: '7px 16px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: activeTab === tab.id ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.85), rgba(6, 182, 212, 0.85))' : 'transparent',
-                  color: activeTab === tab.id ? '#FFFFFF' : 'var(--text-secondary)',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: activeTab === tab.id ? '1px solid rgba(6, 182, 212, 0.45)' : '1px solid transparent',
+                  background: activeTab === tab.id ? 'linear-gradient(90deg, rgba(6, 182, 212, 0.22) 0%, rgba(56, 189, 248, 0.1) 100%)' : 'transparent',
+                  color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255, 255, 255, 0.6)',
                   fontSize: '12px',
                   fontWeight: activeTab === tab.id ? 700 : 500,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  transition: 'all 0.2s',
-                  boxShadow: activeTab === tab.id ? '0 0 20px rgba(6, 182, 212, 0.5), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {tab.icon}
-                {tab.label}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Tab 1: Instant Capture Simulator */}
-        {activeTab === 'capture' && (
-          <div style={{ padding: '32px 28px', minHeight: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', fontFamily: 'var(--font-heading)' }}>
-                  Paste any URL. AI reads, distills, and tags in &lt;2s.
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                  Select an example below to simulate live neural extraction:
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {capturePresets.map((p, i) => (
+        {/* 2-Column Simulated Layout: Sidebar + Main Content */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 250px) 1fr', minHeight: '440px' }} className="sim-layout">
+          {/* Simulated Sidebar with Upgraded Collection Icons */}
+          <div
+            style={{
+              background: 'rgba(5, 6, 10, 0.7)',
+              borderRight: '1px solid rgba(255, 255, 255, 0.07)',
+              padding: '18px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+            className="sim-sidebar"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                SMART COLLECTIONS
+              </span>
+              <span style={{ fontSize: '10px', color: '#67E8F9', background: 'rgba(6, 182, 212, 0.15)', padding: '1px 6px', borderRadius: '8px' }}>
+                LIVE
+              </span>
+            </div>
+
+            {/* Collection Nav Buttons with Upgraded Vector CollectionIcon */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {SIMULATOR_COLLECTIONS.map(col => {
+                const isActive = selectedCollectionId === col.id;
+                return (
                   <button
-                    key={p.label}
-                    onClick={() => handleSelectPreset(i)}
-                    style={{
-                      padding: '7px 14px',
-                      borderRadius: '10px',
-                      fontSize: '12px',
-                      fontWeight: selectedCaptureIdx === i ? 700 : 500,
-                      background: selectedCaptureIdx === i ? 'rgba(6, 182, 212, 0.25)' : 'rgba(255,255,255,0.04)',
-                      border: selectedCaptureIdx === i ? '1px solid rgba(6, 182, 212, 0.6)' : '1px solid rgba(255,255,255,0.08)',
-                      color: selectedCaptureIdx === i ? '#67E8F9' : 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      boxShadow: selectedCaptureIdx === i ? '0 0 16px rgba(6, 182, 212, 0.3)' : 'none',
+                    key={col.id}
+                    onClick={() => {
+                      setSelectedCollectionId(col.id);
+                      if (col.id !== 'all') {
+                        const matching = CAPTURE_PRESETS.find(p => p.collectionId === col.id);
+                        if (matching) {
+                          setInputUrl(matching.url);
+                          setCurrentResult(matching);
+                        }
+                      }
                     }}
-                  >
-                    {p.emoji} {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Simulated browser bar */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 18px',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px',
-              }}
-            >
-              <Zap size={16} style={{ color: '#06B6D4', flexShrink: 0 }} />
-              <div style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#38BDF8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeCapture.url}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#34D399', background: 'rgba(6, 182, 212, 0.12)', padding: '3px 10px', borderRadius: '999px', border: '1px solid rgba(6, 182, 212, 0.35)', fontFamily: 'var(--font-mono)' }}>
-                <span>⚡ Extracted in {activeCapture.time}</span>
-              </div>
-            </div>
-
-            {/* Extraction stage indicator */}
-            {analyzing ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-                <Sparkles size={28} style={{ color: '#38BDF8', animation: 'spin 1.2s linear infinite' }} />
-                <div style={{ fontSize: '14px', color: '#FFFFFF', fontWeight: 600 }}>
-                  {stage === 'fetching' ? '🌐 Scraping clean text & metadata...' : '🧠 Synthesizing key insights & tags...'}
-                </div>
-              </div>
-            ) : (
-              <div
-                className="animate-fade-in"
-                style={{
-                  padding: '24px',
-                  borderRadius: '16px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(6, 182, 212, 0.35)',
-                  boxShadow: '0 16px 40px rgba(0,0,0,0.4)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>{activeCapture.emoji}</span>
-                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', margin: 0, fontFamily: 'var(--font-heading)' }}>
-                      {activeCapture.title}
-                    </h4>
-                  </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{activeCapture.domain}</span>
-                </div>
-                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.65, marginBottom: '16px' }}>
-                  {activeCapture.summary}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {activeCapture.tags.map(t => (
-                      <span
-                        key={t}
-                        style={{
-                          padding: '3px 10px',
-                          borderRadius: '999px',
-                          background: 'rgba(6, 182, 212, 0.15)',
-                          border: '1px solid rgba(6, 182, 212, 0.35)',
-                          color: '#67E8F9',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          fontFamily: 'var(--font-mono)',
-                        }}
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                  <Link
-                    href="/try"
                     style={{
-                      fontSize: '13px',
-                      color: '#34D399',
-                      fontWeight: 600,
+                      width: '100%',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px',
-                      textDecoration: 'none',
+                      gap: '9px',
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      border: isActive ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid transparent',
+                      background: isActive ? 'linear-gradient(90deg, rgba(6, 182, 212, 0.18) 0%, rgba(56, 189, 248, 0.08) 100%)' : 'transparent',
+                      color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: isActive ? 650 : 500,
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    Try saving in live app <ArrowRight size={13} />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 2: Semantic Q&A Simulator */}
-        {activeTab === 'qa' && (
-          <div style={{ padding: '32px 28px', minHeight: '380px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', fontFamily: 'var(--font-heading)' }}>
-                Ask questions. Get cited answers from YOUR saved memories.
-              </h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                Not the whole web — just the research and articles you actually trust.
-              </p>
+                    <CollectionIcon name={col.name} color={col.color} size={13} badgeSize={24} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {col.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        color: isActive ? '#67E8F9' : 'rgba(255, 255, 255, 0.4)',
+                        fontFamily: 'var(--font-mono)',
+                        background: isActive ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                        padding: '1px 5px',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      {col.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Sample questions */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {qaPresets.map((p, i) => (
-                <button
-                  key={p.q}
-                  onClick={() => setSelectedQaIdx(i)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    fontWeight: selectedQaIdx === i ? 600 : 400,
-                    background: selectedQaIdx === i ? 'rgba(6, 182, 212, 0.25)' : 'rgba(255,255,255,0.03)',
-                    border: selectedQaIdx === i ? '1px solid rgba(6, 182, 212, 0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    color: selectedQaIdx === i ? '#FFFFFF' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  💬 {p.q}
-                </button>
-              ))}
-            </div>
-
-            {/* Answer Box */}
-            <div
-              className="animate-fade-in"
-              style={{
-                padding: '24px',
-                borderRadius: '16px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(6, 182, 212, 0.35)',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.3)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <Sparkles size={16} style={{ color: '#06B6D4' }} />
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#06B6D4', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                  SecondMind AI Neural Synthesis
-                </span>
+            {/* Quick Content Types */}
+            <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '12px' }}>
+              <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: '8px', padding: '0 6px', fontFamily: 'var(--font-mono)' }}>
+                CONTENT TYPES
               </div>
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.92)', lineHeight: 1.7, marginBottom: '16px' }}>
-                {activeQa.a}
-              </p>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Citations from your memory:</span>
-                {activeQa.citations.map(c => (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '0 4px' }}>
+                {['link', 'video', 'pdf', 'tweet', 'note'].map(t => (
                   <span
-                    key={c}
+                    key={t}
                     style={{
-                      padding: '3px 10px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 7px',
                       borderRadius: '6px',
-                      background: 'rgba(6, 182, 212, 0.12)',
-                      fontSize: '11px',
-                      color: '#38BDF8',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      fontFamily: 'var(--font-mono)',
+                      background: 'rgba(255,255,255,0.035)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      fontSize: '10.5px',
+                      color: 'rgba(255,255,255,0.7)',
                     }}
                   >
-                    📎 {c}
+                    <ContentTypeIcon type={t} size={11} />
+                    <span style={{ textTransform: 'capitalize' }}>{t}</span>
                   </span>
                 ))}
               </div>
             </div>
           </div>
-        )}
 
-        {/* Tab 3: Knowledge Graph Simulator */}
-        {activeTab === 'graph' && (
-          <div style={{ padding: '32px 28px', minHeight: '380px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', fontFamily: 'var(--font-heading)' }}>
-                Automated Knowledge Graph Connections
-              </h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                Every save links to related topics and concepts automatically.
-              </p>
-            </div>
+          {/* Main Simulator Workspace */}
+          <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* TAB 1: INSTANT CAPTURE SIMULATOR */}
+            {activeTab === 'capture' && (
+              <>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, fontFamily: 'var(--font-heading)' }}>
+                      Interactive URL Extractor & Smart Auto-Tagging
+                    </h3>
+                    <span style={{ fontSize: '11px', color: '#34D399', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 8px', borderRadius: '999px', fontFamily: 'var(--font-mono)' }}>
+                      ✔ Full Working Simulator
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+                    Type or paste any link below or click a sample format to test the extraction and auto-collection assignment:
+                  </p>
+                </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '14px',
-              }}
-            >
-              {[
-                { title: 'Transformers & Attention', count: '4 linked memories', color: '#06B6D4', icon: '⚡' },
-                { title: 'Personal Knowledge (PKM)', count: '6 linked memories', color: '#38BDF8', icon: '🧠' },
-                { title: 'Mental Models & Frameworks', count: '3 linked memories', color: '#F59E0B', icon: '💡' },
-                { title: 'Python & LLM Fine-Tuning', count: '5 linked memories', color: '#38BDF8', icon: '🐍' },
-              ].map(n => (
-                <div
-                  key={n.title}
+                {/* Live Working URL Input Bar */}
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleRunExtract();
+                  }}
                   style={{
-                    padding: '20px',
-                    borderRadius: '14px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${n.color}45`,
-                    boxShadow: `0 0 24px ${n.color}18`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 8px 6px 14px',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
                   }}
                 >
-                  <div style={{ fontSize: '22px', marginBottom: '8px' }}>{n.icon}</div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', fontFamily: 'var(--font-heading)' }}>
-                    {n.title}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{n.count}</div>
-                </div>
-              ))}
-            </div>
+                  <FlaticonIcon name="globe" variant="bold" animation="float" size={16} color="#06B6D4" />
+                  <input
+                    type="text"
+                    value={inputUrl}
+                    onChange={e => setInputUrl(e.target.value)}
+                    placeholder="Enter or paste any link (e.g. https://github.com/torvalds/linux)..."
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      fontFamily: 'var(--font-mono)',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isExtracting}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: isExtracting ? 'rgba(6, 182, 212, 0.3)' : 'linear-gradient(135deg, #06B6D4 0%, #0369A1 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: isExtracting ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isExtracting ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Extracting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FlaticonIcon name="bolt" variant="bold" animation="pulse" size={13} color="#FFFFFF" />
+                        <span>Extract & Save</span>
+                      </>
+                    )}
+                  </button>
+                </form>
 
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <Link
-                href="/try"
-                className="btn btn-primary"
-                style={{ padding: '12px 24px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-              >
-                Explore all connections in Guest Mode <ArrowRight size={14} />
-              </Link>
-            </div>
+                {/* Instant Presets Pills */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono)' }}>TRY EXAMPLES:</span>
+                  {CAPTURE_PRESETS.map(p => (
+                    <button
+                      key={p.label}
+                      onClick={() => {
+                        setInputUrl(p.url);
+                        handleRunExtract(p.url);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11.5px',
+                        fontWeight: inputUrl === p.url ? 600 : 450,
+                        background: inputUrl === p.url ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.04)',
+                        border: inputUrl === p.url ? '1px solid rgba(6, 182, 212, 0.5)' : '1px solid rgba(255,255,255,0.08)',
+                        color: inputUrl === p.url ? '#67E8F9' : 'rgba(255,255,255,0.7)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <ContentTypeIcon type={p.type} size={11} />
+                      <span>{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Extraction Stage or Live Result Card */}
+                {isExtracting ? (
+                  <div
+                    style={{
+                      padding: '36px 20px',
+                      borderRadius: '14px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px dashed rgba(6, 182, 212, 0.4)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                    }}
+                  >
+                    <FlaticonIcon name="sparkles" variant="solid" animation="spin" size={24} color="#06B6D4" />
+                    <div style={{ fontSize: '14px', fontWeight: 650, color: '#FFFFFF' }}>
+                      {extractionStages[extractionStage]}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[0, 1, 2, 3].map(st => (
+                        <span
+                          key={st}
+                          style={{
+                            width: '28px',
+                            height: '4px',
+                            borderRadius: '2px',
+                            background: st <= extractionStage ? '#06B6D4' : 'rgba(255,255,255,0.1)',
+                            transition: 'background 0.3s ease',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: '20px 22px',
+                      borderRadius: '16px',
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
+                      border: '1px solid rgba(6, 182, 212, 0.35)',
+                      boxShadow: '0 16px 36px rgba(0,0,0,0.4), 0 0 24px rgba(6, 182, 212, 0.12)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    {/* Header: Content Type + Collection Capsule + Reading Meta */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {/* Upgraded Vector Content Type Badge */}
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 8px',
+                            borderRadius: '999px',
+                            background: 'rgba(6, 182, 212, 0.12)',
+                            border: '1px solid rgba(6, 182, 212, 0.3)',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            color: '#38BDF8',
+                            fontFamily: 'var(--font-mono)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          <ContentTypeIcon type={currentResult.type} size={11} />
+                          <span>{currentResult.type}</span>
+                        </div>
+
+                        {/* Upgraded Vector Collection Capsule */}
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '3px 9px',
+                            borderRadius: '8px',
+                            background: `${currentResult.collectionColor}18`,
+                            border: `1px solid ${currentResult.collectionColor}35`,
+                            fontSize: '11px',
+                            fontWeight: 650,
+                            color: currentResult.collectionColor,
+                          }}
+                        >
+                          <CollectionIcon name={currentResult.collection} color={currentResult.collectionColor} size={11} badgeSize={18} />
+                          <span>{currentResult.collection}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono)' }}>
+                        <span>{currentResult.domain}</span>
+                        <span>•</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <FlaticonIcon name="clock" variant="bold" animation="pulse" size={11} color="rgba(255,255,255,0.6)" /> {currentResult.readTime}
+                        </span>
+                        <span>•</span>
+                        <span style={{ color: '#34D399' }}>Indexed in {currentResult.time}</span>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h4 style={{ fontSize: '16.5px', fontWeight: 750, color: '#FFFFFF', margin: 0, fontFamily: 'var(--font-heading)' }}>
+                      {currentResult.title}
+                    </h4>
+
+                    {/* Summary */}
+                    <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, margin: 0 }}>
+                      {currentResult.summary}
+                    </p>
+
+                    {/* Tags + Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', paddingTop: '6px' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {currentResult.tags.map(t => (
+                          <span
+                            key={t}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '5px',
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(255,255,255,0.09)',
+                              color: '#67E8F9',
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              fontFamily: 'var(--font-mono)',
+                            }}
+                          >
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+
+                      <Link
+                        href="/try"
+                        style={{
+                          fontSize: '12.5px',
+                          color: '#38BDF8',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <span>Open in Guest Mode</span>
+                        <ArrowRight size={13} />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* TAB 2: ⌘K SEMANTIC SEARCH SIMULATOR */}
+            {activeTab === 'qa' && (
+              <>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, fontFamily: 'var(--font-heading)' }}>
+                      Ask Anything Across Your Second Brain
+                    </h3>
+                    <span style={{ fontSize: '11px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '2px 8px', borderRadius: '999px', fontFamily: 'var(--font-mono)' }}>
+                      ⌘K Neural Q&A
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+                    Type a question or pick an example to see real-time vector synthesis with verified source citations:
+                  </p>
+                </div>
+
+                {/* Working Question Input Bar */}
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleAsk();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 8px 6px 14px',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <FlaticonIcon name="search" variant="bold" animation="sparkle" size={16} color="#06B6D4" />
+                  <input
+                    type="text"
+                    value={qaInput}
+                    onChange={e => setQaInput(e.target.value)}
+                    placeholder="Ask any question across your memories..."
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isAsking}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: isAsking ? 'rgba(6, 182, 212, 0.3)' : 'linear-gradient(135deg, #06B6D4 0%, #0369A1 100%)',
+                      color: '#FFFFFF',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: isAsking ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isAsking ? <Loader2 size={13} className="animate-spin" /> : <FlaticonIcon name="rocket" variant="bold" animation="float" size={13} color="#FFFFFF" />}
+                    <span>Ask AI</span>
+                  </button>
+                </form>
+
+                {/* Question Suggestion Pills */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {QA_PRESETS.map((p, i) => (
+                    <button
+                      key={p.q}
+                      onClick={() => {
+                        setQaInput(p.q);
+                        handleAsk(p.q);
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: qaInput === p.q ? 600 : 450,
+                        background: qaInput === p.q ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.035)',
+                        border: qaInput === p.q ? '1px solid rgba(6, 182, 212, 0.5)' : '1px solid rgba(255,255,255,0.08)',
+                        color: qaInput === p.q ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {p.q}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Synthesized Answer Box with Source Collections */}
+                <div
+                  style={{
+                    padding: '20px 22px',
+                    borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.035)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                      <FlaticonIcon name="brain" variant="solid" animation="pulse" size={15} color="#06B6D4" />
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#06B6D4', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
+                        SYNTHESIZED MEMORY ANSWER
+                      </span>
+                    </div>
+
+                    {/* Cited Collection Capsule */}
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: `${activeQa.collectionColor}18`,
+                        border: `1px solid ${activeQa.collectionColor}35`,
+                        fontSize: '11px',
+                        fontWeight: 650,
+                        color: activeQa.collectionColor,
+                      }}
+                    >
+                      <CollectionIcon name={activeQa.collection} color={activeQa.collectionColor} size={11} badgeSize={16} />
+                      <span>{activeQa.collection}</span>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.92)', lineHeight: 1.7, margin: 0 }}>
+                    {activeQa.a}
+                  </p>
+
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono)' }}>
+                      VERIFIED VAULT SOURCES:
+                    </span>
+                    {activeQa.citations.map(c => (
+                      <span
+                        key={c}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: 'rgba(6, 182, 212, 0.1)',
+                          border: '1px solid rgba(6, 182, 212, 0.25)',
+                          fontSize: '11px',
+                          color: '#38BDF8',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <ContentTypeIcon type={activeQa.type} size={11} />
+                        <span>{c}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* TAB 3: COLLECTIONS & TOPOLOGY GRAPH */}
+            {activeTab === 'graph' && (
+              <>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, fontFamily: 'var(--font-heading)' }}>
+                      Automated Collections & Cross-Memory Topology
+                    </h3>
+                    <span style={{ fontSize: '11px', color: '#67E8F9', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', padding: '2px 8px', borderRadius: '999px', fontFamily: 'var(--font-mono)' }}>
+                      Vector Proximity
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+                    SecondMind automatically clusters memories into smart collections with dedicated vector icons without requiring manual folders:
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '12px',
+                  }}
+                >
+                  {SIMULATOR_COLLECTIONS.filter(c => c.id !== 'all').map(col => (
+                    <div
+                      key={col.id}
+                      onClick={() => {
+                        setSelectedCollectionId(col.id);
+                        setActiveTab('capture');
+                        const matching = CAPTURE_PRESETS.find(p => p.collectionId === col.id);
+                        if (matching) {
+                          setInputUrl(matching.url);
+                          setCurrentResult(matching);
+                        }
+                      }}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '14px',
+                        background: 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${col.color}35`,
+                        boxShadow: `0 8px 24px ${col.color}10`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                      className="hover-scale-physics"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <CollectionIcon name={col.name} color={col.color} size={18} badgeSize={38} />
+                        <span style={{ fontSize: '11px', color: col.color, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          {col.count} memories
+                        </span>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#FFFFFF', marginBottom: '3px' }}>
+                          {col.name}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.5)' }}>
+                          Click to explore in simulator →
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                  <Link
+                    href="/try"
+                    style={{
+                      padding: '12px 24px',
+                      fontSize: '13px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'linear-gradient(135deg, #06B6D4 0%, #0369A1 100%)',
+                      color: '#fff',
+                      borderRadius: '10px',
+                      textDecoration: 'none',
+                      fontWeight: 700,
+                      boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
+                    }}
+                    className="button-press-physics"
+                  >
+                    <FlaticonIcon name="rocket" variant="bold" animation="float" size={14} color="#FFFFFF" />
+                    Open Live Interactive Vault in Guest Mode <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
+      <style>{`
+        @media (max-width: 768px) {
+          .sim-layout { grid-template-columns: 1fr !important; }
+          .sim-sidebar { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+        }
+      `}</style>
     </section>
   );
 }

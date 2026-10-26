@@ -7,6 +7,7 @@ import { commandPaletteVariant } from '@/lib/motion';
 import type { MemoryItem } from '@/lib/data';
 import { semanticSearchAction } from '@/lib/db-items';
 import { getPrimaryCategory } from '@/lib/categories';
+import { ContentTypeIcon, CollectionIcon, FlaticonIcon } from '@/components/icons/PremiumIcons';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -31,25 +32,36 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    if (!val.trim()) {
+      setResults([]);
+      setIsSearching(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-      setQuery('');
-      setResults([]);
-      setSelectedIndex(0);
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+        setQuery('');
+        setResults([]);
+        setSelectedIndex(0);
+      }, 10);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
   useEffect(() => {
-    if (!query.trim()) {
+    let isCancelled = false;
+    const q = query.toLowerCase().trim();
+    if (!q) {
       setResults([]);
       setIsSearching(false);
       return;
     }
 
-    const q = query.toLowerCase().trim();
-
-    // 1. Instant local match (0ms latency — instant feedback!)
+    // 1. Instant local match (0ms latency)
     const localMatches = items.filter(
       item =>
         item.title.toLowerCase().includes(q) ||
@@ -58,34 +70,40 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
         item.content.toLowerCase().includes(q)
     );
     setResults(localMatches);
-    setSelectedIndex(0);
 
-    // 2. Debounced AI semantic enhancement (300ms)
-    setIsSearching(true);
+    // 2. Debounced semantic search with cancellation guard
     const timer = setTimeout(async () => {
-      let semanticResults: MemoryItem[] = [];
+      if (isCancelled) return;
       if (userId && q.length > 2) {
+        setIsSearching(true);
         try {
-          semanticResults = await semanticSearchAction(userId, query, 5);
+          const semanticResults = await semanticSearchAction(userId, query, 5);
+          if (isCancelled) return;
+
+          const mergedMap = new Map<string, MemoryItem>();
+          localMatches.forEach(i => mergedMap.set(i.id, i));
+          semanticResults.forEach(i => {
+            if (!mergedMap.has(i.id)) {
+              mergedMap.set(i.id, i);
+            }
+          });
+
+          setResults(Array.from(mergedMap.values()));
+          setSelectedIndex(0);
         } catch {
-          semanticResults = [];
+          // Keep local matches on error
+        } finally {
+          if (!isCancelled) {
+            setIsSearching(false);
+          }
         }
       }
+    }, 200);
 
-      // Merge unique semantic results
-      const mergedMap = new Map<string, MemoryItem>();
-      localMatches.forEach(i => mergedMap.set(i.id, i));
-      semanticResults.forEach(i => {
-        if (!mergedMap.has(i.id)) {
-          mergedMap.set(i.id, i);
-        }
-      });
-
-      setResults(Array.from(mergedMap.values()));
-      setIsSearching(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
   }, [query, items, userId]);
 
   useEffect(() => {
@@ -108,13 +126,6 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [isOpen, results, selectedIndex, onClose, onSelectItem]);
-
-  const typeIcon = (type: string) => {
-    const map: Record<string, string> = {
-      link: '🔗', note: '📝', image: '🖼️', pdf: '📄', tweet: '🐦', video: '🎬',
-    };
-    return map[type] || '📎';
-  };
 
   return (
     <AnimatePresence>
@@ -145,11 +156,11 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
           >
         {/* Search Input */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <Search size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <FlaticonIcon name="search" variant="bold" animation="sparkle" size={17} color="#06B6D4" />
           <input
             ref={inputRef}
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => handleQueryChange(e.target.value)}
             placeholder="Search memory or ask..."
             style={{
               flex: 1,
@@ -163,7 +174,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
           />
           {query && (
             <button
-              onClick={() => setQuery('')}
+              onClick={() => handleQueryChange('')}
               className="btn btn-ghost btn-icon"
               style={{ width: '32px', height: '32px', borderRadius: '8px', padding: '4px' }}
             >
@@ -191,7 +202,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
           {/* Searching state */}
           {isSearching && (
             <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={14} style={{ color: 'var(--violet-bright)', animation: 'spin 1s linear infinite' }} />
+              <FlaticonIcon name="sparkles" variant="solid" animation="spin" size={16} color="#06B6D4" />
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Searching your memory...</span>
             </div>
           )}
@@ -220,7 +231,9 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                     transition: 'background 0.15s',
                   }}
                 >
-                  <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>{typeIcon(item.type)}</span>
+                  <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                    <ContentTypeIcon type={item.type} size={18} />
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.title}
@@ -236,7 +249,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                           <span
                             key="cat-badge"
                             style={{
-                              padding: '1px 7px',
+                              padding: '2px 8px',
                               background: `${cat.color}18`,
                               border: `1px solid ${cat.color}35`,
                               borderRadius: '6px',
@@ -245,10 +258,10 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                               color: cat.color,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '3px',
+                              gap: '4px',
                             }}
                           >
-                            <span>{cat.emoji}</span>
+                            <CollectionIcon name={cat.name} color={cat.color} size={11} badgeSize={16} />
                             <span>{cat.name}</span>
                           </span>
                         );
@@ -270,7 +283,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
           {!isSearching && query && results.length === 0 && (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Nothing found for "{query}"</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Nothing found for &quot;{query}&quot;</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>Try different keywords or save more content</div>
             </div>
           )}
@@ -284,7 +297,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
               {QUICK_SUGGESTIONS.map((s, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setQuery(s)}
+                  onClick={() => handleQueryChange(s)}
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -303,7 +316,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Hash size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <FlaticonIcon name="sparkles" variant="bold" animation="pulse" size={12} color="#38BDF8" />
                   {s}
                 </button>
               ))}
@@ -333,7 +346,7 @@ export default function SearchOverlay({ isOpen, onClose, onSelectItem, items, us
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Clock size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <FlaticonIcon name="clock" variant="bold" animation="pulse" size={12} color="#67E8F9" />
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.title}
                   </span>

@@ -9,19 +9,26 @@ export default function LoginPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
-  const [activeTab, setActiveTab] = useState<'signin' | 'guest'>('signin');
-  const [isGuestActive, setIsGuestActive] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => {
+    if (typeof navigator !== 'undefined') {
+      return !navigator.onLine;
+    }
+    return false;
+  });
+  const [activeTab, setActiveTab] = useState<'signin' | 'guest'>(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return 'guest';
+    }
+    return 'signin';
+  });
+  const [isGuestActive, setIsGuestActive] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return document.cookie.includes('guest_mode=true');
+    }
+    return false;
+  });
 
   useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-      const offline = !navigator.onLine;
-      setIsOffline(offline);
-      if (offline) {
-        setActiveTab('guest');
-      }
-    }
-
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => {
       setIsOffline(true);
@@ -38,10 +45,6 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    // Check if guest cookie is currently active
-    const hasGuestCookie = document.cookie.includes('guest_mode=true');
-    setIsGuestActive(hasGuestCookie);
-
     // If authenticated via Clerk:
     // 1. Immediately purge any leftover guest cookies so real account is never shadowed
     // 2. Route straight to dashboard

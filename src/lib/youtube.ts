@@ -12,7 +12,13 @@ export function extractYouTubeVideoId(url: string): string | null {
 
 export function isYouTubeUrl(url: string): boolean {
   if (!url) return false;
-  return /youtube\.com|youtu\.be/i.test(url);
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const host = parsed.hostname.toLowerCase();
+    return host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtu.be' || host.endsWith('.youtu.be');
+  } catch {
+    return false;
+  }
 }
 
 export function getYouTubeThumbnailUrl(urlOrId: string): string | null {

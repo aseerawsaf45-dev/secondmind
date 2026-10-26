@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { X, Check, Search, CheckSquare, Square, Link2, FileText, Film, MessageCircle, FolderPlus, Loader } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { X, Check, Search, CheckSquare, Square, Link2, FileText, Film, MessageCircle, Loader } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
+import { CollectionIcon, ContentTypeIcon } from '@/components/icons/PremiumIcons';
 
 interface ManageCollectionItemsModalProps {
   isOpen: boolean;
@@ -15,11 +16,11 @@ interface ManageCollectionItemsModalProps {
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  link: <Link2 size={13} />,
-  note: <FileText size={13} />,
-  video: <Film size={13} />,
-  tweet: <MessageCircle size={13} />,
-  pdf: <FileText size={13} />,
+  link: <ContentTypeIcon type="link" size={13} />,
+  note: <ContentTypeIcon type="note" size={13} />,
+  video: <ContentTypeIcon type="video" size={13} />,
+  tweet: <ContentTypeIcon type="tweet" size={13} />,
+  pdf: <ContentTypeIcon type="pdf" size={13} />,
 };
 
 export default function ManageCollectionItemsModal({
@@ -34,18 +35,17 @@ export default function ManageCollectionItemsModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'link' | 'other'>('all');
   const [isSaving, setIsSaving] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
 
   // Initialize selected items based on current membership
-  useMemo(() => {
+  useEffect(() => {
     if (isOpen && collection) {
       const currentIds = items
         .filter(item => itemCollectionMap[item.id]?.includes(collection.id))
         .map(item => item.id);
-      setSelectedItemIds(currentIds);
-      setInitialLoaded(true);
-    } else {
-      setInitialLoaded(false);
+      const timer = setTimeout(() => {
+        setSelectedItemIds(currentIds);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, collection, items, itemCollectionMap]);
 
@@ -125,20 +125,7 @@ export default function ManageCollectionItemsModal({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '10px',
-                background: 'rgba(6, 86, 91,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '18px',
-              }}
-            >
-              {collection.emoji || '📁'}
-            </div>
+            <CollectionIcon name={collection.name} color={collection.color} size={18} badgeSize={36} />
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
                 Manage {collection.name}

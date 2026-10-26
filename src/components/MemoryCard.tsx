@@ -18,15 +18,15 @@ import {
   Globe,
   Film,
   FileText,
-  Bookmark,
+  WifiOff,
 } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 import { TAG_COLORS } from '@/lib/data';
 import type { Collection } from '@/lib/db-collections';
 import { formatDistanceToNow } from 'date-fns';
 import { getYouTubeThumbnailUrl, extractYouTubeVideoId } from '@/lib/youtube';
-import { motion, AnimatePresence } from 'framer-motion';
 import { getPrimaryCategory } from '@/lib/categories';
+import { CollectionIcon, ContentTypeIcon } from '@/components/icons/PremiumIcons';
 
 interface MemoryCardProps {
   item: MemoryItem;
@@ -88,7 +88,7 @@ export default function MemoryCard({
   const timeAgo = useMemo(() => {
     try {
       return formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
-    } catch (_) {
+    } catch {
       return 'Recently';
     }
   }, [item.createdAt]);
@@ -99,7 +99,7 @@ export default function MemoryCard({
     if (item.url) {
       try {
         return new URL(item.url).hostname.replace(/^www\./, '');
-      } catch (_) {}
+      } catch {}
     }
     return null;
   }, [item.sourceDomain, item.url]);
@@ -127,7 +127,7 @@ export default function MemoryCard({
       await navigator.clipboard.writeText(urlToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (_) {}
+    } catch {}
   };
 
   const openMenu = (e: React.MouseEvent) => {
@@ -314,7 +314,7 @@ export default function MemoryCard({
                 {cleanDomain ? (
                   <img
                     src={`https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=64`}
-                    alt=""
+                    alt={`${cleanDomain} favicon`}
                     width={16}
                     height={16}
                     style={{ borderRadius: '3px' }}
@@ -516,7 +516,7 @@ export default function MemoryCard({
                 {cleanDomain ? (
                   <img
                     src={`https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=64`}
-                    alt=""
+                    alt={`${cleanDomain} favicon`}
                     width={14}
                     height={14}
                     style={{ borderRadius: '3px', opacity: 0.9 }}
@@ -545,8 +545,8 @@ export default function MemoryCard({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  padding: '2px 7px',
+                  gap: '5px',
+                  padding: '2px 8px',
                   borderRadius: '999px',
                   background: typeConfig.bg,
                   border: `1px solid ${typeConfig.color}25`,
@@ -558,7 +558,7 @@ export default function MemoryCard({
                   fontFamily: 'var(--font-mono), monospace',
                 }}
               >
-                <span>{typeConfig.emoji}</span>
+                <ContentTypeIcon type={item.type} size={11} color={typeConfig.color} />
                 <span>{typeConfig.label}</span>
               </div>
             </div>
@@ -602,14 +602,37 @@ export default function MemoryCard({
 
           {/* TAGS & COLLECTIONS PILLS */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+            {/* Offline Pending Sync Badge */}
+            {(item.id.startsWith('offline-') || item.tags.includes('Offline')) && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(245, 158, 11, 0.16)',
+                  color: '#FBBF24',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  fontFamily: 'var(--font-sans), sans-serif',
+                  fontSize: '10px',
+                  fontWeight: 650,
+                  letterSpacing: '0.01em',
+                }}
+              >
+                <WifiOff size={11} style={{ color: '#FBBF24' }} />
+                <span>Offline (Pending Sync)</span>
+              </span>
+            )}
+
             {/* Primary Category Pill */}
             {primaryCategory && primaryCategory.id !== 'general' && (
               <span
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  padding: '2px 7px',
+                  gap: '5px',
+                  padding: '2px 8px',
                   borderRadius: '6px',
                   background: `${primaryCategory.color}18`,
                   color: primaryCategory.color,
@@ -620,7 +643,7 @@ export default function MemoryCard({
                   letterSpacing: '0.01em',
                 }}
               >
-                <span style={{ fontSize: '11px', lineHeight: 1 }}>{primaryCategory.emoji}</span>
+                <CollectionIcon name={primaryCategory.name} color={primaryCategory.color} size={11} badgeSize={18} />
                 <span>{primaryCategory.name}</span>
               </span>
             )}
@@ -902,7 +925,7 @@ export default function MemoryCard({
                               e.currentTarget.style.color = isMember ? '#C7D2FE' : 'rgba(255, 255, 255, 0.75)';
                             }}
                           >
-                            <span>{c.emoji}</span>
+                            <CollectionIcon name={c.name} color={c.color} size={12} badgeSize={20} />
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {c.name}
                             </span>

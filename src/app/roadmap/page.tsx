@@ -94,7 +94,7 @@ export default function RoadmapPage() {
               <ul>
                 <li><strong>End-to-End Encryption (E2EE):</strong> True zero-knowledge encryption for your most sensitive notes.</li>
                 <li><strong>Advanced Organization:</strong> Flexible structures like bidirectional links (Roam/Obsidian style) and a visual graph view.</li>
-                <li><strong>Community Features:</strong> Allow users to share "memory packs" or templates with privacy controls.</li>
+                <li><strong>Community Features:</strong> Allow users to share &quot;memory packs&quot; or templates with privacy controls.</li>
               </ul>
             ),
           }

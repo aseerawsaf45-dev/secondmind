@@ -18,8 +18,9 @@ export default async function AppPage() {
   let isClerkOffline = false;
   try {
     user = await currentUser();
-  } catch (e: any) {
-    console.warn('[App] Failed to fetch current user from Clerk (possibly offline):', e?.message || e);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn('[App] Failed to fetch current user from Clerk (possibly offline):', message);
     isClerkOffline = true;
   }
 

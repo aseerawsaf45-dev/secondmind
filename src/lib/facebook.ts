@@ -16,7 +16,20 @@ export interface FacebookExtractedData {
  */
 export function isFacebookUrl(url: string): boolean {
   if (!url) return false;
-  return /(?:https?:\/\/)?(?:www\.|m\.|web\.|touch\.|l\.)?(?:facebook\.com|fb\.watch|fb\.me|fb\.com)\b/i.test(url);
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'facebook.com' ||
+      host.endsWith('.facebook.com') ||
+      host === 'fb.watch' ||
+      host.endsWith('.fb.watch') ||
+      host === 'fb.me' ||
+      host === 'fb.com'
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -117,24 +130,26 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
   let ogImage = '';
   let author = parsedMeta.authorOrGroup || '';
 
-  // Attempt to fetch Open Graph metadata with crawler User-Agent
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+  // Attempt to fetch Open Graph metadata with crawler User-Agent only for vetted Facebook domains
+  if (isFacebookUrl(cleanUrl)) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const res = await fetch(cleanUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
-    clearTimeout(timeoutId);
+      const res = await fetch(cleanUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const html = await res.text();
-      const $ = cheerio.load(html);
+      if (res.ok) {
+        const rawHtml = await res.text();
+        const html = rawHtml.slice(0, 2 * 1024 * 1024);
+        const $ = cheerio.load(html);
 
       const rawTitle = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content') || $('title').text() || '';
       const rawDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('meta[name="twitter:description"]').attr('content') || '';
@@ -153,9 +168,10 @@ export async function extractFacebookMetadata(url: string): Promise<FacebookExtr
         ogImage = rawImg;
       }
     }
-  } catch (err) {
+  } catch {
     // Network or abort fallback
   }
+}
 
   // If author wasn't extracted from URL, try extracting from OG title (e.g. "Author Name - Video Title | Facebook")
   if (!author && ogTitle) {

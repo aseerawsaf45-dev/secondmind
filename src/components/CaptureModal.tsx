@@ -1,4 +1,4 @@
-import { X, Link2, FileText, Image, Sparkles, Check, Loader, Upload, Tag, Plus, Video, ExternalLink, RefreshCw, List, FolderPlus, AlertTriangle, MessageSquare, Search, ArrowUpRight } from 'lucide-react';
+import { X, Link2, FileText, Sparkles, Check, Loader, Upload, Tag, Plus, ExternalLink, List, FolderPlus, AlertTriangle, MessageSquare, ArrowUpRight, WifiOff } from 'lucide-react';
 import LinkableTextarea from '@/components/LinkableTextarea';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
@@ -12,7 +12,7 @@ import { DEFAULT_CATEGORY_COLLECTIONS } from '@/lib/categories';
 interface CaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: any;
+  user: { id?: string; fullName?: string | null; primaryEmailAddress?: { emailAddress?: string } | null; imageUrl?: string } | null;
   existingItems?: MemoryItem[];
   onSave: (data: { type: string; title: string; content: string; url?: string; thumbnailUrl?: string; summary?: string; tags?: string[] }) => void;
   onAskAboutItem?: (itemTitle: string) => void;
@@ -31,7 +31,7 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
 
 const SUGGESTED_TAGS = ['AI', 'Design', 'Business', 'Tech', 'Productivity', 'Research', 'Social', 'Facebook', 'X'];
 
-export default function CaptureModal({ isOpen, onClose, onSave, user, existingItems = [], onAskAboutItem, initialUrl, initialNote }: CaptureModalProps) {
+export default function CaptureModal({ isOpen, onClose, onSave, user: _user, existingItems = [], onAskAboutItem, initialUrl, initialNote }: CaptureModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<TabType>(initialUrl ? 'url' : initialNote ? 'note' : 'url');
   const [url, setUrl] = useState(initialUrl || '');
@@ -43,6 +43,23 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeviceOffline, setIsDeviceOffline] = useState(() => {
+    if (typeof navigator !== 'undefined') {
+      return !navigator.onLine;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => setIsDeviceOffline(false);
+    const handleOffline = () => setIsDeviceOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Live URL Analysis States
   const [isAnalyzingUrl, setIsAnalyzingUrl] = useState(false);
@@ -94,6 +111,32 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
       clean = 'https://' + clean;
     }
 
+    // Instant offline fallback preview if device has no connection
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      let fallbackTitle = clean;
+      let fallbackDomain = '';
+      try {
+        const u = new URL(clean);
+        fallbackDomain = u.hostname.replace('www.', '');
+        fallbackTitle = fallbackDomain
+          ? `${fallbackDomain.charAt(0).toUpperCase() + fallbackDomain.slice(1)} Link`
+          : clean;
+      } catch (_) {}
+
+      setExtractedPreview({
+        title: fallbackTitle,
+        description: 'Saved locally offline. Will be summarized and vectorized by AI once internet is restored.',
+        tags: ['Offline', 'Link'],
+        type: 'link',
+      });
+      if (!title) setTitle(fallbackTitle);
+      setEditableSummary('Saved locally offline. Will be summarized and vectorized by AI once internet is restored.');
+      setCustomTags(prev => Array.from(new Set([...prev, 'Offline'])));
+      setIsAnalyzingUrl(false);
+      setLastAnalyzedUrl(clean);
+      return;
+    }
+
     setIsAnalyzingUrl(true);
     setAnalysisStage('fetching');
     setLastAnalyzedUrl(clean);
@@ -143,10 +186,12 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
     if (tab !== 'url') return;
     const trimmed = url.trim();
     if (!trimmed) {
-      setExtractedPreview(null);
-      setLastAnalyzedUrl('');
-      setEditableSummary('');
-      return;
+      const timer = setTimeout(() => {
+        setExtractedPreview(null);
+        setLastAnalyzedUrl('');
+        setEditableSummary('');
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const timer = setTimeout(() => {
@@ -158,14 +203,17 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
 
   useEffect(() => {
     if (isOpen) {
-      if (initialUrl) {
-        setTab('url');
-        setUrl(initialUrl);
-        analyzeUrl(initialUrl);
-      } else if (initialNote) {
-        setTab('note');
-        setNote(initialNote);
-      }
+      const timer = setTimeout(() => {
+        if (initialUrl) {
+          setTab('url');
+          setUrl(initialUrl);
+          analyzeUrl(initialUrl);
+        } else if (initialNote) {
+          setTab('note');
+          setNote(initialNote);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, initialUrl, initialNote, analyzeUrl]);
 
@@ -228,33 +276,36 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
       let fileUrl = null;
 
       try {
-        if (item.tabType === 'url' && !extractedData) {
-          const res = await fetch('/api/extract', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: item.url }),
-          });
-          if (res.ok) {
-            extractedData = await res.json();
-          }
-        } else if (item.tabType === 'note') {
-          const res = await fetch('/api/extract', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: item.note, title }),
-          });
-          if (res.ok) {
-            extractedData = await res.json();
-          }
-        } else if (item.tabType === 'upload' && item.file) {
-          fileUrl = URL.createObjectURL(item.file);
-          const res = await fetch('/api/extract', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: item.file.name }),
-          });
-          if (res.ok) {
-            extractedData = await res.json();
+        const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+        if (!isOffline) {
+          if (item.tabType === 'url' && !extractedData) {
+            const res = await fetch('/api/extract', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: item.url }),
+            });
+            if (res.ok) {
+              extractedData = await res.json();
+            }
+          } else if (item.tabType === 'note') {
+            const res = await fetch('/api/extract', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: item.note, title }),
+            });
+            if (res.ok) {
+              extractedData = await res.json();
+            }
+          } else if (item.tabType === 'upload' && item.file) {
+            fileUrl = URL.createObjectURL(item.file);
+            const res = await fetch('/api/extract', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: item.file.name }),
+            });
+            if (res.ok) {
+              extractedData = await res.json();
+            }
           }
         }
       } catch (err) {
@@ -281,11 +332,24 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
         finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
       }
 
-      const useTitle = title.trim() || extractedData?.title || (item.file?.name) || (item.tabType === 'url' ? item.url : item.note.slice(0, 50) + '...');
+      let fallbackTitleFromUrl = '';
+      if (item.url) {
+        try {
+          const u = new URL(item.url);
+          const host = u.hostname.replace('www.', '');
+          fallbackTitleFromUrl = host ? `${host.charAt(0).toUpperCase() + host.slice(1)} Link` : item.url;
+        } catch (_) {
+          fallbackTitleFromUrl = item.url;
+        }
+      }
+
+      const isDeviceCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      const useTitle = title.trim() || extractedData?.title || fallbackTitleFromUrl || (item.file?.name) || (item.tabType === 'url' ? item.url : item.note.slice(0, 50) + '...');
       const useContent = item.tabType === 'upload' ? (fileUrl || '') : (item.tabType === 'url' ? (editableSummary || extractedData?.description || item.url) : item.note);
-      const useSummary = editableSummary.trim() || extractedData?.description || (item.tabType === 'note' ? item.note : item.tabType === 'upload' ? `Uploaded ${item.file?.name}` : 'Saved memory reference');
+      const useSummary = editableSummary.trim() || extractedData?.description || (isDeviceCurrentlyOffline ? 'Saved locally offline. Will sync with database when online.' : (item.tabType === 'note' ? item.note : item.tabType === 'upload' ? `Uploaded ${item.file?.name}` : 'Saved memory reference'));
 
       const mergedTagsSet = new Set<string>([...customTags, ...(extractedData?.tags || [])]);
+      if (isDeviceCurrentlyOffline) mergedTagsSet.add('Offline');
       if (isFb) mergedTagsSet.add('Facebook');
       if (isTweet) mergedTagsSet.add('X');
       if (item.tabType === 'upload' && mergedTagsSet.size === 0) mergedTagsSet.add('Uploaded');
@@ -475,6 +539,23 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
             </div>
           ) : (
             <>
+              {isDeviceOffline && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: '#FDE68A',
+                  marginBottom: '12px',
+                }}>
+                  <WifiOff size={14} style={{ flexShrink: 0, color: '#FBBF24' }} />
+                  <span><strong>Device Offline:</strong> Your link will be saved locally in cache now, and synced to your database once reconnected.</span>
+                </div>
+              )}
               {tab === 'url' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
@@ -999,6 +1080,11 @@ export default function CaptureModal({ isOpen, onClose, onSave, user, existingIt
                 <>
                   <Check size={14} />
                   Saved!
+                </>
+              ) : isDeviceOffline ? (
+                <>
+                  <WifiOff size={14} />
+                  Save Link Offline
                 </>
               ) : (
                 <>
