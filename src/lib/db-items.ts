@@ -318,6 +318,9 @@ export async function updateItemAction(
 
 export async function semanticSearchAction(userId: string, query: string, limit = 10): Promise<MemoryItem[]> {
   try {
+    if (!userId || userId === 'guest' || userId === 'offline-user' || !query.trim()) {
+      return [];
+    }
     const verifiedUserId = await getVerifiedUserId(userId);
     const db = await getUserDb(verifiedUserId);
     const { cosineDistance } = await import("drizzle-orm");

@@ -70,9 +70,11 @@ export default function ItemDetailModal({
   
   const [aiRelatedItems, setAiRelatedItems] = useState<MemoryItem[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
 
   useEffect(() => {
     if (item) {
+      setThumbnailFailed(false);
       const timer = setTimeout(() => {
         setEditTitle(item.title);
         setEditContent(item.content);
@@ -166,10 +168,14 @@ export default function ItemDetailModal({
     setEditTags(editTags.filter(t => t !== tag));
   };
 
-  const relatedItems = allItems.filter(i => item.relatedIds.includes(i.id));
-  const backlinkedItems = allItems.filter(i => 
+  const safeAllItems = Array.isArray(allItems) ? allItems : [];
+  const safeRelatedIds = Array.isArray(item.relatedIds) ? item.relatedIds : [];
+  const relatedItems = safeAllItems.filter(i => safeRelatedIds.includes(i.id));
+  const itemTitle = item.title || '';
+  const backlinkedItems = safeAllItems.filter(i => 
     i.id !== item.id && 
-    (i.content.includes(`[[${item.title}]]`) || i.summary.includes(`[[${item.title}]]`))
+    itemTitle &&
+    (((i.content || '').includes(`[[${itemTitle}]]`)) || ((i.summary || '').includes(`[[${itemTitle}]]`)))
   );
   
   const allRelated = Array.from(new Set([...relatedItems, ...backlinkedItems]));
@@ -423,7 +429,7 @@ export default function ItemDetailModal({
               {/* YouTube Embed / Media Preview */}
               {(() => {
                 const ytVideoId = item.url ? extractYouTubeVideoId(item.url) : null;
-                const displayThumbnail = item.thumbnailUrl || (item.url ? getYouTubeThumbnailUrl(item.url) : null);
+                const displayThumbnail = item.thumbnailUrl || (item.url ? (getYouTubeThumbnailUrl(item.url) || `https://image.thum.io/get/width/600/crop/800/${item.url}`) : null);
 
                 if (ytVideoId) {
                   return (
@@ -449,7 +455,7 @@ export default function ItemDetailModal({
                   );
                 }
 
-                if (displayThumbnail) {
+                if (displayThumbnail && !thumbnailFailed) {
                   return (
                     <div
                       style={{
@@ -466,7 +472,9 @@ export default function ItemDetailModal({
                     >
                       <img
                         src={displayThumbnail}
-                        alt="Thumbnail preview"
+                        alt={item.title || 'Thumbnail preview'}
+                        referrerPolicy="no-referrer"
+                        onError={() => setThumbnailFailed(true)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>

@@ -27,6 +27,24 @@ interface TagRule {
 
 // ── Rich, Curated Taxonomy with High-Accuracy Patterns ─────────────────────────
 const TAXONOMY: TagRule[] = [
+  // --- VIBE CODING & AI CODING ---
+  {
+    tag: 'Vibe Coding',
+    category: 'vibe-coding',
+    patterns: [
+      /\b(vibe\s*coding|vibecoding|prompt to code|natural language programming|prompt-driven development)\b/i,
+    ],
+    weight: 1.6,
+  },
+  {
+    tag: 'AI Coding',
+    category: 'vibe-coding',
+    patterns: [
+      /\b(cursor(?:\s*editor|\s*ai)?|claude\s*code|windsurf|bolt\.new|lovable(?:\.dev)?|v0\.dev|v0|replit\s*agent|aider|devin|github\s*copilot|agentic\s*coding)\b/i,
+    ],
+    weight: 1.5,
+  },
+
   // --- AI & MACHINE LEARNING ---
   {
     tag: 'Generative AI',
@@ -476,6 +494,11 @@ const TAXONOMY: TagRule[] = [
 
 // Domain mappings for high-precision context
 const DOMAIN_TAGS: Record<string, string[]> = {
+  'cursor.com': ['Vibe Coding', 'AI Coding'],
+  'bolt.new': ['Vibe Coding', 'AI Coding'],
+  'lovable.dev': ['Vibe Coding', 'AI Coding'],
+  'v0.dev': ['Vibe Coding', 'AI Coding'],
+  'windsurf.com': ['Vibe Coding', 'AI Coding'],
   'tripadvisor.com': ['Travel', 'Destination'],
   'lonelyplanet.com': ['Travel', 'Destination'],
   'airbnb.com': ['Travel', 'Destination'],

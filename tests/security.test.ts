@@ -106,4 +106,38 @@ describe('Security Hardening & Vulnerability Regression Suite', () => {
     });
   });
 
+  describe('Environment Variables & Secret Files Security Guard', () => {
+    test('.gitignore strictly ignores all .env variants and secret keys', async () => {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const gitignoreContent = fs.readFileSync(path.resolve(process.cwd(), '.gitignore'), 'utf-8');
+
+      assert.ok(gitignoreContent.includes('.env*') || (gitignoreContent.includes('.env') && gitignoreContent.includes('.env.*')));
+      assert.ok(gitignoreContent.includes('.env.local'));
+      assert.ok(gitignoreContent.includes('*.pem'));
+      assert.ok(gitignoreContent.includes('*.key'));
+      assert.ok(gitignoreContent.includes('!.env.example'));
+    });
+
+    test('Critical backend secrets are never prefixed with NEXT_PUBLIC_', () => {
+      const forbiddenPublicSecrets = [
+        'NEXT_PUBLIC_DATABASE_URL',
+        'NEXT_PUBLIC_NEON_API_KEY',
+        'NEXT_PUBLIC_CLERK_SECRET_KEY',
+        'NEXT_PUBLIC_CLERK_WEBHOOK_SECRET',
+        'NEXT_PUBLIC_GEMINI_API_KEY',
+        'NEXT_PUBLIC_OPENAI_API_KEY',
+      ];
+
+      for (const secretKey of forbiddenPublicSecrets) {
+        assert.equal(
+          process.env[secretKey],
+          undefined,
+          `Critical secret ${secretKey} must NEVER be defined or exposed via NEXT_PUBLIC_ prefix`
+        );
+      }
+    });
+  });
+
 });
+

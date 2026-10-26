@@ -31,15 +31,30 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*.local
+# env and secret files (Strict Security)
 .env
+.env.*
+.env*.local
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 .env.vercel.tmp
-.env*
+*.env
+*.env.*
+*.key
+*.pem
+*.cert
+*.crt
+*.pfx
+*.p12
+*.bak
+*.backup
+*.save
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 !.env.example
 
 # vercel

@@ -6,6 +6,30 @@ const isAuthRoute = createRouteMatcher(['/login(.*)', '/signup(.*)', '/auth(.*)'
 const isExtractApi = createRouteMatcher(['/api/extract(.*)']);
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
+  const pathname = req.nextUrl.pathname.toLowerCase();
+
+  // 0. Sensitive File & Scanner Probe Shield (Blocks .env, .git, .aws, .pem, etc.)
+  if (
+    pathname.includes('/.env') ||
+    pathname.endsWith('.env') ||
+    pathname.includes('/.git') ||
+    pathname.includes('/.aws') ||
+    pathname.includes('/.ssh') ||
+    pathname.includes('/.ds_store') ||
+    pathname.endsWith('.pem') ||
+    pathname.endsWith('.key') ||
+    pathname.endsWith('.sql') ||
+    pathname.endsWith('.bak')
+  ) {
+    return new NextResponse('Not Found', {
+      status: 404,
+      headers: {
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    });
+  }
+
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||

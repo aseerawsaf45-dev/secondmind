@@ -8,10 +8,31 @@ const PREFIX = 'secondmind_guest_';
 export const localDb = {
   fetchItems: async (): Promise<MemoryItem[]> => {
     const raw = await idbGet<MemoryItem[]>(PREFIX + 'items', []);
-    // Remove any template data saved links of guest mode (demo-*)
-    const clean = raw.filter(item => !item.id.startsWith('demo-'));
+    // Remove any template / demo / test / preexisting data saved links only from guest mode
+    const clean = raw.filter(
+      item =>
+        item &&
+        !item.id.startsWith('demo-') &&
+        !item.id.startsWith('test-') &&
+        !item.id.startsWith('mock-') &&
+        !item.id.startsWith('sample-')
+    );
     if (clean.length !== raw.length) {
       await idbSet(PREFIX + 'items', clean);
+      try {
+        const map = await idbGet<Record<string, string[]>>(PREFIX + 'itemMap', {});
+        let mapChanged = false;
+        const cleanIds = new Set(clean.map(c => c.id));
+        for (const id of Object.keys(map)) {
+          if (!cleanIds.has(id)) {
+            delete map[id];
+            mapChanged = true;
+          }
+        }
+        if (mapChanged) {
+          await idbSet(PREFIX + 'itemMap', map);
+        }
+      } catch {}
     }
     return clean;
   },
@@ -216,15 +237,32 @@ export const localDb = {
       const raw = localStorage.getItem(PREFIX + 'items');
       if (raw) {
         const items = JSON.parse(raw) as MemoryItem[];
-        return Array.isArray(items) && items.some(i => !i.id.startsWith('demo-'));
+        return (
+          Array.isArray(items) &&
+          items.some(
+            i =>
+              i &&
+              !i.id.startsWith('demo-') &&
+              !i.id.startsWith('test-') &&
+              !i.id.startsWith('mock-') &&
+              !i.id.startsWith('sample-')
+          )
+        );
       }
     } catch {}
     return false;
   },
 
-  /** Retrieves guest data for account migration (excluding any demo data) */
+  /** Retrieves guest data for account migration (excluding any preexisting demo/test data) */
   getGuestDataForMigration: async () => {
-    const items = (await localDb.fetchItems()).filter(i => !i.id.startsWith('demo-'));
+    const items = (await localDb.fetchItems()).filter(
+      i =>
+        i &&
+        !i.id.startsWith('demo-') &&
+        !i.id.startsWith('test-') &&
+        !i.id.startsWith('mock-') &&
+        !i.id.startsWith('sample-')
+    );
     const collections = await localDb.fetchCollections();
     const itemMap = await localDb.fetchCollectionItemMap();
     return { items, collections, itemMap };

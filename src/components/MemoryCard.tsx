@@ -110,6 +110,9 @@ export default function MemoryCard({
     if (item.url) {
       const ytThumb = getYouTubeThumbnailUrl(item.url);
       if (ytThumb) return ytThumb;
+      if (!imgFailed) {
+        return `https://image.thum.io/get/width/600/crop/800/${item.url}`;
+      }
     }
     return null;
   }, [item.thumbnailUrl, item.url, imgFailed]);
@@ -234,13 +237,14 @@ export default function MemoryCard({
               alt={item.title}
               loading="lazy"
               decoding="async"
+              referrerPolicy="no-referrer"
               onLoad={() => setImgLoaded(true)}
               onError={() => setImgFailed(true)}
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                opacity: imgLoaded ? 1 : 0,
+                opacity: 1,
                 transform: isHovered ? 'scale(1.04)' : 'scale(1.0)',
                 transition: 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
               }}

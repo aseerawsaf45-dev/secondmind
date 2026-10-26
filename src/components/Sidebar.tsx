@@ -34,7 +34,7 @@ import { UserButton, useClerk } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CollectionIcon, ContentTypeIcon, FlaticonIcon } from '@/components/icons/PremiumIcons';
 
-const DEFAULT_PRESET_TAGS = ['AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
+const DEFAULT_PRESET_TAGS = ['Vibe Coding', 'AI', 'Design', 'Business', 'Research', 'Productivity', 'Philosophy'];
 
 interface SidebarProps {
   activeFilter: string;

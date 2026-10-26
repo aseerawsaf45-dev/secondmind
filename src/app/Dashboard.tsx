@@ -151,12 +151,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
     }
     return 'grid';
   });
-  const [isOffline, setIsOffline] = useState(() => {
-    if (typeof navigator !== 'undefined') {
-      return !navigator.onLine;
-    }
-    return false;
-  });
+  const [isOffline, setIsOffline] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const searchParams = useSearchParams();
@@ -389,10 +384,16 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
     }
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem('secondmind_guest_items');
-      if (raw && raw.includes('demo-')) {
+      if (raw && (raw.includes('demo-') || raw.includes('test-') || raw.includes('mock-') || raw.includes('sample-'))) {
         try {
           const parsed = JSON.parse(raw);
-          const clean = parsed.filter((i: { id?: string }) => !i.id?.startsWith('demo-'));
+          const clean = parsed.filter(
+            (i: { id?: string }) =>
+              !i.id?.startsWith('demo-') &&
+              !i.id?.startsWith('test-') &&
+              !i.id?.startsWith('mock-') &&
+              !i.id?.startsWith('sample-')
+          );
           localStorage.setItem('secondmind_guest_items', JSON.stringify(clean));
         } catch {}
       }
@@ -444,7 +445,6 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
 
   const handleGuestLoginAction = () => {
     document.cookie = 'guest_mode=true; path=/; max-age=31536000; SameSite=Lax';
-    document.cookie = 'guest_seed_demo=true; path=/; max-age=600; SameSite=Lax';
     window.location.href = '/app';
   };
 
@@ -1430,6 +1430,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
 
             {/* Live Connection & Offline Badge */}
             <div
+              suppressHydrationWarning
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1445,7 +1446,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
               title={isOffline || userId === 'offline-user' ? 'Working in local offline mode' : 'Connected to cloud'}
             >
               {isOffline || userId === 'offline-user' ? <WifiOff size={12} /> : <Cloud size={12} />}
-              <span className="hide-xs">
+              <span suppressHydrationWarning className="hide-xs">
                 {isOffline || userId === 'offline-user' ? (pendingSyncCount > 0 ? `Offline (${pendingSyncCount})` : 'Offline') : 'Cloud Synced'}
               </span>
             </div>

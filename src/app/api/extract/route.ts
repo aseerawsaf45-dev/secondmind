@@ -243,11 +243,26 @@ export async function POST(request: Request) {
     }
 
     const contentType = res.headers.get('content-type') || '';
+    const isDirectImage = contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(targetUrl);
+
+    if (isDirectImage) {
+      const fileName = targetUrl.split('/').pop()?.split('?')[0] || domain;
+      return NextResponse.json({
+        title: fileName,
+        description: `Direct image from ${domain}.`,
+        category: 'Media & Reads',
+        categoryEmoji: '🎬',
+        categoryColor: '#E11D48',
+        image: targetUrl,
+        tags: ['Image', 'Media'],
+      });
+    }
+
     if (contentType && !/text\/html|text\/plain|application\/xhtml\+xml|application\/xml/i.test(contentType)) {
       return NextResponse.json({
         title: domain,
         description: `Saved bookmark from ${domain}.`,
-        image: '',
+        image: `https://image.thum.io/get/width/600/crop/800/${targetUrl}`,
         tags: classifyContent(`${domain} ${targetUrl}`, [], { title: domain, url: targetUrl }),
       });
     }
@@ -259,7 +274,21 @@ export async function POST(request: Request) {
 
     const title = $('meta[property="og:title"]').attr('content') || $('title').text() || domain;
     const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-    const rawImage = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || $('link[rel="image_src"]').attr('href') || '';
+    
+    // Comprehensive image discovery across OpenGraph, Twitter Cards, article body, and touch icons
+    const rawImage = (
+      $('meta[property="og:image:secure_url"]').attr('content') ||
+      $('meta[property="og:image:url"]').attr('content') ||
+      $('meta[property="og:image"]').attr('content') ||
+      $('meta[name="twitter:image:src"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      $('meta[property="twitter:image"]').attr('content') ||
+      $('link[rel="image_src"]').attr('href') ||
+      $('article img, main img, .post-content img, .entry-content img').first().attr('src') ||
+      $('link[rel="apple-touch-icon"]').attr('href') ||
+      ''
+    ).replace(/&amp;/g, '&').trim();
+
     let image = '';
     if (rawImage) {
       if (rawImage.startsWith('//')) {

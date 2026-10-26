@@ -40,6 +40,20 @@ export function parseHexColor(inputColor?: string | null): { r: number; g: numbe
 export function resolveCollectionFlaticon(name: string): { icon: string; animation: FlaticonAnimation } {
   const n = (name || '').toLowerCase().trim();
 
+  // Vibe Coding & AI Coding Tools
+  if (
+    n.includes('vibe coding') ||
+    n.includes('vibecoding') ||
+    n.includes('cursor') ||
+    n.includes('claude code') ||
+    n.includes('windsurf') ||
+    n.includes('bolt.new') ||
+    n.includes('lovable') ||
+    n.includes('v0')
+  ) {
+    return { icon: 'bolt', animation: 'pulse' };
+  }
+
   // AI & Machine Learning
   if (
     /\b(ai|llm|gpt|ml|rag)\b/i.test(n) ||

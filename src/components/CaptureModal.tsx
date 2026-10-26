@@ -76,6 +76,19 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
     keyTakeaways?: string[];
   } | null>(null);
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState('');
+  const [previewImgFailed, setPreviewImgFailed] = useState(false);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith('image/')) {
+      const objUrl = URL.createObjectURL(selectedFile);
+      setUploadPreviewUrl(objUrl);
+      return () => URL.revokeObjectURL(objUrl);
+    } else {
+      setUploadPreviewUrl(null);
+    }
+  }, [selectedFile]);
+
   const [saveConfirmation, setSaveConfirmation] = useState<{
     title: string;
     url?: string;
@@ -156,6 +169,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
 
       if (res.ok) {
         const data = await res.json();
+        setPreviewImgFailed(false);
         setExtractedPreview(data);
         setAnalysisStage('ready');
 
@@ -235,6 +249,8 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
     setCustomTags([]);
     setTagInput('');
     setExtractedPreview(null);
+    setPreviewImgFailed(false);
+    setUploadPreviewUrl(null);
     setLastAnalyzedUrl('');
     setSaveConfirmation(null);
   };
@@ -328,8 +344,21 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
       }
 
       let finalThumbnail = extractedData?.image;
+      if (item.tabType === 'upload' && item.file && item.file.type.startsWith('image/')) {
+        try {
+          finalThumbnail = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(item.file!);
+          });
+        } catch {}
+      }
       if (!finalThumbnail && isYouTubeUrl(item.url)) {
         finalThumbnail = getYouTubeThumbnailUrl(item.url) || undefined;
+      }
+      if (!finalThumbnail && item.tabType === 'url' && item.url) {
+        finalThumbnail = `https://image.thum.io/get/width/600/crop/800/${item.url}`;
       }
 
       let fallbackTitleFromUrl = '';
@@ -714,9 +743,24 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
                     </div>
                   )}
 
-                  {extractedPreview.image && (
-                    <div style={{ width: '100%', height: '110px', borderRadius: '8px', overflow: 'hidden', marginTop: '4px', background: '#000' }}>
-                      <img src={extractedPreview.image} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.target as HTMLElement).style.display = 'none'} />
+                  {extractedPreview.image && !previewImgFailed && (
+                    <div style={{
+                      width: '100%',
+                      height: '140px',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      marginTop: '4px',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      position: 'relative',
+                    }}>
+                      <img
+                        src={extractedPreview.image}
+                        alt="Thumbnail preview"
+                        referrerPolicy="no-referrer"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={() => setPreviewImgFailed(true)}
+                      />
                     </div>
                   )}
 
@@ -907,9 +951,15 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
                   if (!selectedFile) e.currentTarget.style.borderColor = 'var(--border-strong)';
                 }}
               >
-                <div style={{ fontSize: '36px', marginBottom: '12px' }}>
-                  {selectedFile ? '📄' : '📎'}
-                </div>
+                {selectedFile && selectedFile.type.startsWith('image/') && uploadPreviewUrl ? (
+                  <div style={{ width: '100%', maxHeight: '180px', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                    <img src={uploadPreviewUrl} alt="Upload preview" style={{ width: '100%', maxHeight: '180px', objectFit: 'contain' }} />
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>
+                    {selectedFile ? '📄' : '📎'}
+                  </div>
+                )}
                 <div style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>
                   {selectedFile ? selectedFile.name : 'Drop files here or click to upload'}
                 </div>
