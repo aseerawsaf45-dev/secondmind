@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkAuthRateLimit, checkApiRateLimit } from '@/lib/rate-limit';
 
-const isAuthRoute = createRouteMatcher(['/login(.*)', '/signup(.*)', '/auth(.*)', '/guest']);
+const isAuthRoute = createRouteMatcher(['/login(.*)', '/signup(.*)', '/auth(.*)']);
 const isExtractApi = createRouteMatcher(['/api/extract(.*)']);
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {

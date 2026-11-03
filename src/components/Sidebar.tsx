@@ -169,8 +169,6 @@ export default function Sidebar({
   const isGuest = user?.id === 'guest' || !user?.id;
   const { signOut } = useClerk();
   const totalItems = itemCounts.all || 0;
-  const maxGuestItems = 25;
-  const usedPercent = Math.min(100, Math.round((totalItems / maxGuestItems) * 100));
 
   const navItems = [
     { id: 'all', label: 'All Memory', icon: <FlaticonIcon name="grid" variant="solid" animation="pulse" size={17} />, count: itemCounts.all, shortcut: '1' },
@@ -1326,25 +1324,15 @@ export default function Sidebar({
               </div>
             </div>
 
-            {/* Storage Progress Bar */}
+            {/* Storage Status */}
             {isGuest ? (
-              <>
-                <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${usedPercent}%`,
-                      height: '100%',
-                      background: usedPercent > 80 ? 'linear-gradient(90deg, #F59E0B, #EF4444)' : 'linear-gradient(90deg, #06B6D4, #06B6D4)',
-                      borderRadius: '999px',
-                      transition: 'width 0.4s ease',
-                    }}
-                  />
+              <div style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <CheckCircle2 size={11} style={{ color: '#06B6D4' }} />
+                  <span>{totalItems} memories saved</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>
-                  <span>{totalItems} / {maxGuestItems} saved</span>
-                  <span>{usedPercent}% capacity</span>
-                </div>
-              </>
+                <span style={{ fontSize: '10px', color: '#34D399', fontWeight: 600 }}>Unlimited</span>
+              </div>
             ) : (
               <div style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.45)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <CheckCircle2 size={11} style={{ color: '#06B6D4' }} />
@@ -1488,7 +1476,7 @@ export default function Sidebar({
                   marginTop: '1px',
                 }}
               >
-                {isGuest ? 'FREE GUEST PREVIEW' : 'PRO MEMBER'}
+                {isGuest ? 'FREE GUEST MODE' : 'PRO MEMBER'}
               </div>
             </div>
 

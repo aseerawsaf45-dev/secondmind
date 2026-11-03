@@ -1755,7 +1755,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px', minWidth: 0 }}>
               <Zap size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
               <div style={{ minWidth: 0 }}>
-                <strong>Guest Mode</strong> — Local preview mode.
+                <strong>Guest Mode</strong> — Unlimited local storage.
                 <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '6px' }} className="hide-xs">
                   Sign up to back up and sync across devices.
                 </span>
