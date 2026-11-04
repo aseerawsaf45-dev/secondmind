@@ -366,6 +366,7 @@ export default function Sidebar({
 
             {onClose && (
               <motion.button
+                whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
                 className="mobile-menu-btn"
@@ -385,17 +386,6 @@ export default function Sidebar({
               >
                 <X size={18} />
               </motion.button>
-            )}
-
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="btn btn-ghost btn-icon mobile-menu-btn"
-                style={{ padding: '6px', color: 'rgba(255,255,255,0.6)' }}
-                title="Close sidebar"
-              >
-                <X size={18} />
-              </button>
             )}
           </div>
         </div>
@@ -647,6 +637,7 @@ export default function Sidebar({
                 {isActive && !isCollapsed && (
                   <motion.div
                     layoutId="activeIndicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
                     style={{
                       position: 'absolute',
                       left: 0,

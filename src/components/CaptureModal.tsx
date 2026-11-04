@@ -1,4 +1,4 @@
-import { X, Link2, FileText, Sparkles, Check, Loader, Upload, Tag, Plus, ExternalLink, List, FolderPlus, AlertTriangle, MessageSquare, ArrowUpRight, WifiOff } from 'lucide-react';
+import { X, Link2, FileText, Sparkles, Check, Loader, Upload, Tag, Plus, ExternalLink, List, FolderPlus, AlertTriangle, MessageSquare, ArrowUpRight, WifiOff, Paperclip } from 'lucide-react';
 import LinkableTextarea from '@/components/LinkableTextarea';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { getYouTubeThumbnailUrl, isYouTubeUrl } from '@/lib/youtube';
@@ -523,7 +523,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
 
               <div>
                 <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
-                  Saved to SecondMind! 🎉
+                  Saved to SecondMind
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto', lineHeight: 1.4 }}>
                   {saveConfirmation.domain ? `Source: ${saveConfirmation.domain} · ` : ''}{saveConfirmation.title}
@@ -705,7 +705,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
                       </div>
                     {isFacebookUrl(url) && (
                       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(24, 119, 242, 0.2)', color: '#60A5FA', fontWeight: 600 }}>
-                        📘 Facebook
+                        Facebook
                       </span>
                     )}
                     {isTwitterUrl(url) && (
@@ -715,7 +715,7 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
                     )}
                     {isYouTubeUrl(url) && (
                       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', color: '#F87171', fontWeight: 600 }}>
-                        🎬 YouTube
+                        YouTube
                       </span>
                     )}
                     {extractedPreview.category && (
@@ -961,8 +961,12 @@ export default function CaptureModal({ isOpen, onClose, onSave, user: _user, exi
                     <img src={uploadPreviewUrl} alt="Upload preview" style={{ width: '100%', maxHeight: '180px', objectFit: 'contain' }} />
                   </div>
                 ) : (
-                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>
-                    {selectedFile ? '📄' : '📎'}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                    {selectedFile ? (
+                      <FileText size={32} style={{ color: 'var(--violet-bright)' }} />
+                    ) : (
+                      <Paperclip size={32} style={{ color: 'var(--text-muted)' }} />
+                    )}
                   </div>
                 )}
                 <div style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>

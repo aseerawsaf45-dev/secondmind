@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { X, Sparkles, FolderPlus, Loader, Check, Search, CheckSquare, Square } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { MemoryItem } from '@/lib/data';
 import { ContentTypeIcon, CollectionIcon } from '@/components/icons/PremiumIcons';
 
@@ -91,9 +92,12 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
 
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 110 }}>
-      <div 
+      <motion.div 
         onClick={e => e.stopPropagation()} 
-        className="animate-fade-in-up"
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 28 }}
         style={{
           width: '100%',
           maxWidth: '560px',
@@ -502,7 +506,7 @@ export default function CreateCollectionModal({ isOpen, onClose, onSave, items =
             )}
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

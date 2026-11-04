@@ -220,7 +220,7 @@ export default function LoginPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px' }}>💡</span>
+              <Sparkles size={14} color="#06B6D4" />
               <span>Currently in <strong>Guest Mode</strong>. Sign in below to sync your memories to cloud.</span>
             </div>
             <button

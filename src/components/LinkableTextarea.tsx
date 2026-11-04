@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { FileText, Link2, File } from 'lucide-react';
 import type { MemoryItem } from '@/lib/data';
 
 interface LinkableTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
@@ -142,7 +143,9 @@ export default function LinkableTextarea({ items, value, onChange, ...props }: L
                 gap: '8px'
               }}
             >
-              <span>{item.type === 'note' ? '📝' : item.type === 'link' ? '🔗' : '📄'}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', opacity: 0.7 }}>
+                {item.type === 'note' ? <FileText size={13} /> : item.type === 'link' ? <Link2 size={13} /> : <File size={13} />}
+              </span>
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.title}
               </span>

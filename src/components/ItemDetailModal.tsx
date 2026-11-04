@@ -220,10 +220,10 @@ export default function ItemDetailModal({
   return (
     <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1000 }}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 28 }}
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%',
@@ -308,7 +308,10 @@ export default function ItemDetailModal({
           {/* Quick Actions */}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
             {item.url && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 onClick={handleCopyLink}
                 className="btn btn-ghost"
                 style={{
@@ -327,10 +330,13 @@ export default function ItemDetailModal({
               >
                 {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
-              </button>
+              </motion.button>
             )}
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => setIsEditing(!isEditing)}
               className="btn btn-ghost btn-icon"
               style={{
@@ -343,10 +349,13 @@ export default function ItemDetailModal({
               title={isEditing ? 'Cancel Edit' : 'Edit Memory'}
             >
               <Edit2 size={14} />
-            </button>
+            </motion.button>
 
             {!isEditing && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 onClick={() => onFavorite(item.id)}
                 className="btn btn-ghost btn-icon"
                 style={{
@@ -359,11 +368,14 @@ export default function ItemDetailModal({
                 title="Toggle favorite"
               >
                 <Star size={14} fill={item.isFavorite ? '#F59E0B' : 'none'} />
-              </button>
+              </motion.button>
             )}
 
             {item.url && !isEditing && (
-              <a
+              <motion.a
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -381,10 +393,13 @@ export default function ItemDetailModal({
                 title="Open original website"
               >
                 <ExternalLink size={14} />
-              </a>
+              </motion.a>
             )}
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => {
                 if (confirm('Delete this saved item from your memory bank?')) {
                   onDelete(item.id);
@@ -402,9 +417,12 @@ export default function ItemDetailModal({
               title="Delete Memory"
             >
               <Trash2 size={14} />
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={onClose}
               className="btn btn-ghost btn-icon"
               style={{
@@ -417,7 +435,7 @@ export default function ItemDetailModal({
               title="Close modal (Esc)"
             >
               <X size={15} />
-            </button>
+            </motion.button>
           </div>
         </div>
 

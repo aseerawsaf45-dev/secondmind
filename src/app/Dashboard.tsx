@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User, WifiOff, RefreshCw, Cloud, CloudOff } from 'lucide-react';
+import { Search, SlidersHorizontal, Sparkles, ChevronDown, Menu, Plus, Download, LayoutGrid, List, Copy, Check, ExternalLink, Star, Trash2, LogIn, LogOut, UserCheck, Shield, User, WifiOff, RefreshCw, Cloud, CloudOff, Link as LinkIcon, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
-import { pageReveal, staggerContainer, cardReveal } from '@/lib/motion';
+import { pageReveal, staggerContainer, cardReveal, popoverVariant, bannerVariant, listItemReveal, springPhysics, bouncySpring } from '@/lib/motion';
 import { useSearchParams } from 'next/navigation';
 
 import dynamic from 'next/dynamic';
@@ -326,7 +326,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       setPendingSyncCount(offlineSync.getPendingCount());
 
       if (result.syncedCount > 0) {
-        showToast(`✨ Synced ${result.syncedCount} offline change${result.syncedCount > 1 ? 's' : ''} to database!`, 'success');
+        showToast(`Synced ${result.syncedCount} offline change${result.syncedCount > 1 ? 's' : ''} to database!`, 'success');
         await loadData();
       }
     } catch (err) {
@@ -354,10 +354,10 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       setIsOffline(!online);
       setPendingSyncCount(offlineSync.getPendingCount());
       if (online) {
-        showToast('🌐 Back online! Synchronizing your memories...', 'info');
+        showToast('Back online! Synchronizing your memories...', 'info');
         handleSyncPending();
       } else {
-        showToast('📡 You are offline. Memories are saved locally on this device.', 'info');
+        showToast('You are offline. Memories are saved locally on this device.', 'info');
       }
     });
 
@@ -423,7 +423,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       document.cookie = 'guest_seed_demo=; path=/; max-age=0; SameSite=Lax';
       setMigrationPrompt(null);
       await loadData();
-      showToast(`🎉 Migrated ${migratedCount} memories from guest session to your account!`, 'success');
+      showToast(`Migrated ${migratedCount} memories from guest session to your account!`, 'success');
     } catch (err) {
       console.error('Migration failed:', err);
       showToast('Failed to migrate some items. Please try again.', 'error');
@@ -501,12 +501,12 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
         setInitialCaptureUrl(trimmed);
         setInitialCaptureNote('');
         setCaptureOpen(true);
-        showToast('📋 Detected URL from clipboard — analyzing...', 'info');
+        showToast('Detected URL from clipboard — analyzing...', 'info');
       } else {
         setInitialCaptureNote(trimmed);
         setInitialCaptureUrl('');
         setCaptureOpen(true);
-        showToast('📋 Captured note from clipboard', 'info');
+        showToast('Captured note from clipboard', 'info');
       }
     };
 
@@ -565,7 +565,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       if (!item) return;
       const next = !item.isFavorite;
       setItems(prev => prev.map(i => (i.id === id ? { ...i, isFavorite: next } : i)));
-      showToast(next ? '⭐ Starred item' : 'Removed from favorites', 'info');
+      showToast(next ? 'Starred item' : 'Removed from favorites', 'info');
 
       if (userId === 'guest') {
         await localDb.toggleFavorite(id, next);
@@ -647,7 +647,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       });
       setPendingSyncCount(offlineSync.getPendingCount());
       await loadData();
-      showToast('📁 Collection created locally offline!', 'info');
+      showToast('Collection created locally offline!', 'info');
     } else {
       try {
         saved = await createCollectionAction(userId, collectionData);
@@ -856,7 +856,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       if (!confirm('Are you sure you want to delete this memory?')) return;
       setItems(prev => prev.filter(i => i.id !== id));
       if (selectedItem?.id === id) setSelectedItem(null);
-      showToast('🗑️ Memory deleted', 'info');
+      showToast('Memory deleted', 'info');
 
       if (userId === 'guest') {
         await localDb.deleteItem(id);
@@ -893,7 +893,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       if (!userId) return;
       setItems(prev => prev.map(i => (i.id === id ? { ...i, ...data } : i)));
       setSelectedItem(prev => (prev?.id === id ? { ...prev, ...data } : prev));
-      showToast('✓ Memory updated', 'success');
+      showToast('Memory updated', 'success');
 
       if (userId === 'guest') {
         await localDb.updateItem(id, data);
@@ -968,7 +968,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
         const saved = await localDb.saveItem(data);
         if (saved) {
           setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
-          showToast('✨ Memory saved & processed with AI!', 'success');
+          showToast('Memory saved & processed with AI!', 'success');
 
           if (saved.tags?.length) {
             await localDb.autoAssignItemToCollections();
@@ -1015,7 +1015,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
         });
         setPendingSyncCount(offlineSync.getPendingCount());
         setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
-        showToast('💾 Link cached locally! Will sync to database when reconnected.', 'info');
+        showToast('Link cached locally! Will sync to database when reconnected.', 'info');
 
         if (activeFilter.startsWith('collection:')) {
           const collId = activeFilter.slice(11);
@@ -1027,7 +1027,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
           if (saved) {
             setItems(prev => prev.map(i => (i.id === tempId ? saved : i)));
             offlineSync.addOfflineItem(activeUserId, saved);
-            showToast('✨ Memory saved & processed with AI!', 'success');
+            showToast('Memory saved & processed with AI!', 'success');
 
             if (saved.tags?.length) {
               autoAssignItemToCollectionsAction(activeUserId, saved.id, saved.tags)
@@ -1075,7 +1075,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
           });
           setPendingSyncCount(offlineSync.getPendingCount());
           setItems(prev => prev.map(i => (i.id === tempId ? offlineSaved : i)));
-          showToast('💾 Connection unavailable: Link cached locally. Will sync to database automatically.', 'info');
+          showToast('Connection unavailable: Link cached locally. Will sync to database automatically.', 'info');
         }
       }
     },
@@ -1290,16 +1290,22 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => setCaptureOpen(true)}
               className="btn btn-primary mobile-capture-btn"
-              style={{ padding: '8px 12px', fontSize: '13px' }}
+              style={{ padding: '8px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <Plus size={14} />
               <span className="hide-xs">Save</span>
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => setSearchOpen(true)}
               className="btn btn-ghost hide-xs"
               style={{ padding: '8px 14px', fontSize: '13px' }}
@@ -1318,7 +1324,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
               >
                 ⌘K
               </kbd>
-            </button>
+            </motion.button>
 
             {/* Grid vs List View Mode Toggle */}
             <div
@@ -1333,46 +1339,84 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 gap: '2px',
               }}
             >
-              <button
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={() => handleViewModeChange('grid')}
                 style={{
+                  position: 'relative',
                   padding: '5px 8px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: viewMode === 'grid' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
+                  background: 'transparent',
                   color: viewMode === 'grid' ? '#A5B4FC' : 'rgba(255, 255, 255, 0.45)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 140ms ease',
                 }}
                 title="Grid view"
               >
-                <LayoutGrid size={14} />
-              </button>
-              <button
+                {viewMode === 'grid' && (
+                  <motion.div
+                    layoutId="activeViewModeIndicator"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '7px',
+                      background: 'rgba(6, 182, 212, 0.25)',
+                      border: '1px solid rgba(6, 182, 212, 0.4)',
+                      boxShadow: '0 0 12px rgba(6, 182, 212, 0.2)',
+                    }}
+                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+                  <LayoutGrid size={14} />
+                </span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={() => handleViewModeChange('list')}
                 style={{
+                  position: 'relative',
                   padding: '5px 8px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: viewMode === 'list' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
+                  background: 'transparent',
                   color: viewMode === 'list' ? '#A5B4FC' : 'rgba(255, 255, 255, 0.45)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 140ms ease',
                 }}
                 title="High-density list view"
               >
-                <List size={14} />
-              </button>
+                {viewMode === 'list' && (
+                  <motion.div
+                    layoutId="activeViewModeIndicator"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '7px',
+                      background: 'rgba(6, 182, 212, 0.25)',
+                      border: '1px solid rgba(6, 182, 212, 0.4)',
+                      boxShadow: '0 0 12px rgba(6, 182, 212, 0.2)',
+                    }}
+                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
+                  <List size={14} />
+                </span>
+              </motion.button>
             </div>
 
             <div style={{ position: 'relative' }}>
-              <button
+              <motion.button
+                whileHover={{ y: -1, scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setShowSortMenu(!showSortMenu)}
                 className="btn btn-ghost"
                 style={{ padding: '8px 14px', fontSize: '13px' }}
@@ -1381,49 +1425,60 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 <span className="hide-xs">
                   {sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : 'Favorites'}
                 </span>
-                <ChevronDown size={11} />
-              </button>
-              {showSortMenu && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '44px',
-                    right: 0,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: '10px',
-                    padding: '6px',
-                    zIndex: 50,
-                    minWidth: '140px',
-                    boxShadow: '0 16px 32px rgba(0,0,0,0.4)',
-                  }}
-                >
-                  {(['newest', 'oldest', 'favorites'] as SortOption[]).map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => {
-                        setSortBy(opt);
-                        setShowSortMenu(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        background: sortBy === opt ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
-                        color: sortBy === opt ? '#A5B4FC' : 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontFamily: 'inherit',
-                        textAlign: 'left',
-                        fontWeight: sortBy === opt ? 600 : 400,
-                      }}
-                    >
-                      {opt.charAt(0).toUpperCase() + opt.slice(1)} first
-                    </button>
-                  ))}
-                </div>
-              )}
+                <ChevronDown size={11} style={{ transform: showSortMenu ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+              </motion.button>
+              <AnimatePresence>
+                {showSortMenu && (
+                  <motion.div
+                    variants={popoverVariant}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    style={{
+                      position: 'absolute',
+                      top: '44px',
+                      right: 0,
+                      background: 'rgba(15, 17, 30, 0.96)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      borderRadius: '10px',
+                      padding: '6px',
+                      zIndex: 50,
+                      minWidth: '140px',
+                      boxShadow: '0 16px 36px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    {(['newest', 'oldest', 'favorites'] as SortOption[]).map(opt => (
+                      <motion.button
+                        key={opt}
+                        whileHover={{ x: 2, backgroundColor: sortBy === opt ? 'rgba(6, 182, 212, 0.25)' : 'rgba(255, 255, 255, 0.05)' }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setSortBy(opt);
+                          setShowSortMenu(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: sortBy === opt ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
+                          color: sortBy === opt ? '#A5B4FC' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontFamily: 'inherit',
+                          textAlign: 'left',
+                          fontWeight: sortBy === opt ? 600 : 400,
+                          transition: 'background 120ms ease',
+                        }}
+                      >
+                        {opt.charAt(0).toUpperCase() + opt.slice(1)} first
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Live Connection & Offline Badge */}
@@ -1451,7 +1506,9 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
 
             {/* Account & Session Mode Controls (Sign In, Guest Login, Sign Out) */}
             <div style={{ position: 'relative' }}>
-              <button
+              <motion.button
+                whileHover={{ y: -1, scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setShowAuthMenu(!showAuthMenu)}
                 className="btn btn-ghost"
                 style={{
@@ -1471,380 +1528,428 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 <span className="hide-xs">
                   {userId === 'guest' ? 'Guest Mode' : 'Account'}
                 </span>
-                <ChevronDown size={11} />
-              </button>
+                <ChevronDown size={11} style={{ transform: showAuthMenu ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+              </motion.button>
 
-              {showAuthMenu && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '44px',
-                    right: 0,
-                    background: '#0F111E',
-                    border: '1px solid rgba(255, 255, 255, 0.14)',
-                    borderRadius: '12px',
-                    padding: '8px',
-                    zIndex: 100,
-                    minWidth: '210px',
-                    boxShadow: '0 16px 36px rgba(0,0,0,0.6)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                  }}
-                >
-                  <div
+              <AnimatePresence>
+                {showAuthMenu && (
+                  <motion.div
+                    variants={popoverVariant}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
                     style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      color: 'rgba(255, 255, 255, 0.4)',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      padding: '4px 8px',
-                    }}
-                  >
-                    Session Mode
-                  </div>
-
-                  {/* Option 1: Sign In */}
-                  <button
-                    onClick={() => {
-                      setShowAuthMenu(false);
-                      handleSignInAction();
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      fontWeight: 500,
+                      position: 'absolute',
+                      top: '44px',
+                      right: 0,
+                      background: 'rgba(15, 17, 30, 0.96)',
+                      backdropFilter: 'blur(24px)',
+                      WebkitBackdropFilter: 'blur(24px)',
+                      border: '1px solid rgba(255, 255, 255, 0.14)',
+                      borderRadius: '12px',
+                      padding: '8px',
+                      zIndex: 100,
+                      minWidth: '210px',
+                      boxShadow: '0 20px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.15s ease',
+                      flexDirection: 'column',
+                      gap: '4px',
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
-                    onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <LogIn size={15} color="#38BDF8" />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 600 }}>Sign In</span>
-                      <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
-                        Google & Email Login
-                      </span>
+                    <div
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: 'rgba(255, 255, 255, 0.4)',
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        padding: '4px 8px',
+                      }}
+                    >
+                      Session Mode
                     </div>
-                  </button>
 
-                  {/* Option 2: Guest Login */}
-                  <button
-                    onClick={() => {
-                      setShowAuthMenu(false);
-                      handleGuestLoginAction();
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                      color: userId === 'guest' ? '#34D399' : '#FFFFFF',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)')}
-                    onMouseOut={(e) => (e.currentTarget.style.background = userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent')}
-                  >
-                    <UserCheck size={15} color="#34D399" />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 600 }}>Guest Login</span>
-                      <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
-                        Local Browser Storage
-                      </span>
-                    </div>
-                  </button>
+                    {/* Option 1: Sign In */}
+                    <button
+                      onClick={() => {
+                        setShowAuthMenu(false);
+                        handleSignInAction();
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#FFFFFF',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.15s ease',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+                      onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <LogIn size={15} color="#38BDF8" />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600 }}>Sign In</span>
+                        <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
+                          Google & Email Login
+                        </span>
+                      </div>
+                    </button>
 
-                  {/* Option 3: Sign Out */}
-                  <button
-                    onClick={() => {
-                      setShowAuthMenu(false);
-                      handleSignOutAction();
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#F87171',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)')}
-                    onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <LogOut size={15} color="#EF4444" />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 600 }}>Sign Out</span>
-                      <span style={{ fontSize: '10.5px', color: 'rgba(239, 68, 68, 0.7)' }}>
-                        End current session
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              )}
+                    {/* Option 2: Guest Login */}
+                    <button
+                      onClick={() => {
+                        setShowAuthMenu(false);
+                        handleGuestLoginAction();
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                        color: userId === 'guest' ? '#34D399' : '#FFFFFF',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.15s ease',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)')}
+                      onMouseOut={(e) => (e.currentTarget.style.background = userId === 'guest' ? 'rgba(6, 182, 212, 0.15)' : 'transparent')}
+                    >
+                      <UserCheck size={15} color="#34D399" />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600 }}>Guest Login</span>
+                        <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.45)' }}>
+                          Local Browser Storage
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Option 3: Sign Out */}
+                    <button
+                      onClick={() => {
+                        setShowAuthMenu(false);
+                        handleSignOutAction();
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#F87171',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.15s ease',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)')}
+                      onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <LogOut size={15} color="#EF4444" />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600 }}>Sign Out</span>
+                        <span style={{ fontSize: '10.5px', color: 'rgba(239, 68, 68, 0.7)' }}>
+                          End current session
+                        </span>
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
         {/* Offline Status & Local Mode Banner */}
-        {(isOffline || userId === 'offline-user') && (
-          <div
-            style={{
-              margin: '12px 14px 0',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(6, 182, 212, 0.12) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              fontSize: '13px',
-              color: '#FFFFFF',
-              flexWrap: 'wrap',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  background: 'rgba(245, 158, 11, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FBBF24',
-                  flexShrink: 0,
-                }}
-              >
-                <WifiOff size={16} />
+        <AnimatePresence>
+          {(isOffline || userId === 'offline-user') && (
+            <motion.div
+              variants={bannerVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                margin: '12px 14px 0',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(6, 182, 212, 0.12) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                fontSize: '13px',
+                color: '#FFFFFF',
+                flexWrap: 'wrap',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FBBF24',
+                    flexShrink: 0,
+                  }}
+                >
+                  <WifiOff size={16} />
+                </div>
+                <div>
+                  <strong style={{ color: '#FDE68A' }}>Offline Mode Active</strong> — Operating locally on this device.
+                  {pendingSyncCount > 0 ? (
+                    <span style={{ color: '#38BDF8', marginLeft: '6px', fontWeight: 600 }}>
+                      ({pendingSyncCount} pending change{pendingSyncCount > 1 ? 's' : ''} queued for sync)
+                    </span>
+                  ) : (
+                    <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
+                      All memories are saved locally. You can read, organize, and capture without internet.
+                    </span>
+                  )}
+                </div>
               </div>
-              <div>
-                <strong style={{ color: '#FDE68A' }}>Offline Mode Active</strong> — Operating locally on this device.
-                {pendingSyncCount > 0 ? (
-                  <span style={{ color: '#38BDF8', marginLeft: '6px', fontWeight: 600 }}>
-                    ({pendingSyncCount} pending change{pendingSyncCount > 1 ? 's' : ''} queued for sync)
-                  </span>
-                ) : (
-                  <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
-                    All memories are saved locally. You can read, organize, and capture without internet.
-                  </span>
-                )}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={isSyncing}
+                  onClick={handleSyncPending}
+                  className="btn btn-ghost"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#FFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+                  <span>{isSyncing ? 'Syncing...' : 'Retry Connection / Sync'}</span>
+                </motion.button>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-              <button
-                disabled={isSyncing}
-                onClick={handleSyncPending}
-                className="btn btn-ghost"
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  background: 'rgba(255,255,255,0.08)',
-                  color: '#FFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  cursor: 'pointer',
-                }}
-              >
-                <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-                <span>{isSyncing ? 'Syncing...' : 'Retry Connection / Sync'}</span>
-              </button>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Authenticated Migration Banner (for users who have local guest data) */}
-        {migrationPrompt && userId !== 'guest' && (
-          <div
-            style={{
-              margin: '12px 14px 0',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0.18) 100%)',
-              border: '1px solid rgba(6, 182, 212, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              fontSize: '13px',
-              color: '#FFFFFF',
-              flexWrap: 'wrap',
-              boxShadow: '0 4px 20px rgba(6,86,91,0.2)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-              <Sparkles size={16} style={{ color: '#06B6D4', flexShrink: 0 }} />
-              <div>
-                <strong>Welcome!</strong> We found <strong>{migrationPrompt.count}</strong> memories from your guest preview.
-                <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
-                  Save them to sync permanently to your cloud account.
-                </span>
+        <AnimatePresence>
+          {migrationPrompt && userId !== 'guest' && (
+            <motion.div
+              variants={bannerVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                margin: '12px 14px 0',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0.18) 100%)',
+                border: '1px solid rgba(6, 182, 212, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                fontSize: '13px',
+                color: '#FFFFFF',
+                flexWrap: 'wrap',
+                boxShadow: '0 4px 20px rgba(6,86,91,0.2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                <Sparkles size={16} style={{ color: '#06B6D4', flexShrink: 0 }} />
+                <div>
+                  <strong>Welcome!</strong> We found <strong>{migrationPrompt.count}</strong> memories from your guest preview.
+                  <span style={{ color: 'rgba(255,255,255,0.7)', marginLeft: '6px' }} className="hide-xs">
+                    Save them to sync permanently to your cloud account.
+                  </span>
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-              <button
-                disabled={isMigrating}
-                onClick={() => localDb.getGuestDataForMigration().then(({ items: gItems }) => performMigration(gItems))}
-                className="btn btn-primary"
-                style={{ padding: '6px 14px', fontSize: '12px', background: '#06B6D4', border: 'none', fontWeight: 700 }}
-              >
-                {isMigrating ? 'Saving...' : 'Save to my account'}
-              </button>
-              <button
-                onClick={() => {
-                  localDb.clearGuestData();
-                  setMigrationPrompt(null);
-                  showToast('Guest preview data dismissed', 'info');
-                }}
-                className="btn btn-ghost"
-                style={{ padding: '6px 10px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={isMigrating}
+                  onClick={() => localDb.getGuestDataForMigration().then(({ items: gItems }) => performMigration(gItems))}
+                  className="btn btn-primary"
+                  style={{ padding: '6px 14px', fontSize: '12px', background: '#06B6D4', border: 'none', fontWeight: 700 }}
+                >
+                  {isMigrating ? 'Saving...' : 'Save to my account'}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    localDb.clearGuestData();
+                    setMigrationPrompt(null);
+                    showToast('Guest preview data dismissed', 'info');
+                  }}
+                  className="btn btn-ghost"
+                  style={{ padding: '6px 10px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  Dismiss
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Guest Conversion Banner */}
-        {userId === 'guest' && !guestBannerDismissed && (
-          <div
-            style={{
-              margin: '10px 14px 0',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              fontSize: '12px',
-              color: '#FFFFFF',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px', minWidth: 0 }}>
-              <Zap size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <strong>Guest Mode</strong> — Unlimited local storage.
-                <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '6px' }} className="hide-xs">
-                  Sign up to back up and sync across devices.
-                </span>
+        <AnimatePresence>
+          {userId === 'guest' && !guestBannerDismissed && (
+            <motion.div
+              variants={bannerVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                margin: '10px 14px 0',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                fontSize: '12px',
+                color: '#FFFFFF',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px', minWidth: 0 }}>
+                <Zap size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <strong>Guest Mode</strong> — Unlimited local storage.
+                  <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '6px' }} className="hide-xs">
+                    Sign up to back up and sync across devices.
+                  </span>
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => localDb.exportData()}
-                className="btn btn-ghost"
-                title="Export your guest data as JSON"
-                style={{ padding: '5px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Download size={11} />
-                Export
-              </button>
-              <a
-                href={`/signup?migrate=1`}
-                className="btn btn-primary"
-                style={{ padding: '6px 12px', fontSize: '11px', background: '#F59E0B', color: '#000', border: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
-              >
-                Save account
-              </a>
-              <a
-                href="/login"
-                className="btn btn-ghost hide-xs"
-                style={{ padding: '5px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}
-              >
-                Sign in
-              </a>
-              <button
-                onClick={() => setGuestBannerDismissed(true)}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '4px' }}
-                aria-label="Dismiss banner"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
+              <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', flexWrap: 'wrap' }}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => localDb.exportData()}
+                  className="btn btn-ghost"
+                  title="Export your guest data as JSON"
+                  style={{ padding: '5px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Download size={11} />
+                  Export
+                </motion.button>
+                <motion.a
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={`/signup?migrate=1`}
+                  className="btn btn-primary"
+                  style={{ padding: '6px 12px', fontSize: '11px', background: '#F59E0B', color: '#000', border: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
+                >
+                  Save account
+                </motion.a>
+                <motion.a
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  href="/login"
+                  className="btn btn-ghost hide-xs"
+                  style={{ padding: '5px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}
+                >
+                  Sign in
+                </motion.a>
+                <motion.button
+                  whileHover={{ scale: 1.2 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setGuestBannerDismissed(true)}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '4px' }}
+                  aria-label="Dismiss banner"
+                >
+                  ×
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Quick-Start Pro Tips Strip */}
-        {!proTipsDismissed && items.length > 0 && items.length <= 12 && (
-          <div
-            style={{
-              margin: '10px 24px 0',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.025)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              fontSize: '12px',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{ color: '#66A4AC', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Sparkles size={11} style={{ color: '#06B6D4' }} /> POWER TIPS:
-              </span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>⌘K</kbd> to ask anything
-              </span>
-              <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>⌘V</kbd> to paste-save anywhere
-              </span>
-              <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>?</kbd> for shortcuts
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setProTipsDismissed(true);
-                if (typeof window !== 'undefined') {
-                  try {
-                    localStorage.setItem('secondmind_protips_dismissed', '1');
-                  } catch (_) {}
-                }
+        <AnimatePresence>
+          {!proTipsDismissed && items.length > 0 && items.length <= 12 && (
+            <motion.div
+              variants={bannerVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                margin: '10px 24px 0',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.025)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                fontSize: '12px',
+                flexWrap: 'wrap',
               }}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: '12px' }}
-              title="Dismiss tip"
             >
-              ✕
-            </button>
-          </div>
-        )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#66A4AC', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Sparkles size={11} style={{ color: '#06B6D4' }} /> POWER TIPS:
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>⌘K</kbd> to ask anything
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>⌘V</kbd> to paste-save anywhere
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Press <kbd style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', fontSize: '10px' }}>?</kbd> for shortcuts
+                </span>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  setProTipsDismissed(true);
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.setItem('secondmind_protips_dismissed', '1');
+                    } catch (_) {}
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Dismiss tip"
+              >
+                <X size={13} />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Horizontal Quick-Filter Strip */}
         <div className="horizontal-filter-strip">
@@ -1861,19 +1966,41 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
           ].map(f => {
             const isActive = activeFilter === f.id;
             return (
-              <button
+              <motion.button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
+                whileHover={{ y: -1.5, scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 className={`horizontal-filter-pill ${isActive ? 'active' : ''}`}
                 style={{
+                  position: 'relative',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  background: isActive ? 'transparent' : 'rgba(255, 255, 255, 0.03)',
+                  border: isActive ? '1px solid rgba(6, 182, 212, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  overflow: 'hidden',
                 }}
               >
-                {getFilterIconElement(f.id, isActive ? '#67E8F9' : 'rgba(255,255,255,0.6)', 13)}
-                <span>{f.label}</span>
-              </button>
+                {isActive && (
+                  <motion.div
+                    layoutId="activeFilterPillHighlight"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0.12) 100%)',
+                      boxShadow: '0 0 16px rgba(6, 182, 212, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
+                      zIndex: 0,
+                    }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {getFilterIconElement(f.id, isActive ? '#67E8F9' : 'rgba(255,255,255,0.6)', 13)}
+                  <span style={{ color: isActive ? '#FFFFFF' : 'var(--text-secondary)' }}>{f.label}</span>
+                </span>
+              </motion.button>
             );
           })}
         </div>
@@ -1902,11 +2029,13 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 initial="hidden"
                 animate="visible"
               >
-                {filteredItems.map((item, idx) => (
+                {filteredItems.map((item) => (
                   <motion.div
                     key={item.id}
+                    layout="position"
                     className="masonry-item"
                     variants={cardReveal}
+                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
                   >
                     <MemoryCard
                       item={item}
@@ -1926,7 +2055,10 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 ))}
               </motion.div>
             ) : (
-              <div
+              <motion.div
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
                 style={{
                   background: 'rgba(13, 14, 25, 0.65)',
                   backdropFilter: 'blur(24px)',
@@ -1934,7 +2066,7 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '16px',
                   overflow: 'hidden',
-                  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.4)',
+                  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
                 }}
               >
                 {/* High-density table header */}
@@ -1963,64 +2095,27 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
                 </div>
 
                 {filteredItems.map(item => (
-                  <ListViewRow
+                  <motion.div
                     key={item.id}
-                    item={item}
-                    onClick={() => {
-                      setSelectedItem(item);
-                      setIsEditMode(false);
-                    }}
-                    onFavorite={() => handleFavorite(item.id)}
-                    onEdit={() => handleEditItem(item)}
-                    onDelete={() => handleDelete(item.id)}
-                  />
+                    layout="position"
+                    variants={listItemReveal}
+                    transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                  >
+                    <ListViewRow
+                      item={item}
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setIsEditMode(false);
+                      }}
+                      onFavorite={() => handleFavorite(item.id)}
+                      onEdit={() => handleEditItem(item)}
+                      onDelete={() => handleDelete(item.id)}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )
           ) : null}
-        </div>
-
-        {/* Mobile Bottom Navigation Bar */}
-        <div className="mobile-bottom-bar">
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`mobile-nav-item ${activeFilter === 'all' ? 'active' : ''}`}
-          >
-            <span style={{ fontSize: '16px' }}>🧠</span>
-            <span>Memory</span>
-          </button>
-
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="mobile-nav-item"
-          >
-            <Search size={18} />
-            <span>Search</span>
-          </button>
-
-          <button
-            onClick={() => setCaptureOpen(true)}
-            className="mobile-nav-fab"
-            aria-label="Add memory"
-          >
-            <Plus size={22} />
-          </button>
-
-          <button
-            onClick={() => setActiveFilter('favorites')}
-            className={`mobile-nav-item ${activeFilter === 'favorites' ? 'active' : ''}`}
-          >
-            <span style={{ fontSize: '16px' }}>⭐</span>
-            <span>Favorites</span>
-          </button>
-
-          <button
-            onClick={() => setActiveFilter('ai-insights')}
-            className={`mobile-nav-item ${activeFilter === 'ai-insights' ? 'active' : ''}`}
-          >
-            <Sparkles size={18} />
-            <span>Insights</span>
-          </button>
         </div>
       </main>
 
@@ -2442,9 +2537,9 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
               </div>
               <button
                 onClick={() => setShortcutsOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '16px' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                ✕
+                <X size={15} />
               </button>
             </div>
 
@@ -2508,35 +2603,51 @@ export default function Dashboard({ user: serverUser }: { user: { id: string; em
       )}
 
       {/* Floating Toast Notification */}
-      {toast && (
-        <div
-          className="animate-fade-in-up"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 9999,
-            padding: '12px 18px',
-            borderRadius: '12px',
-            background: 'rgba(11, 11, 20, 0.95)',
-            border: toast.type === 'error'
-              ? '1px solid rgba(239, 68, 68, 0.4)'
-              : toast.type === 'success'
-              ? '1px solid rgba(6, 182, 212, 0.4)'
-              : '1px solid rgba(102, 164, 172, 0.4)',
-            color: '#FFFFFF',
-            fontSize: '13px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 16px 36px rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(20px)',
-          }}
-        >
-          <span>{toast.message}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 9999,
+              padding: '12px 18px',
+              borderRadius: '12px',
+              background: 'rgba(11, 11, 20, 0.96)',
+              border: toast.type === 'error'
+                ? '1px solid rgba(239, 68, 68, 0.45)'
+                : toast.type === 'success'
+                ? '1px solid rgba(6, 182, 212, 0.5)'
+                : '1px solid rgba(6, 182, 212, 0.3)',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 20px 48px rgba(0,0,0,0.65), 0 0 20px rgba(6, 182, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }}
+          >
+            <div
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: toast.type === 'error' ? '#EF4444' : '#06B6D4',
+                boxShadow: `0 0 10px ${toast.type === 'error' ? '#EF4444' : '#06B6D4'}`,
+                flexShrink: 0,
+              }}
+            />
+            <span>{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Mobile Bottom Navigation Bar */}
       <nav className="mobile-bottom-bar">
         <button
@@ -2641,9 +2752,15 @@ function ListViewRow({
   };
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
       className="list-view-row"
+      whileHover={{
+        x: 3,
+        backgroundColor: 'rgba(6, 182, 212, 0.07)',
+      }}
+      whileTap={{ scale: 0.995 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -2651,13 +2768,6 @@ function ListViewRow({
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         cursor: 'pointer',
         gap: '16px',
-        transition: 'background 140ms ease',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background = 'rgba(6, 182, 212, 0.08)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = 'transparent';
       }}
     >
       {/* Favicon & Domain */}
@@ -2688,7 +2798,7 @@ function ListViewRow({
               }}
             />
           ) : (
-            <span style={{ fontSize: '11px' }}>🔗</span>
+            <LinkIcon size={12} style={{ color: 'rgba(255, 255, 255, 0.45)' }} />
           )}
         </div>
         <span
@@ -2775,7 +2885,10 @@ function ListViewRow({
       {/* Quick Action Icons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
         {item.url && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 22 }}
             onClick={handleCopy}
             title={copied ? 'Copied!' : 'Copy link'}
             style={{
@@ -2792,9 +2905,12 @@ function ListViewRow({
             }}
           >
             {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} />}
-          </button>
+          </motion.button>
         )}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
           onClick={onFavorite}
           title="Toggle favorite"
           style={{
@@ -2811,9 +2927,12 @@ function ListViewRow({
           }}
         >
           <Star size={12} fill={item.isFavorite ? '#F59E0B' : 'none'} />
-        </button>
+        </motion.button>
         {item.url && (
-          <a
+          <motion.a
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 22 }}
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -2832,9 +2951,12 @@ function ListViewRow({
             }}
           >
             <ExternalLink size={12} />
-          </a>
+          </motion.a>
         )}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
           onClick={onDelete}
           title="Delete item"
           style={{
@@ -2851,9 +2973,9 @@ function ListViewRow({
           }}
         >
           <Trash2 size={12} />
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

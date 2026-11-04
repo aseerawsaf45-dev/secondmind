@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import {
   ExternalLink,
   MoreHorizontal,
@@ -41,13 +42,13 @@ interface MemoryCardProps {
   onRemoveFromCollection?: (collectionId: string) => void;
 }
 
-const TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
-  link: { emoji: '🔗', label: 'Link', color: '#38BDF8', bg: 'rgba(6, 182, 212, 0.12)' },
-  note: { emoji: '📝', label: 'Note', color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.12)' },
-  image: { emoji: '🖼️', label: 'Image', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.12)' },
-  pdf: { emoji: '📄', label: 'PDF', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.12)' },
-  tweet: { emoji: '𝕏', label: 'Tweet', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.12)' },
-  video: { emoji: '🎬', label: 'Video', color: '#F87171', bg: 'rgba(248, 113, 113, 0.12)' },
+const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  link: { label: 'Link', color: '#38BDF8', bg: 'rgba(6, 182, 212, 0.12)' },
+  note: { label: 'Note', color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.12)' },
+  image: { label: 'Image', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.12)' },
+  pdf: { label: 'PDF', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.12)' },
+  tweet: { label: 'Tweet', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.12)' },
+  video: { label: 'Video', color: '#F87171', bg: 'rgba(248, 113, 113, 0.12)' },
 };
 
 export default function MemoryCard({
@@ -182,21 +183,22 @@ export default function MemoryCard({
         setShowCollectionSubmenu(false);
       }}
     >
-      <div
+      <motion.div
         onClick={onClick}
+        whileHover={{ y: -3.5, scale: 1.006 }}
+        whileTap={{ scale: 0.985 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 24 }}
         style={{
           borderRadius: '16px',
-          background: 'linear-gradient(180deg, rgba(15, 15, 15, 0.75) 0%, rgba(5, 5, 5, 0.85) 100%)',
+          background: 'linear-gradient(180deg, rgba(15, 15, 15, 0.78) 0%, rgba(5, 5, 5, 0.88) 100%)',
           backdropFilter: 'blur(24px) saturate(140%)',
           WebkitBackdropFilter: 'blur(24px) saturate(140%)',
-          border: isHovered ? '1px solid rgba(6, 182, 212, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+          border: isHovered ? '1px solid rgba(6, 182, 212, 0.48)' : '1px solid rgba(255, 255, 255, 0.08)',
           boxShadow: isHovered
-            ? '0 20px 48px -12px rgba(0, 0, 0, 0.8), 0 0 28px rgba(6, 182, 212, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
-            : '0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+            ? '0 24px 50px -12px rgba(0, 0, 0, 0.85), 0 0 28px rgba(6, 182, 212, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+            : '0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
           overflow: 'hidden',
           cursor: 'pointer',
-          transition: 'all 240ms cubic-bezier(0.16, 1, 0.3, 1)',
-          transform: isHovered ? 'translateY(-2.5px)' : 'translateY(0)',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -784,13 +786,17 @@ export default function MemoryCard({
             }}
           />
         )}
-      </div>
+      </motion.div>
 
       {/* PORTAL CONTEXT MENU (Escapes All Clipping Containers) */}
       {showMenu &&
         typeof document !== 'undefined' &&
         createPortal(
-          <div
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: -4 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 28 }}
             style={{
               position: 'fixed',
               top: menuPos.top,
@@ -804,7 +810,6 @@ export default function MemoryCard({
               zIndex: 99999,
               minWidth: '190px',
               boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-              animation: 'fadeIn 0.15s ease',
             }}
             onClick={e => e.stopPropagation()}
           >
@@ -962,7 +967,7 @@ export default function MemoryCard({
                 )}
               </div>
             ))}
-          </div>,
+          </motion.div>,
           document.body
         )}
     </div>
