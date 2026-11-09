@@ -372,6 +372,11 @@ export default function LandingPage() {
             <Shield size={13} style={{ color: '#06B6D4' }} />
             <span>Encrypted local storage with JSON export</span>
           </span>
+          <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Globe size={13} style={{ color: '#38BDF8' }} />
+            <span>Browser Extension for Bulk Tab and Bookmark Import</span>
+          </span>
         </div>
       </section>
 
@@ -1092,6 +1097,32 @@ export default function LandingPage() {
               >
                 <div style={{ color: '#38BDF8', fontWeight: 700, marginBottom: '4px' }}>✔ One-Click JSON / MD Export</div>
                 <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>Full ownership with zero vendor lock-in</div>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: '200px',
+                  background: 'rgba(5, 5, 10, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.09)',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                }}
+              >
+                <div style={{ color: '#06B6D4', fontWeight: 700, marginBottom: '4px' }}>✔ Offline Semantic Search</div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>On-device search without cloud API calls</div>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: '200px',
+                  background: 'rgba(5, 5, 10, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.09)',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                }}
+              >
+                <div style={{ color: '#A78BFA', fontWeight: 700, marginBottom: '4px' }}>✔ Full-text PDF Search</div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>Deep indexing across saved documents</div>
               </div>
             </div>
           </div>
