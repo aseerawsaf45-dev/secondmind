@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SecondMind — Offline Workspace</title>
+  <style>
+    :root {
+      --bg: #040408;
+      --surface: rgba(255, 255, 255, 0.035);
+      --surface-hover: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #06B6D4;
+      --accent-glow: rgba(6, 182, 212, 0.25);
+      --text: #FFFFFF;
+      --text-muted: rgba(255, 255, 255, 0.6);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 90px;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Top Bar */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(4, 4, 8, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #06B6D4 0%, #0369A1 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #FBBF24;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #FBBF24;
+      box-shadow: 0 0 6px #FBBF24;
+    }
+    .status-dot.online {
+      background: #10B981;
+      box-shadow: 0 0 6px #10B981;
+    }
+    .status-badge.online {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34D399;
+    }
+    .btn-reconnect {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #67E8F9;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    /* Main Content */
+    main {
+      padding: 16px;
+      max-width: 680px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+    /* Share Banner if shared */
+    .share-banner {
+      display: none;
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #67E8F9;
+      align-items: center;
+      justify-content: space-between;
+    }
+    /* Search Bar */
+    .search-box {
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .search-box input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px 12px 40px;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+      scrollbar-width: none;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+    /* Memory Cards */
+    .memories-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:active {
+      transform: scale(0.99);
+    }
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .type-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .type-link { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+    .type-note { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+    .type-pdf  { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #FFFFFF;
+    }
+    .card-content {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: rgba(255, 255, 255, 0.4);
+      flex-wrap: wrap;
+    }
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #67E8F9;
+    }
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+    .icon-btn.fav.active {
+      color: #F59E0B;
+    }
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .empty-state p {
+      font-size: 13.5px;
+      max-width: 320px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+    /* Floating Action Button */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      background: linear-gradient(135deg, #06B6D4 0%, #0369A1 100%);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px var(--accent-glow);
+      cursor: pointer;
+      z-index: 40;
+    }
+    /* Capture Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal {
+      background: #090912;
+      border: 1px solid var(--border);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      width: 100%;
+      max-width: 580px;
+      padding: 24px 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .form-group input, .form-group textarea {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    .btn-save {
+      background: linear-gradient(135deg, #06B6D4 0%, #0369A1 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #111827;
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 200;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <a href="#" class="brand">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.54Z"/>
+          <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.54Z"/>
+        </svg>
+      </div>
+      <span class="brand-title">SecondMind</span>
+    </a>
+
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div id="statusBadge" class="status-badge">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Offline Vault</span>
+      </div>
+      <button id="btnReconnect" class="btn-reconnect" onclick="attemptGoOnline()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+        Go Online
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main>
+    <!-- Share Banner if launched via share -->
+    <div id="shareBanner" class="share-banner">
+      <span>📥 Ready to save shared item from Facebook / Browser</span>
+      <button onclick="openCaptureFromShare()" style="background:#06B6D4;color:#000;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;">View</button>
+    </div>
+
+    <!-- Search Input -->
+    <div class="search-box">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="searchInput" placeholder="Search saved thoughts, links, and tags..." oninput="handleSearch(this.value)">
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All Memories</button>
+      <button class="filter-btn" onclick="setFilter('link', this)">Links</button>
+      <button class="filter-btn" onclick="setFilter('note', this)">Notes</button>
+      <button class="filter-btn" onclick="setFilter('fav', this)">★ Favorites</button>
+    </div>
+
+    <!-- Memories List -->
+    <div id="memoriesList" class="memories-list"></div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <h3>Your offline vault is ready</h3>
+      <p>Save notes, snippets, or share links from Facebook and Chrome to keep them in your second brain.</p>
+      <button onclick="openModal()" class="btn-reconnect" style="margin:0 auto; padding:8px 16px; font-size:13px;">+ Capture Thought</button>
+    </div>
+  </main>
+
+  <!-- Floating Action Button -->
+  <button class="fab" onclick="openModal()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    Capture
+  </button>
+
+  <!-- Modal -->
+  <div id="modalBackdrop" class="modal-backdrop" onclick="handleBackdropClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">Capture Memory</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label>URL / Link (Optional)</label>
+        <input type="url" id="inpUrl" placeholder="https://facebook.com/... or article URL">
+      </div>
+
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="inpTitle" placeholder="What is this about?">
+      </div>
+
+      <div class="form-group">
+        <label>Notes & Key Takeaways</label>
+        <textarea id="inpContent" placeholder="Key insights, quotes, or thoughts..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Tags (Comma-separated)</label>
+        <input type="text" id="inpTags" placeholder="facebook, ideas, research">
+      </div>
+
+      <button class="btn-save" onclick="saveMemory()">Save to Vault</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const CACHE_KEY = 'secondmind_offline_latest_cache';
+    const GUEST_KEY = 'secondmind_offline_guest';
+    const QUEUE_KEY = 'secondmind_offline_queue';
+
+    let memories = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let sharedPayload = null;
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', async () => {
+      loadMemories();
+      checkNetworkStatus();
+      parseShareParams();
+
+      window.addEventListener('online', checkNetworkStatus);
+      window.addEventListener('offline', checkNetworkStatus);
+    });
+
+    function checkNetworkStatus() {
+      const isOnline = navigator.onLine;
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const badge = document.getElementById('statusBadge');
+      const btn = document.getElementById('btnReconnect');
+
+      if (isOnline) {
+        dot.className = 'status-dot online';
+        badge.className = 'status-badge online';
+        text.textContent = 'Online Ready';
+        btn.textContent = 'Go to Cloud';
+        btn.style.display = 'flex';
+      } else {
+        dot.className = 'status-dot';
+        badge.className = 'status-badge';
+        text.textContent = 'Offline Vault';
+        btn.textContent = 'Retry Cloud';
+      }
+    }
+
+    function attemptGoOnline() {
+      showToast('Connecting to live SecondMind...');
+      window.location.href = 'https://secondmind-aa.vercel.app/app';
+    }
+
+    // Load from localStorage or seed initial
+    function loadMemories() {
+      let raw = localStorage.getItem(CACHE_KEY) || localStorage.getItem(GUEST_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          memories = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } catch {}
+      }
+
+      if (!memories || memories.length === 0) {
+        memories = [
+          {
+            id: 'sample-1',
+            title: 'SecondMind Offline Vault Active',
+            content: 'Your thoughts, notes, and links are saved on this device. When online, changes sync automatically to your cloud brain.',
+            type: 'note',
+            tags: ['guide', 'offline'],
+            createdAt: Date.now() - 3600000,
+            isFavorite: true
+          },
+          {
+            id: 'sample-2',
+            title: 'Facebook & Chrome Share Target',
+            content: 'Tap "Share" on any Facebook post or web page, select "SecondMind", and it captures automatically!',
+            url: 'https://facebook.com',
+            type: 'link',
+            tags: ['facebook', 'capture'],
+            createdAt: Date.now() - 7200000,
+            isFavorite: false
+          }
+        ];
+        persistMemories();
+      }
+
+      renderList();
+    }
+
+    function persistMemories() {
+      const payload = {
+        items: memories,
+        collections: [],
+        itemMap: {},
+        cachedAt: Date.now()
+      };
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+        localStorage.setItem(GUEST_KEY, JSON.stringify(payload));
+      } catch (e) {
+        console.warn('Storage failed', e);
+      }
+    }
+
+    function enqueueAction(action) {
+      try {
+        const queueRaw = localStorage.getItem(QUEUE_KEY);
+        const queue = queueRaw ? JSON.parse(queueRaw) : [];
+        queue.push(action);
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      } catch (e) {
+        console.warn('Queue failed', e);
+      }
+    }
+
+    // Parse URL share parameters (?url=...&title=...&text=...)
+    function parseShareParams() {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('url');
+      const title = params.get('title');
+      const text = params.get('text');
+
+      if (url || title || text) {
+        sharedPayload = { url: url || '', title: title || '', text: text || '' };
+        document.getElementById('shareBanner').style.display = 'flex';
+        openCaptureFromShare();
+      }
+    }
+
+    function openCaptureFromShare() {
+      if (!sharedPayload) return;
+      openModal();
+      document.getElementById('inpUrl').value = sharedPayload.url;
+      document.getElementById('inpTitle').value = sharedPayload.title || (sharedPayload.url ? 'Shared from Facebook' : 'Quick Capture');
+      document.getElementById('inpContent').value = sharedPayload.text;
+      
+      const isFb = (sharedPayload.url && sharedPayload.url.includes('facebook')) || (sharedPayload.text && sharedPayload.text.includes('facebook'));
+      document.getElementById('inpTags').value = isFb ? 'facebook, saved' : 'saved';
+      
+      // Clear query params so refreshing doesn't loop
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Render list
+    function renderList() {
+      const container = document.getElementById('memoriesList');
+      const empty = document.getElementById('emptyState');
+
+      let filtered = memories.filter(item => {
+        // filter tab
+        if (currentFilter === 'link' && item.type !== 'link') return false;
+        if (currentFilter === 'note' && item.type !== 'note') return false;
+        if (currentFilter === 'fav' && !item.isFavorite) return false;
+
+        // search
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const inTitle = (item.title || '').toLowerCase().includes(q);
+          const inContent = (item.content || '').toLowerCase().includes(q);
+          const inUrl = (item.url || '').toLowerCase().includes(q);
+          const inTags = (item.tags || []).some(t => t.toLowerCase().includes(q));
+          return inTitle || inContent || inUrl || inTags;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      container.innerHTML = filtered.map(item => {
+        let domain = '';
+        if (item.url) {
+          try { domain = new URL(item.url).hostname.replace('www.', ''); } catch { domain = 'link'; }
+        }
+
+        const tagsHtml = (item.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('');
+        const typeClass = item.type === 'link' ? 'type-link' : item.type === 'pdf' ? 'type-pdf' : 'type-note';
+        const typeLabel = item.type ? item.type.toUpperCase() : 'NOTE';
+
+        return `
+          <div class="card" id="card-${item.id}">
+            <div class="card-header">
+              <span class="type-pill ${typeClass}">${typeLabel}</span>
+              <div class="card-actions">
+                <button class="icon-btn fav ${item.isFavorite ? 'active' : ''}" onclick="toggleFavorite('${item.id}', event)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="${item.isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
+                <button class="icon-btn" onclick="copyItem('${item.id}', event)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </button>
+                <button class="icon-btn" onclick="deleteItem('${item.id}', event)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="card-title">${escapeHtml(item.title || 'Untitled Thought')}</div>
+            ${item.content ? `<div class="card-content">${escapeHtml(item.content)}</div>` : ''}
+
+            <div class="card-meta">
+              ${domain ? `<span style="color:#38BDF8">🌐 ${escapeHtml(domain)}</span>` : ''}
+              <span>${timeAgo(item.createdAt)}</span>
+              <div class="card-tags">${tagsHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleSearch(val) {
+      searchQuery = val.trim();
+      renderList();
+    }
+
+    function setFilter(filter, el) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      renderList();
+    }
+
+    function toggleFavorite(id, e) {
+      e.stopPropagation();
+      const item = memories.find(m => m.id === id);
+      if (!item) return;
+      item.isFavorite = !item.isFavorite;
+      persistMemories();
+      enqueueAction({
+        id: 'act-' + Date.now(),
+        type: 'toggleFavorite',
+        userId: 'offline-user',
+        payload: { itemId: id, isFavorite: item.isFavorite },
+        createdAt: Date.now()
+      });
+      renderList();
+      showToast(item.isFavorite ? 'Added to favorites' : 'Removed from favorites');
+    }
+
+    function copyItem(id, e) {
+      e.stopPropagation();
+      const item = memories.find(m => m.id === id);
+      if (!item) return;
+      const text = item.url ? `${item.title}\n${item.url}` : `${item.title}\n${item.content || ''}`;
+      navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard');
+    }
+
+    function deleteItem(id, e) {
+      e.stopPropagation();
+      memories = memories.filter(m => m.id !== id);
+      persistMemories();
+      enqueueAction({
+        id: 'act-' + Date.now(),
+        type: 'delete',
+        userId: 'offline-user',
+        payload: { itemId: id },
+        createdAt: Date.now()
+      });
+      renderList();
+      showToast('Memory deleted');
+    }
+
+    function saveMemory() {
+      const url = document.getElementById('inpUrl').value.trim();
+      const title = document.getElementById('inpTitle').value.trim();
+      const content = document.getElementById('inpContent').value.trim();
+      const tagsStr = document.getElementById('inpTags').value.trim();
+
+      if (!title && !content && !url) {
+        showToast('Please enter a title, URL, or note');
+        return;
+      }
+
+      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean) : [];
+      const type = url ? 'link' : 'note';
+
+      const newItem = {
+        id: 'offline-' + Date.now(),
+        title: title || (url ? 'Saved Link' : 'Quick Note'),
+        content: content,
+        url: url || undefined,
+        type: type,
+        tags: tags,
+        createdAt: Date.now(),
+        isFavorite: false
+      };
+
+      memories.unshift(newItem);
+      persistMemories();
+
+      enqueueAction({
+        id: 'act-' + Date.now(),
+        type: 'save',
+        userId: 'offline-user',
+        payload: newItem,
+        tempId: newItem.id,
+        createdAt: Date.now()
+      });
+
+      closeModal();
+      renderList();
+      showToast('Saved to offline vault!');
+      document.getElementById('shareBanner').style.display = 'none';
+    }
+
+    function openModal() {
+      document.getElementById('modalBackdrop').classList.add('open');
+      document.getElementById('inpTitle').focus();
+    }
+
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.remove('open');
+      document.getElementById('inpUrl').value = '';
+      document.getElementById('inpTitle').value = '';
+      document.getElementById('inpContent').value = '';
+      document.getElementById('inpTags').value = '';
+    }
+
+    function handleBackdropClick(e) {
+      if (e.target.id === 'modalBackdrop') closeModal();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function timeAgo(time) {
+      if (!time) return 'recently';
+      const sec = Math.floor((Date.now() - Number(time)) / 1000);
+      if (sec < 60) return 'just now';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + 'm ago';
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return hr + 'h ago';
+      return Math.floor(hr / 24) + 'd ago';
+    }
+  </script>
+</body>
+</html>

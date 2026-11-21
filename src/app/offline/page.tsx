@@ -1,8 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { WifiOff, ArrowRight, RefreshCw, HardDrive, Sparkles, CheckCircle2 } from 'lucide-react';
+
+const Dashboard = dynamic(() => import('../Dashboard'), {
+  loading: () => (
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#040408',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#FFFFFF',
+        fontFamily: 'sans-serif',
+      }}
+    >
+      Launching offline dashboard...
+    </div>
+  ),
+  ssr: false,
+});
 
 export default function OfflinePage() {
   const [isOnline, setIsOnline] = useState(() => {
@@ -12,6 +31,15 @@ export default function OfflinePage() {
     return false;
   });
   const [isChecking, setIsChecking] = useState(false);
+  const [statusNote, setStatusNote] = useState('');
+  const [showDashboard, setShowDashboard] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const s = window.location.search || '';
+      const h = window.location.hash || '';
+      return s.includes('url=') || s.includes('text=') || h.includes('dashboard');
+    }
+    return false;
+  });
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -28,16 +56,51 @@ export default function OfflinePage() {
 
   const handleCheckConnection = async () => {
     setIsChecking(true);
+    setStatusNote('');
     try {
       await fetch('/favicon.ico', { cache: 'no-store', method: 'HEAD' });
       setIsOnline(true);
       window.location.href = '/app';
     } catch {
       setIsOnline(false);
+      setStatusNote('Device is offline. Opening your local offline vault...');
+      setTimeout(() => {
+        setShowDashboard(true);
+      }, 700);
     } finally {
       setTimeout(() => setIsChecking(false), 500);
     }
   };
+
+  if (showDashboard) {
+    return (
+      <Suspense
+        fallback={
+          <div
+            style={{
+              minHeight: '100vh',
+              background: '#040408',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              fontFamily: 'sans-serif',
+            }}
+          >
+            Loading offline brain...
+          </div>
+        }
+      >
+        <Dashboard
+          user={{
+            id: 'offline-user',
+            email: 'offline@local.memory',
+            fullName: 'Offline User',
+          }}
+        />
+      </Suspense>
+    );
+  }
 
   return (
     <div
@@ -184,13 +247,13 @@ export default function OfflinePage() {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Action Buttons */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <Link
-            href="/app"
+          <button
+            onClick={() => setShowDashboard(true)}
             style={{
               width: '100%',
-              padding: '12px 18px',
+              padding: '14px 18px',
               borderRadius: '10px',
               background: 'linear-gradient(135deg, #06B6D4 0%, #0284C7 100%)',
               color: '#FFFFFF',
@@ -200,20 +263,21 @@ export default function OfflinePage() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              textDecoration: 'none',
+              border: 'none',
+              cursor: 'pointer',
               boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
             }}
           >
             <span>Launch Offline Dashboard</span>
             <ArrowRight size={16} />
-          </Link>
+          </button>
 
           <button
             onClick={handleCheckConnection}
             disabled={isChecking}
             style={{
               width: '100%',
-              padding: '10px 18px',
+              padding: '12px 18px',
               borderRadius: '10px',
               background: 'transparent',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -230,6 +294,12 @@ export default function OfflinePage() {
             <RefreshCw size={14} className={isChecking ? 'animate-spin' : ''} />
             <span>{isChecking ? 'Checking...' : 'Check Connection'}</span>
           </button>
+
+          {statusNote && (
+            <p style={{ fontSize: '12.5px', color: '#67E8F9', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+              {statusNote}
+            </p>
+          )}
         </div>
       </div>
     </div>
